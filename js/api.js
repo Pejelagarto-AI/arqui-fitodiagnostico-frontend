@@ -8,6 +8,7 @@ export class ErrorApi extends Error {
     super(mensaje);
     this.name = "ErrorApi";
     this.codigo = codigo;
+    this.mensaje = mensaje;
     this.campo = campo;
     this.status = status;
   }

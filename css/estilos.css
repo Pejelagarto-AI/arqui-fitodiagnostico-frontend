@@ -31,6 +31,12 @@
   box-sizing: border-box;
 }
 
+/* El atributo hidden debe ganarle a cualquier display de una clase con la
+   misma especificidad (ej. .banner-error usa display:flex). */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   font-family: var(--fuente);
