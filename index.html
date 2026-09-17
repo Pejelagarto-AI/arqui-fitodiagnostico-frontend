@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fitodiagnóstico — Diagnóstico de plantas</title>
+  <link rel="stylesheet" href="css/estilos.css" />
+</head>
+<body>
+  <header class="cabecera">
+    <h1>Fitodiagnóstico</h1>
+    <p class="subtitulo">Diagnóstico del estado de una planta a partir de humedad, luz y temperatura.</p>
+  </header>
+
+  <main class="contenido">
+    <section class="tarjeta" aria-labelledby="titulo-formulario">
+      <h2 id="titulo-formulario">Nueva medición</h2>
+
+      <div id="area-error-especies" class="banner-error" hidden role="alert">
+        <p id="mensaje-error-especies"></p>
+        <button type="button" id="btn-reintentar-especies" class="boton boton-secundario">Reintentar</button>
+      </div>
+
+      <form id="formulario-diagnostico" novalidate>
+        <div class="campo">
+          <label for="especie-select">Especie</label>
+          <select id="especie-select" name="especie" required aria-describedby="error-especie">
+            <option value="" selected disabled>Cargando especies…</option>
+          </select>
+          <p class="error-campo" id="error-especie" aria-live="polite"></p>
+        </div>
+
+        <div class="campo">
+          <label for="input-humedad">Humedad del sustrato (%)</label>
+          <input
+            type="number"
+            step="any"
+            id="input-humedad"
+            name="humedad"
+            required
+            aria-describedby="rango-humedad error-humedad"
+          />
+          <!-- No validamos rangos físicos en el cliente: el backend es la autoridad sobre qué es válido para cada especie. -->
+          <p class="rango-optimo" id="rango-humedad"></p>
+          <p class="error-campo" id="error-humedad" aria-live="polite"></p>
+        </div>
+
+        <div class="campo">
+          <label for="input-luz">Luz (lux)</label>
+          <input
+            type="number"
+            step="any"
+            id="input-luz"
+            name="luz"
+            required
+            aria-describedby="rango-luz error-luz"
+          />
+          <p class="rango-optimo" id="rango-luz"></p>
+          <p class="error-campo" id="error-luz" aria-live="polite"></p>
+        </div>
+
+        <div class="campo">
+          <label for="input-temperatura">Temperatura (°C)</label>
+          <input
+            type="number"
+            step="any"
+            id="input-temperatura"
+            name="temperatura"
+            required
+            aria-describedby="rango-temperatura error-temperatura"
+          />
+          <p class="rango-optimo" id="rango-temperatura"></p>
+          <p class="error-campo" id="error-temperatura" aria-live="polite"></p>
+        </div>
+
+        <div id="area-error-general" class="banner-error" hidden role="alert">
+          <p id="mensaje-error-general"></p>
+        </div>
+
+        <button type="submit" id="btn-diagnosticar" class="boton boton-primario">Diagnosticar</button>
+      </form>
+    </section>
+
+    <section class="tarjeta" id="seccion-resultado" aria-labelledby="titulo-resultado" aria-live="polite">
+      <h2 id="titulo-resultado">Diagnóstico</h2>
+      <div id="resultado-vacio" class="texto-vacio">
+        <p>Todavía no hay ningún diagnóstico. Completa el formulario y consulta.</p>
+      </div>
+      <div id="resultado-diagnostico" hidden>
+        <p id="estado-global" class="estado-global"></p>
+        <table id="tabla-parametros" class="tabla-parametros">
+          <thead>
+            <tr>
+              <th scope="col">Parámetro</th>
+              <th scope="col">Valor</th>
+              <th scope="col">Rango óptimo</th>
+              <th scope="col">Estado</th>
+            </tr>
+          </thead>
+          <tbody id="cuerpo-tabla-parametros"></tbody>
+        </table>
+        <h3>Recomendaciones</h3>
+        <ul id="lista-recomendaciones" class="lista-recomendaciones"></ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <p>Arquitectura de Software · U. Sergio Arboleda · 2026-2</p>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
