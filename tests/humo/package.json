@@ -1,0 +1,8 @@
+{
+  "name": "fitodiagnostico-humo",
+  "private": true,
+  "type": "module",
+  "description": "Prueba de humo de punta a punta del front contra el backend real (Playwright + Chrome del sistema).",
+  "scripts": { "humo": "node humo.mjs" },
+  "devDependencies": { "playwright-core": "1.49.1" }
+}
