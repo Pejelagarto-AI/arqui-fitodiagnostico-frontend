@@ -1,220 +1,130 @@
-// Logica de interfaz. No llama a fetch directamente: todo pasa por api.js.
-import { obtenerEspecies, diagnosticar } from "./api.js";
+// Punto de entrada: arma el menú, el indicador de conexión y el enrutador, y
+// engancha la sesión con la vista en vivo. La lógica de cada pantalla vive en
+// js/vistas/*.js; la llamada a la API, en api.js; el WebSocket, en envivo.js.
+import { alVencerLaSesion } from "./api.js";
+import * as sesion from "./sesion.js";
+import * as envivo from "./envivo.js";
+import { h, vaciar, toast } from "./ui.js";
+import { iniciarRouter, irA, rutaActual } from "./router.js";
 
-const selectEspecie = document.getElementById("especie-select");
-const formulario = document.getElementById("formulario-diagnostico");
-const btnDiagnosticar = document.getElementById("btn-diagnosticar");
-const areaErrorEspecies = document.getElementById("area-error-especies");
-const mensajeErrorEspecies = document.getElementById("mensaje-error-especies");
-const btnReintentarEspecies = document.getElementById("btn-reintentar-especies");
-const areaErrorGeneral = document.getElementById("area-error-general");
-const mensajeErrorGeneral = document.getElementById("mensaje-error-general");
+// acceso: "publica" | "anonima" (solo sin sesión) | "sesion" | "admin"
+const RUTAS = [
+  { patron: "/", acceso: "publica", vista: () => import("./vistas/diagnostico-suelto.js") },
+  { patron: "/entrar", acceso: "anonima", vista: () => import("./vistas/entrar.js") },
+  { patron: "/registro", acceso: "anonima", vista: () => import("./vistas/registro.js") },
+  { patron: "/recuperar", acceso: "anonima", vista: () => import("./vistas/recuperar.js") },
+  // Rutas que usan los enlaces de los correos (RutasDelFront del backend).
+  { patron: "/restablecer", acceso: "publica", vista: () => import("./vistas/restablecer.js") },
+  { patron: "/invitacion", acceso: "publica", vista: () => import("./vistas/invitacion.js") },
+  { patron: "/perfil", acceso: "sesion", vista: () => import("./vistas/perfil.js") },
+  { patron: "/plantas", acceso: "sesion", vista: () => import("./vistas/plantas.js") },
+  { patron: "/plantas/nueva", acceso: "sesion", vista: () => import("./vistas/planta-nueva.js") },
+  { patron: "/plantas/:id", acceso: "sesion", vista: () => import("./vistas/planta-detalle.js") },
+  { patron: "/solicitudes", acceso: "sesion", vista: () => import("./vistas/solicitudes.js") },
+  { patron: "/admin", acceso: "admin", vista: () => import("./vistas/admin-inicio.js") },
+  { patron: "/admin/usuarios", acceso: "admin", vista: () => import("./vistas/admin-usuarios.js") },
+  { patron: "/admin/usuarios/:id", acceso: "admin", vista: () => import("./vistas/admin-usuario.js") },
+  { patron: "/admin/especies", acceso: "admin", vista: () => import("./vistas/admin-especies.js") },
+  { patron: "/admin/solicitudes", acceso: "admin", vista: () => import("./vistas/admin-solicitudes.js") },
+];
 
-const resultadoVacio = document.getElementById("resultado-vacio");
-const resultadoDiagnostico = document.getElementById("resultado-diagnostico");
-const estadoGlobal = document.getElementById("estado-global");
-const cuerpoTablaParametros = document.getElementById("cuerpo-tabla-parametros");
-const listaRecomendaciones = document.getElementById("lista-recomendaciones");
-
-const inputs = {
-  especie: selectEspecie,
-  humedad: document.getElementById("input-humedad"),
-  luz: document.getElementById("input-luz"),
-  temperatura: document.getElementById("input-temperatura"),
+const ETIQUETAS_CONEXION = {
+  inactivo: "En vivo: sin conexión",
+  conectando: "En vivo: conectando…",
+  conectado: "En vivo: conectado",
+  reconectando: "En vivo: reconectando…",
+  rechazado: "En vivo: rechazada",
 };
 
-const erroresCampo = {
-  especie: document.getElementById("error-especie"),
-  humedad: document.getElementById("error-humedad"),
-  luz: document.getElementById("error-luz"),
-  temperatura: document.getElementById("error-temperatura"),
-};
+const navegacion = document.getElementById("navegacion");
+const vista = document.getElementById("vista");
 
-const rangos = {
-  humedad: document.getElementById("rango-humedad"),
-  luz: document.getElementById("rango-luz"),
-  temperatura: document.getElementById("rango-temperatura"),
-};
-
-const ETIQUETAS_PARAMETRO = {
-  humedad: "Humedad del sustrato",
-  luz: "Luz",
-  temperatura: "Temperatura",
-};
-
-const ETIQUETAS_ESTADO_PARAMETRO = {
-  BAJO: "Bajo",
-  OPTIMO: "Óptimo",
-  ALTO: "Alto",
-};
-
-const ETIQUETAS_ESTADO_GLOBAL = {
-  SALUDABLE: "Saludable",
-  EN_RIESGO: "En riesgo",
-  CRITICO: "Crítico",
-};
-
-// nombre de especie -> rangos que devolvio la API, para pintar el rango
-// optimo de cada parametro sin volver a pedirle nada al backend.
-let especiesPorNombre = new Map();
-
-function formatearRango(rango) {
-  if (!rango) return "";
-  const { min, max, unidad } = rango;
-  return `Optimo: ${min}–${max} ${unidad}`;
+function enlaceDeMenu(ruta, texto) {
+  const actual = window.location.hash.slice(1).split("?")[0] || "/";
+  const activo = ruta === "/" ? actual === "/" : actual === ruta || actual.startsWith(`${ruta}/`);
+  return h("a", { href: `#${ruta}`, "aria-current": activo ? "page" : null }, texto);
 }
 
-function limpiarSelectEspecies(textoOpcion) {
-  selectEspecie.innerHTML = "";
-  const opcion = document.createElement("option");
-  opcion.value = "";
-  opcion.disabled = true;
-  opcion.selected = true;
-  opcion.textContent = textoOpcion;
-  selectEspecie.appendChild(opcion);
+function indicadorDeConexion() {
+  const punto = h("span", { class: "punto-conexion", "aria-hidden": "true" });
+  const texto = h("span", {});
+  const nodo = h("span", { class: "indicador-conexion", id: "indicador-conexion", "data-estado": "inactivo" }, punto, texto);
+  envivo.alCambiarEstado((estado) => {
+    nodo.dataset.estado = estado;
+    texto.textContent = ETIQUETAS_CONEXION[estado] || estado;
+  });
+  return nodo;
 }
 
-function poblarSelectEspecies(especies) {
-  selectEspecie.innerHTML = "";
-  especiesPorNombre = new Map(especies.map((especie) => [especie.nombre, especie.rangos]));
-
-  const opcionInicial = document.createElement("option");
-  opcionInicial.value = "";
-  opcionInicial.selected = true;
-  opcionInicial.textContent = "Selecciona una especie";
-  selectEspecie.appendChild(opcionInicial);
-
-  for (const especie of especies) {
-    const opcion = document.createElement("option");
-    opcion.value = especie.nombre;
-    opcion.textContent = especie.nombre;
-    selectEspecie.appendChild(opcion);
+function pintarMenu() {
+  vaciar(navegacion);
+  const usuario = sesion.usuario();
+  const enlaces = [enlaceDeMenu("/", "Diagnóstico rápido")];
+  if (usuario) {
+    enlaces.push(enlaceDeMenu("/plantas", "Mis plantas"), enlaceDeMenu("/solicitudes", "Solicitar especie"));
+    if (sesion.esAdmin()) enlaces.push(enlaceDeMenu("/admin", "Administración"));
   }
 
-  selectEspecie.disabled = false;
+  const derecha = usuario
+    ? [
+        indicadorDeConexion(),
+        h("a", { href: "#/perfil", class: "nombre-usuario", "aria-current": window.location.hash.startsWith("#/perfil") ? "page" : null }, usuario.nombre),
+        h("button", { type: "button", class: "boton boton-secundario boton-chico", id: "btn-cerrar-sesion", onclick: cerrarSesion }, "Cerrar sesión"),
+      ]
+    : [enlaceDeMenu("/entrar", "Iniciar sesión"), enlaceDeMenu("/registro", "Crear cuenta")];
+
+  navegacion.append(h("div", { class: "menu-enlaces" }, enlaces), h("div", { class: "menu-sesion" }, derecha));
 }
 
-function mostrarRangosDeEspecie(nombreEspecie) {
-  const rangosEspecie = especiesPorNombre.get(nombreEspecie);
-  for (const clave of Object.keys(rangos)) {
-    rangos[clave].textContent = rangosEspecie ? formatearRango(rangosEspecie[clave]) : "";
+function cerrarSesion() {
+  sesion.cerrar();
+  toast("Sesión cerrada.");
+  irA("/");
+}
+
+// Sesión -> menú y vista en vivo. Los avisos globales (RF-G3, RF-H5) llegan por
+// /user/queue/avisos en cualquier pantalla: se escuchan mientras haya sesión.
+let bajaDeAvisos = null;
+
+function alLlegarUnAviso(aviso) {
+  toast(aviso.mensaje, aviso.tipo === "ACCESO_PERDIDO" ? "error" : "info");
+  // Las pantallas que muestran esa información se refrescan solas.
+  window.dispatchEvent(new CustomEvent("fito:aviso", { detail: aviso }));
+}
+
+function sincronizarVivo() {
+  if (sesion.haySesion() && !bajaDeAvisos) {
+    bajaDeAvisos = envivo.suscribir(envivo.DESTINO_AVISOS, alLlegarUnAviso);
+  } else if (!sesion.haySesion() && bajaDeAvisos) {
+    bajaDeAvisos = null;
+    envivo.desconectar();
   }
 }
 
-async function cargarEspecies() {
-  areaErrorEspecies.hidden = true;
-  selectEspecie.disabled = true;
-  limpiarSelectEspecies("Cargando especies…");
+sesion.alCambiar(() => {
+  sincronizarVivo();
+  pintarMenu();
+});
+window.addEventListener("hashchange", pintarMenu);
 
+// 401 con un token que creíamos vigente: caducó (o la cuenta ya no existe).
+alVencerLaSesion(() => {
+  if (!sesion.haySesion()) return;
+  sesion.cerrar();
+  toast("Tu sesión caducó. Inicia sesión de nuevo.", "error");
+  irA(`/entrar?volver=${encodeURIComponent(rutaActual())}`);
+});
+
+// El servidor rechazó la conexión en vivo: probablemente el token ya no vale.
+envivo.alSerRechazado(async () => {
+  const { obtenerCuenta } = await import("./api.js");
   try {
-    const especies = await obtenerEspecies();
-    poblarSelectEspecies(especies);
-  } catch (error) {
-    limpiarSelectEspecies("No se pudieron cargar las especies");
-    mensajeErrorEspecies.textContent = error.mensaje;
-    areaErrorEspecies.hidden = false;
-  }
-}
-
-selectEspecie.addEventListener("change", (evento) => {
-  mostrarRangosDeEspecie(evento.target.value);
-});
-
-btnReintentarEspecies.addEventListener("click", () => {
-  cargarEspecies();
-});
-
-function limpiarErrores() {
-  areaErrorGeneral.hidden = true;
-  mensajeErrorGeneral.textContent = "";
-  for (const clave of Object.keys(inputs)) {
-    inputs[clave].removeAttribute("aria-invalid");
-    erroresCampo[clave].textContent = "";
-  }
-}
-
-function mostrarError(error) {
-  if (error.campo && erroresCampo[error.campo]) {
-    inputs[error.campo].setAttribute("aria-invalid", "true");
-    inputs[error.campo].focus();
-    erroresCampo[error.campo].textContent = error.mensaje;
-    return;
-  }
-  mensajeErrorGeneral.textContent = error.mensaje;
-  areaErrorGeneral.hidden = false;
-}
-
-function crearChipEstado(estado) {
-  const chip = document.createElement("span");
-  chip.className = `chip chip--${estado.toLowerCase()}`;
-  chip.textContent = ETIQUETAS_ESTADO_PARAMETRO[estado] || estado;
-  return chip;
-}
-
-function pintarResultado(diagnostico) {
-  resultadoVacio.hidden = true;
-  resultadoDiagnostico.hidden = false;
-
-  estadoGlobal.textContent = ETIQUETAS_ESTADO_GLOBAL[diagnostico.estado] || diagnostico.estado;
-  estadoGlobal.className = `estado-global ${diagnostico.estado.toLowerCase()}`;
-
-  cuerpoTablaParametros.innerHTML = "";
-  for (const parametro of diagnostico.parametros) {
-    const fila = document.createElement("tr");
-
-    const celdaNombre = document.createElement("td");
-    celdaNombre.textContent = ETIQUETAS_PARAMETRO[parametro.nombre] || parametro.nombre;
-
-    const celdaValor = document.createElement("td");
-    celdaValor.textContent = `${parametro.valor} ${parametro.unidad}`;
-
-    const celdaRango = document.createElement("td");
-    const [min, max] = parametro.rangoOptimo;
-    celdaRango.textContent = `${min}–${max} ${parametro.unidad}`;
-
-    const celdaEstado = document.createElement("td");
-    celdaEstado.appendChild(crearChipEstado(parametro.estado));
-
-    fila.append(celdaNombre, celdaValor, celdaRango, celdaEstado);
-    cuerpoTablaParametros.appendChild(fila);
-  }
-
-  listaRecomendaciones.innerHTML = "";
-  if (diagnostico.recomendaciones && diagnostico.recomendaciones.length > 0) {
-    for (const recomendacion of diagnostico.recomendaciones) {
-      const item = document.createElement("li");
-      item.textContent = recomendacion;
-      listaRecomendaciones.appendChild(item);
-    }
-  } else {
-    const item = document.createElement("li");
-    item.textContent = "Sin recomendaciones: todos los parámetros están en rango.";
-    listaRecomendaciones.appendChild(item);
-  }
-}
-
-formulario.addEventListener("submit", async (evento) => {
-  evento.preventDefault();
-  limpiarErrores();
-
-  const medicion = {
-    especie: selectEspecie.value,
-    humedad: parseFloat(inputs.humedad.value),
-    luz: parseFloat(inputs.luz.value),
-    temperatura: parseFloat(inputs.temperatura.value),
-  };
-
-  btnDiagnosticar.disabled = true;
-  btnDiagnosticar.textContent = "Consultando…";
-  try {
-    const diagnostico = await diagnosticar(medicion);
-    pintarResultado(diagnostico);
-  } catch (error) {
-    mostrarError(error);
-  } finally {
-    btnDiagnosticar.disabled = false;
-    btnDiagnosticar.textContent = "Diagnosticar";
+    await obtenerCuenta(); // si el token murió, esto dispara el flujo de 401
+  } catch {
+    // los errores de red se ven en el indicador; los 401 los maneja alVencerLaSesion
   }
 });
 
-cargarEspecies();
+sincronizarVivo();
+pintarMenu();
+iniciarRouter(RUTAS, vista);
