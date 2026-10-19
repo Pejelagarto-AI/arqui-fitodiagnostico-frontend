@@ -150,6 +150,12 @@ export const obtenerDiagnosticoVigente = (id) => pedir("GET", `/plantas/${seg(id
 export const obtenerHistorial = (id, pagina = 0, tamano = 10) =>
   pedir("GET", `/plantas/${seg(id)}/diagnosticos?pagina=${pagina}&tamano=${tamano}`);
 
+// ---- dispositivos (dueño) ----
+
+// Devuelve { dispositivoId, plantaId, token, expira }. El token solo se muestra en esta respuesta.
+export const vincularDispositivo = (plantaId, dispositivoId) =>
+  pedir("POST", `/plantas/${seg(plantaId)}/dispositivos`, { cuerpo: { dispositivoId } });
+
 // ---- compartir ----
 
 export const generarInvitacion = (plantaId, correo) =>

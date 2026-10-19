@@ -9,6 +9,7 @@ import { crearPanelHistorial } from "../componentes/planta-historial.js";
 import { crearPanelMedicion } from "../componentes/planta-medicion.js";
 import { crearPanelCompartir } from "../componentes/planta-compartir.js";
 import { crearPanelEdicion } from "../componentes/planta-edicion.js";
+import { crearPanelDispositivos } from "../componentes/planta-dispositivos.js";
 import { crearSondeo, textoActualizado } from "../sondeo.js";
 
 export const titulo = "Planta";
@@ -83,6 +84,7 @@ export async function montar(contenedor, ctx) {
     contenedor.append(historial.elemento);
     compartir = crearPanelCompartir(planta, ctx);
     contenedor.append(compartir.elemento);
+    contenedor.append(crearPanelDispositivos(planta, ctx));
     const edicion = await crearPanelEdicion(planta, ctx, {
       alEditar: (editada) => {
         planta = editada;
