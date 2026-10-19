@@ -13,11 +13,15 @@ function celdaDeParametro(parametros, nombre) {
 
 export function crearPanelHistorial(plantaId, ctx) {
   let pagina = 0;
+  let firmaPintada = null; // evita repintar la tabla cuando el sondeo trae lo mismo
   const aviso = crearAviso();
   const cuerpo = h("div", { id: "historial" }, h("p", { class: "texto-vacio" }, "Cargando historial…"));
   const elemento = h("section", { class: "tarjeta", "aria-labelledby": "titulo-historial" }, h("h2", { id: "titulo-historial" }, "Historial"), aviso.elemento, cuerpo);
 
   function pintar(respuesta) {
+    const firma = `${respuesta.pagina}|${respuesta.total}|${respuesta.contenido.map((r) => r.id).join(",")}`;
+    if (firma === firmaPintada) return;
+    firmaPintada = firma;
     vaciar(cuerpo);
     if (respuesta.total === 0) {
       cuerpo.append(h("p", { class: "texto-vacio" }, "Todavía no hay mediciones en el historial."));
@@ -48,22 +52,30 @@ export function crearPanelHistorial(plantaId, ctx) {
     );
   }
 
-  async function cargar(numero = pagina) {
+  async function cargar(numero = pagina, silencioso = false) {
     try {
       const respuesta = await obtenerHistorial(plantaId, numero, TAMANO);
       if (!ctx.vigente()) return;
       // Si la página pedida ya no existe (se eliminó algo), volver a la última.
       if (respuesta.contenido.length === 0 && respuesta.total > 0 && numero > 0) {
-        await cargar(respuesta.totalDePaginas - 1);
+        await cargar(respuesta.totalDePaginas - 1, silencioso);
         return;
       }
       pagina = respuesta.pagina;
       aviso.limpiar();
       pintar(respuesta);
     } catch (error) {
+      // El sondeo (silencioso) decide qué mostrar; aquí solo relanza el error.
+      if (silencioso) throw error;
       if (ctx.vigente()) aviso.mostrar(error);
     }
   }
 
-  return { elemento, cargar: () => cargar(pagina), irAPrimera: () => cargar(0) };
+  return {
+    elemento,
+    cargar: () => cargar(pagina),
+    irAPrimera: () => cargar(0),
+    // Para el sondeo: la misma página que el usuario está mirando, sin saltar a la primera.
+    refrescar: () => cargar(pagina, true),
+  };
 }
