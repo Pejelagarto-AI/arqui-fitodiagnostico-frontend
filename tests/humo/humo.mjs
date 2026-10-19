@@ -25,6 +25,8 @@ const beto = { nombre: "Beto Humo", correo: `beto.${sufijo}@humo.test`, clave: "
 const resultados = [];
 let navegador;
 const erroresDeConsola = [];
+// Páginas a las que un paso les corta la red a propósito (route.abort): su ERR_FAILED es esperado.
+const redCortada = new Set();
 
 async function paso(nombre, fn) {
   const t0 = Date.now();
@@ -46,7 +48,9 @@ async function nuevoContexto(etiqueta, opciones = {}) {
   const pagina = await contexto.newPage();
   pagina.on("pageerror", (e) => erroresDeConsola.push(`[${etiqueta}] pageerror: ${e.message}`));
   pagina.on("console", (m) => {
-    if (m.type() === "error" && !/status of (4\d\d)/.test(m.text())) erroresDeConsola.push(`[${etiqueta}] ${m.text()}`);
+    if (m.type() !== "error" || /status of (4\d\d)/.test(m.text())) return;
+    if (redCortada.has(etiqueta) && /ERR_FAILED/.test(m.text())) return;
+    erroresDeConsola.push(`[${etiqueta}] ${m.text()}`);
   });
   pagina.etiqueta = etiqueta;
   return pagina;
@@ -342,6 +346,7 @@ async function ejecutar() {
     await medirPorUi(pAna, 55, 600, 24);
     await pBeto.locator("#diagnostico-vigente .estado-global", { hasText: "Saludable" }).waitFor({ timeout: 15000 });
     // La consulta del vigente falla; mientras tanto Ana mide y Beto no se entera.
+    redCortada.add(pBeto.etiqueta);
     await pBeto.route(/\/plantas\/[^/]+\/diagnostico$/, (ruta) => ruta.abort());
     await pBeto.locator("#indicador-planta[data-estado=reconectando]").waitFor({ timeout: 15000 });
     await medirPorUi(pAna, 5, 60, 5); // crítico
@@ -351,6 +356,7 @@ async function ejecutar() {
     // Vuelve la API: el siguiente sondeo (con espera creciente) trae lo nuevo.
     await pBeto.unroute(/\/plantas\/[^/]+\/diagnostico$/);
     await pBeto.locator("#indicador-planta[data-estado=conectado]").waitFor({ timeout: 30000 });
+    redCortada.delete(pBeto.etiqueta); // ya volvió: cualquier ERR_FAILED desde aquí sí es falla
     await pBeto.locator("#diagnostico-vigente .estado-global", { hasText: /Crítico|En riesgo/ }).waitFor({ timeout: 15000 });
     assert.equal(await pBeto.evaluate(() => window.__sinRecarga), "sigo aqui", "la página se recargó");
   });
@@ -532,7 +538,7 @@ async function ejecutar() {
       await pAna.fill("#recuperar-correo", ana.correo);
       await pAna.click("#btn-recuperar");
       await pAna.locator("#formulario-recuperar ~ .banner-ok:not([hidden])").waitFor();
-      const texto = await ultimoCorreoPara(ana.correo, "");
+      const texto = await ultimoCorreoPara(ana.correo, "Restablece"); // con asunto: a Ana también le llegan correos de aviso
       const enlace = texto.match(/https?:\/\/\S+restablecer\?token=\S+/)[0];
       assert.match(enlace, /#\/restablecer\?token=/, "el enlace del backend debe ser de hash (FITO_FRONT_URL termina en #)");
       await pAna.goto(enlace);
