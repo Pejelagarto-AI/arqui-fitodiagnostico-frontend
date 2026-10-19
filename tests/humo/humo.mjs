@@ -332,30 +332,35 @@ async function ejecutar() {
     await pBeto.waitForFunction((a) => {
       const t = document.querySelector("#diagnostico-vigente .estado-global")?.textContent;
       return t && t !== a;
-    }, antes, { timeout: 10000 });
+    }, antes, { timeout: 15000 });
     assert.match(await pBeto.locator("#diagnostico-vigente .estado-global").innerText(), /Crítico|En riesgo/);
     assert.equal(await pBeto.evaluate(() => window.__sinRecarga), "sigo aqui", "la página se recargó");
     await pBeto.waitForFunction(() => /13 registros/.test(document.querySelector("#info-pagina")?.textContent || ""));
   });
-  await paso("reconexión: se corta el WebSocket, el indicador lo refleja, vuelve solo y recupera lo que pasó mientras tanto", async () => {
+  await paso("sondeo: si la API falla el indicador lo dice sin toasts y, al volver, recupera lo que pasó mientras tanto", async () => {
     await pBeto.evaluate(() => { window.__sinRecarga = "sigo aqui"; });
     await medirPorUi(pAna, 55, 600, 24);
-    await pBeto.locator("#diagnostico-vigente .estado-global", { hasText: "Saludable" }).waitFor({ timeout: 10000 });
-    // Cae la conexión y, mientras se rechazan los reintentos, Ana mide: Beto no recibe ese aviso en vivo.
-    controlWs.bloquear = true;
-    controlWs.cerrar();
-    await pBeto.locator("#indicador-planta[data-estado=reconectando]").waitFor({ timeout: 10000 });
+    await pBeto.locator("#diagnostico-vigente .estado-global", { hasText: "Saludable" }).waitFor({ timeout: 15000 });
+    // La consulta del vigente falla; mientras tanto Ana mide y Beto no se entera.
+    await pBeto.route(/\/plantas\/[^/]+\/diagnostico$/, (ruta) => ruta.abort());
+    await pBeto.locator("#indicador-planta[data-estado=reconectando]").waitFor({ timeout: 15000 });
     await medirPorUi(pAna, 5, 60, 5); // crítico
     await pAna.locator("#diagnostico-vigente .estado-global", { hasText: /Crítico|En riesgo/ }).waitFor();
     assert.match(await pBeto.locator("#diagnostico-vigente .estado-global").innerText(), /Saludable/, "no debía enterarse aún");
-    // Vuelve la conexión: el cliente reintenta con espera y, al reconectar, consulta de nuevo.
-    controlWs.bloquear = false;
+    assert.equal(await pBeto.locator(".toast").count(), 0, "el sondeo no debe apilar toasts");
+    // Vuelve la API: el siguiente sondeo (con espera creciente) trae lo nuevo.
+    await pBeto.unroute(/\/plantas\/[^/]+\/diagnostico$/);
     await pBeto.locator("#indicador-planta[data-estado=conectado]").waitFor({ timeout: 30000 });
-    await pBeto.locator("#diagnostico-vigente .estado-global", { hasText: /Crítico|En riesgo/ }).waitFor({ timeout: 10000 });
+    await pBeto.locator("#diagnostico-vigente .estado-global", { hasText: /Crítico|En riesgo/ }).waitFor({ timeout: 15000 });
     assert.equal(await pBeto.evaluate(() => window.__sinRecarga), "sigo aqui", "la página se recargó");
-    // Y los avisos en vivo vuelven a llegar.
-    await medirPorUi(pAna, 55, 600, 24);
-    await pBeto.locator("#diagnostico-vigente .estado-global", { hasText: "Saludable" }).waitFor({ timeout: 10000 });
+  });
+  await paso("vincular dispositivo (dueño): muestra el token una vez; el invitado no ve la sección", async () => {
+    await pAna.fill("#disp-id", "esp32-humo");
+    await pAna.click("#btn-vincular-dispositivo");
+    await pAna.locator("#valor-token").waitFor();
+    assert.ok((await pAna.inputValue("#valor-token")).length > 10);
+    assert.match(await pAna.locator("#token-generado").innerText(), /FITO_TOKEN_DISPOSITIVO/);
+    assert.equal(await pBeto.locator("#formulario-dispositivo").count(), 0);
   });
   await paso("quitar el acceso al invitado: recibe el aviso en vivo y sale de la planta", async () => {
     await pAna.locator("#lista-invitados li", { hasText: beto.nombre }).locator("[data-accion=revocar-invitado]").click();
