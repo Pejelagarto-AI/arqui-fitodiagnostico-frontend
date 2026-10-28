@@ -21,7 +21,9 @@ js/api.js ← ÚNICO que llama a fetch (usa js/sesion.js y js/config.js)
 | RF-D1..D5 plantas | `vistas/plantas.js`, `planta-nueva.js`, `planta-detalle.js`, `componentes/planta-edicion.js` |
 | RF-F1, F4, F5 medir, vigente, historial | `componentes/planta-medicion.js`, `planta-vigente.js`, `planta-historial.js` |
 | RF-E1..E6 compartir | `componentes/planta-compartir.js`, `vistas/invitacion.js`, botón de renunciar en `planta-detalle.js` |
-| RF-G2, G3 vista en vivo y avisos | `envivo.js`; suscripción por planta en `planta-detalle.js`, global en `app.js` |
+| R6 estado de la planta por sondeo | `sondeo.js`; lo usa `planta-detalle.js` (ver F16) |
+| RF-G3 avisos en vivo | `envivo.js`, suscripción global en `app.js` |
+| Vincular dispositivo | `componentes/planta-dispositivos.js` (ver F17) |
 | RF-H1, H2 solicitudes | `vistas/solicitudes.js` |
 | RF-B, RF-C, RF-H3..H5 administración | `vistas/admin-*.js`, `componentes/rangos.js` |
 
@@ -39,7 +41,7 @@ Reglas del curso (RA2): cliente estático servido aparte, sin framework ni build
 
 **F5. Una sola conexión por sesión, suscripciones por destino y reconexión con espera creciente.** `envivo.suscribir(destino, fn)` devuelve la baja; la conexión se abre al primer uso y se cierra al cerrar sesión. Si cae reintenta a 1, 2, 4… hasta 30 s; la espera se reinicia solo si la conexión aguantó 10 s (así un servidor que acepta y expulsa no se martilla). Al reconectar re-suscribe todo y avisa a las pantallas (`alReconectar`), que **vuelven a consultar**: el backend no reenvía lo perdido (broker en memoria, sin historial de mensajes). Un ERROR antes de CONNECTED (token inválido) no reintenta: el cliente comprueba la sesión con `GET /cuenta`, y si es 401 vuelve a iniciar sesión. Descartado: reconectar a intervalo fijo (martilla al servidor caído) y confiar en que no se pierda nada (falso).
 
-**F6. El aviso en vivo dispara una consulta; no se pinta el mensaje.** `DIAGNOSTICO_NUEVO` solo trae el estado, no el detalle por parámetro, así que el front pide `GET /diagnostico` y la primera página del historial (un `debounce` de 120 ms junta `DIAGNOSTICO_NUEVO` y `CAMBIO_DE_ESTADO`, que llegan pegados). Ventaja: una sola ruta de pintado y la autorización sigue siendo la del GET. Descartado: reconstruir el diagnóstico desde el mensaje (duplicaría el contrato y los textos de recomendación).
+**F6. (reemplazada por F16) El aviso en vivo dispara una consulta; no se pinta el mensaje.** `DIAGNOSTICO_NUEVO` solo trae el estado, no el detalle por parámetro, así que el front pide `GET /diagnostico` y la primera página del historial (un `debounce` de 120 ms junta `DIAGNOSTICO_NUEVO` y `CAMBIO_DE_ESTADO`, que llegan pegados). Ventaja: una sola ruta de pintado y la autorización sigue siendo la del GET. Descartado: reconstruir el diagnóstico desde el mensaje (duplicaría el contrato y los textos de recomendación).
 
 **F7. Cada pantalla es un módulo con `montar(contenedor, ctx)` cargado con `import()`.** `ctx.vigente()` dice si el usuario sigue en esa pantalla; las pantallas lo consultan tras cada `await` para no pintar sobre otra. Devolver una función de limpieza (se llama al navegar) baja suscripciones y listeners. Descartado: un `app.js` con todo (el enunciado lo prohíbe y no se puede probar ni leer) y un framework.
 
@@ -58,6 +60,10 @@ Reglas del curso (RA2): cliente estático servido aparte, sin framework ni build
 **F14. El enlace de invitación se muestra una sola vez** (el backend solo entrega el token en esa respuesta) con botón de copiar (`navigator.clipboard`, con respaldo `execCommand`). Las listas de pendientes e invitados se recargan tras cada acción y también tras un error (p. ej. el enlace ya se aceptó), porque pudieron quedar viejas.
 
 **F15. Aprobar una solicitud lleva a crear la especie.** El backend no da de alta la especie al aprobar (RF-H4 vs RF-C2): el front navega a `#/admin/especies?nueva=<nombre>` con el nombre puesto.
+
+**F16. El estado de la planta se actualiza por sondeo (R6); el WebSocket queda solo para avisos.** `planta-detalle.js` usa `sondeo.js`: cada 5 s (`INTERVALO_SONDEO_MS`) pide `GET /plantas/{id}/diagnostico` (el vigente) y `GET /plantas/{id}/diagnosticos` (la página del historial que el usuario está mirando, sin saltar a la primera). Se detiene al salir de la pantalla y se pausa con la pestaña oculta (`visibilitychange`); al volver consulta de inmediato. Nunca hay dos consultas a la vez. Si falla, el indicador pasa a «sin conexión con el servidor, reintentando…», el aviso de la cabecera se reemplaza (no se apila, y no hay toasts) y se reintenta con espera creciente (10, 20, 30 s); 401/403/404 no se reintentan. Si no cambió nada no se repinta (se compara el id del diagnóstico y los del historial), así no parpadea ni se pierde el resaltado. El indicador dice «actualizado hace Xs». `ACCESO_PERDIDO` sigue llegando por el WebSocket de avisos. Descartado: mantener el WebSocket por planta y sondear de respaldo (dos caminos de pintado a mantener y a explicar) y sondear más rápido (carga innecesaria: un diagnóstico nuevo no necesita llegar en menos de 5 s). Costo: hasta 5 s de retraso al ver una medición de otro dispositivo, y 2 peticiones cada 5 s por pantalla abierta. `envivo.destinoDePlanta` queda sin uso en el front.
+
+**F17. Vincular dispositivo: el token se muestra una vez.** Solo el dueño ve la sección (como F11). `POST /plantas/{id}/dispositivos` con `{dispositivoId}` devuelve `{dispositivoId, plantaId, token, expira}`; el token solo está en esa respuesta, así que se muestra con botón de copiar y la nota de que el simulador lo lee de `FITO_TOKEN_DISPOSITIVO`. No se guarda en el front. Los errores usan el mismo camino que F8 (junto al campo si el cuerpo nombra `dispositivoId`, si no en la zona de aviso). Los diagnósticos que lleguen por el dispositivo aparecen con origen «Dispositivo» en el vigente y en el historial.
 
 ## 3. Límites conocidos
 

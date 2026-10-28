@@ -7,11 +7,20 @@ import { nodoDeDiagnostico } from "./diagnostico.js";
 const ORIGENES = { MANUAL: "medición manual", DISPOSITIVO: "dispositivo" };
 
 export function crearPanelVigente(plantaId, ctx) {
+  // Identidad de lo pintado: el sondeo vuelve a pedir lo mismo cada pocos segundos
+  // y no hay por qué repintar (ni parpadear) si no cambió nada.
+  let pintado = null;
   const aviso = crearAviso();
   const cuerpo = h("div", { id: "diagnostico-vigente", "aria-live": "polite" }, h("p", { class: "texto-vacio" }, "Cargando diagnóstico…"));
   const elemento = h("section", { class: "tarjeta", "aria-labelledby": "titulo-vigente" }, h("h2", { id: "titulo-vigente" }, "Diagnóstico vigente"), aviso.elemento, cuerpo);
 
   function pintar(respuesta, resaltar) {
+    const identidad = respuesta.hayDiagnostico ? respuesta.diagnostico.id : "sin-diagnostico";
+    if (identidad === pintado) return;
+    // Resaltar solo si ya había algo pintado y llegó otro (no en la primera carga).
+    const hayCambio = pintado !== null;
+    pintado = identidad;
+    resaltar = resaltar && hayCambio;
     vaciar(cuerpo);
     if (!respuesta.hayDiagnostico) {
       cuerpo.append(
@@ -30,13 +39,15 @@ export function crearPanelVigente(plantaId, ctx) {
     cuerpo.append(contenido);
   }
 
-  async function cargar({ resaltar = false } = {}) {
+  // `silencioso`: lo usa el sondeo, que decide qué mostrar cuando falla; aquí solo relanza el error.
+  async function cargar({ resaltar = false, silencioso = false } = {}) {
     try {
       const respuesta = await obtenerDiagnosticoVigente(plantaId);
       if (!ctx.vigente()) return;
       aviso.limpiar();
       pintar(respuesta, resaltar);
     } catch (error) {
+      if (silencioso) throw error;
       if (ctx.vigente()) aviso.mostrar(error);
     }
   }
