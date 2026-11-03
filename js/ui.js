@@ -103,7 +103,7 @@ export function chipDeSolicitud(estado) {
   return h("span", { class: `chip chip--${clase}` }, ETIQUETAS_ESTADO_SOLICITUD[estado] || estado);
 }
 
-// ---- esqueletos de carga ----
+// ---- esqueletos de carga (F23) ----
 
 /** Una carga rápida no debe parpadear: el esqueleto solo se ve si la espera pasa de este umbral. */
 export const RETRASO_ESQUELETO_MS = 300;
@@ -276,7 +276,7 @@ export function toast(mensaje, tipo = "info") {
 }
 
 /**
- * Toast con «Deshacer» (F23) para lo reversible: la acción ya se hizo en pantalla, la petición sale
+ * Toast con «Deshacer» (F25) para lo reversible: la acción ya se hizo en pantalla, la petición sale
  * pasado el plazo y el botón la cancela. role="status" (lo leen los lectores sin quitar el foco). Es un
  * aviso de algo que el usuario acaba de hacer: no tiene que ver con el estado de la planta (F16, sin toasts).
  * Devuelve { deshacer } para quien necesite cancelar por código. `alDeshacer` revierte la pantalla;

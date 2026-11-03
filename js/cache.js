@@ -1,4 +1,4 @@
-// Caché en memoria para «stale-while-revalidate» (F23): al volver a una pantalla ya vista se pinta lo
+// Caché en memoria para «stale-while-revalidate» (F26): al volver a una pantalla ya vista se pinta lo
 // último que se supo al instante y se pide lo fresco por detrás. Puro (sin DOM ni red), se prueba con Node.
 //
 // Qué SÍ se guarda: lo que cambia poco y donde un dato viejo por unos cientos de ms no cuesta nada (la

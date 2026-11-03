@@ -1,4 +1,4 @@
-// View Transitions (F23): fundido entre pantallas del enrutador y entre estados de una lista, con la
+// View Transitions (F28): fundido entre pantallas del enrutador y entre estados de una lista, con la
 // ilustración de la planta como elemento compartido entre la tarjeta del tablero y la cabecera del detalle.
 // Regla: nunca más de 300 ms en total, nunca con prefers-reduced-motion y nunca bloquear la entrada
 // (el CSS pone pointer-events:none a la capa de la transición). Sin soporte del navegador, o con

@@ -56,7 +56,7 @@ export function crearPanelCompartir(planta, ctx) {
     );
   }
 
-  // Revocar una invitación pendiente se puede deshacer (F23): sin diálogo, sale de la lista ya y la petición
+  // Revocar una invitación pendiente se puede deshacer (F25): sin diálogo, sale de la lista ya y la petición
   // sale pasado el plazo del toast. Hasta entonces el enlace sigue vivo en el servidor. Quitar el acceso a un
   // invitado, en cambio, conserva su confirmación: le llega un aviso y no hay cómo retirarlo.
   function revocarPendiente(invitacion) {

@@ -1709,7 +1709,7 @@ body[data-patron="/plantas/:id"] .indicador-conexion--global {
   min-height: 12rem;
 }
 
-/* ---------- esqueletos de carga ----------
+/* ---------- esqueletos de carga (F23) ----------
    Son el mismo componente que el estado cargado, con datos de mentira (js/ui.js, esqueletoSiTarda).
    «espera» (los primeros 300 ms) los deja invisibles pero ocupando su sitio; «visible» los pinta en
    bloques grises. Con prefers-reduced-motion el pulso se detiene (regla global de arriba). */
@@ -1800,7 +1800,7 @@ body[data-patron="/plantas/:id"] .indicador-conexion--global {
   animation: pulso-esqueleto 1.4s ease-in-out infinite;
 }
 
-/* ---------- view transitions (F23) ----------
+/* ---------- view transitions (F28) ----------
    Fundido corto entre pantallas y entre estados de una lista; la ilustración de la planta viaja de la
    tarjeta del tablero a la cabecera del detalle (mismo view-transition-name). Todo bajo 300 ms; la capa
    no captura el puntero (la entrada nunca se bloquea) y con prefers-reduced-motion no hay transición
@@ -1829,7 +1829,7 @@ body[data-patron="/plantas/:id"] .indicador-conexion--global {
   }
 }
 
-/* ---------- zona táctil mínima (F23) ----------
+/* ---------- zona táctil mínima (F30) ----------
    Todo lo que se toca mide al menos 44 x 44 px (guía de iOS) y 48 x 48 con puntero táctil (Android),
    aunque el texto o el icono sean menores: el área crece con alto y ancho mínimos (padding real), no con
    un seudoelemento, así que dos objetivos vecinos nunca se solapan (los espacios entre ellos los dan los gap). */
@@ -1891,7 +1891,7 @@ select {
   }
 }
 
-/* ---------- áreas seguras (F23) ----------
+/* ---------- áreas seguras (F31) ----------
    Con viewport-fit=cover (index.html) la página llega hasta los bordes físicos; estos márgenes mantienen
    todo lo tocable fuera del notch, la isla dinámica, las esquinas y el indicador de inicio. Sin muesca,
    env() vale 0 y max() deja el margen de siempre. */
@@ -1931,7 +1931,7 @@ select {
   }
 }
 
-/* ---------- cifras tabulares (F23) ----------
+/* ---------- cifras tabulares (F32) ----------
    Los dígitos miden lo mismo, así los contadores («hace 12 s»), los números de las tablas y los rangos no
    bailan al cambiar. Ya lo tenían .num, .mosaico-numero, .hist-valores y los valores de la tarjeta. */
 
@@ -1949,7 +1949,7 @@ select {
   font-variant-numeric: tabular-nums;
 }
 
-/* ---------- títulos y párrafos (F23) ----------
+/* ---------- títulos y párrafos (F32) ----------
    balance reparte las líneas de un título corto para que no quede una palabra huérfana; pretty evita
    la última línea de un solo término en los párrafos. Navegadores sin soporte lo ignoran. */
 
@@ -1971,7 +1971,7 @@ li,
   text-wrap: pretty;
 }
 
-/* ---------- esquinas continuas (F23) ----------
+/* ---------- esquinas continuas (F32) ----------
    corner-shape: squircle suaviza el radio de las superficies redondeadas (solo Chromium lo dibuja; el resto
    ignora la regla y deja el border-radius normal). Las píldoras y los círculos se quedan como están:
    en un radio de 999px o 50% el squircle cambiaría su forma, no la mejoraría. */

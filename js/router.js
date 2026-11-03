@@ -116,7 +116,7 @@ async function navegar() {
     return;
   }
 
-  // Todo lo que toca el DOM va dentro de la transición (F23): la pantalla vieja se queda a la vista hasta
+  // Todo lo que toca el DOM va dentro de la transición (F28): la pantalla vieja se queda a la vista hasta
   // que la nueva tiene contenido (o pasa el tope de espera) y entonces se funden.
   await reemplazarVista(esta, async () => {
     marcarCuerpo();
@@ -187,7 +187,7 @@ function anunciar(titulo) {
 }
 
 /**
- * Precarga (F23): al pasar el puntero, enfocar con el teclado o tocar un enlace del front, se descarga ya el
+ * Precarga (F27): al pasar el puntero, enfocar con el teclado o tocar un enlace del front, se descarga ya el
  * módulo de su pantalla (import() es perezoso: sin esto el primer clic espera el JS). Solo baja el módulo:
  * ningún dato ni petición a la API, así que no cambia nada en el servidor ni hay nada que excluir (cerrar sesión
  * es un botón, no un enlace). Es lo que hace el prefetch de «speculation rules» para un sitio de páginas, pero

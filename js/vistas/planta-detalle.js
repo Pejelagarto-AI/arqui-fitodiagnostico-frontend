@@ -28,7 +28,7 @@ const ESTADO_DEL_INDICADOR = { activo: "conectado", error: "reconectando", deten
 
 export async function montar(contenedor, ctx) {
   const id = ctx.params.id;
-  // Stale-while-revalidate (F23): la ficha de la planta (apodo, especie, rol) sale de la caché si ya se vio y
+  // Stale-while-revalidate (F26): la ficha de la planta (apodo, especie, rol) sale de la caché si ya se vio y
   // se revalida por detrás. El diagnóstico vigente y el historial NO se cachean: los trae el sondeo, siempre frescos.
   const clave = `planta:${id}`;
   let planta = leerCache(clave);
@@ -98,7 +98,7 @@ export async function montar(contenedor, ctx) {
   // La ilustración reacciona al diagnóstico vigente: agua = humedad, sol = luz, hojas = estado.
   const ilustracion = crearIlustracionPlanta();
   cabecera.querySelector("#ilustracion-planta").append(ilustracion.nodo);
-  // Elemento compartido con la tarjeta del tablero (F23): al volver, esa tarjeta lleva el mismo nombre de transición.
+  // Elemento compartido con la tarjeta del tablero (F28): al volver, esa tarjeta lleva el mismo nombre de transición.
   recordarPlantaActiva(id);
   nombrarParaTransicion(cabecera.querySelector("#ilustracion-planta"));
   let primeraVez = true;

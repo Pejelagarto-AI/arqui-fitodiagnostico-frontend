@@ -92,7 +92,7 @@ const interpolaciones = new WeakMap();
  */
 export function interpolar(clave, desde, hasta, alActualizar, { duracion = 1.2 } = {}) {
   if (!puedeAnimar()) return false;
-  // Interrumpible (F23): si ya había una animación a medias, la nueva arranca de DONDE VA ESA (su valor vivo),
+  // Interrumpible (F29): si ya había una animación a medias, la nueva arranca de DONDE VA ESA (su valor vivo),
   // no de donde iba a terminar; así un cambio de estado a mitad de camino no pega un salto.
   const previa = interpolaciones.get(clave);
   let origen = desde;

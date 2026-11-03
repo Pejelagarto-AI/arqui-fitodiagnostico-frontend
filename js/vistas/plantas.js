@@ -73,7 +73,7 @@ function crearTarjeta(planta) {
   const cajaIlustracion = nodo.querySelector(".tarjeta-planta-ilustracion");
   let firma = null;
 
-  // Elemento compartido con la cabecera del detalle (F23): la ilustración «viaja» de una a otra. El nombre
+  // Elemento compartido con la cabecera del detalle (F28): la ilustración «viaja» de una a otra. El nombre
   // de la transición solo lo lleva UNA tarjeta (los nombres son únicos en la página): la de la planta que se abre.
   if (esPlantaActiva(planta.id)) nombrarParaTransicion(cajaIlustracion);
   enlace.addEventListener("click", () => {
@@ -248,7 +248,7 @@ export async function montar(contenedor, ctx) {
   }
 
   /**
-   * Stale-while-revalidate (F23): si ya se vio esta pantalla, las listas salen al instante de la caché y se
+   * Stale-while-revalidate (F26): si ya se vio esta pantalla, las listas salen al instante de la caché y se
    * revalidan por detrás (solo se repinta si cambiaron). El estado de cada planta (el diagnóstico vigente)
    * NO se cachea: se pide siempre, y la tarjeta muestra su esqueleto hasta que llega.
    */

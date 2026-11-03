@@ -32,7 +32,7 @@ export async function crearPanelEdicion(planta, ctx, { alEditar }) {
     nota.limpiar();
     const nuevoApodo = apodo.input.value.trim();
     const antes = vigente;
-    // Actualización optimista (F23): el nombre y la especie de la cabecera cambian al instante y, si el
+    // Actualización optimista (F24): el nombre y la especie de la cabecera cambian al instante y, si el
     // servidor rechaza el cambio, vuelven a lo que había. Con el apodo vacío no se adelanta nada: es un
     // error que el servidor (y el formulario) explican junto al campo.
     if (nuevoApodo) alEditar({ ...vigente, apodo: nuevoApodo, especie: especie.select.value });

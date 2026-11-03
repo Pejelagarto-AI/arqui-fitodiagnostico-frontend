@@ -1,4 +1,4 @@
-// Petición retrasada detrás de un «Deshacer» (F23). Puro: sin DOM ni red, se prueba con Node.
+// Petición retrasada detrás de un «Deshacer» (F25). Puro: sin DOM ni red, se prueba con Node.
 // La acción reversible (desvincular, revocar una invitación) se refleja ya en pantalla y la petición
 // de verdad sale pasado el plazo; si el usuario deshace antes, la petición simplemente no sale.
 export const TIEMPO_DESHACER_MS = 7000; // entre 5 y 10 s: da tiempo de ver el toast y leerlo

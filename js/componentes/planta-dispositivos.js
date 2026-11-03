@@ -22,7 +22,7 @@ export function crearPanelDispositivos(planta, ctx) {
   const lista = h("div", { id: "lista-dispositivos", "aria-live": "polite" });
   let firma = null; // lo último que se pintó: si no cambió, no se repinta
   let ultimos = []; // última lista del servidor
-  const ocultos = new Set(); // seriales «desvinculados» a la espera del plazo de Deshacer (F23)
+  const ocultos = new Set(); // seriales «desvinculados» a la espera del plazo de Deshacer (F25)
 
   const serial = campo({
     id: "disp-serial",
@@ -59,7 +59,7 @@ export function crearPanelDispositivos(planta, ctx) {
   });
 
   // Desvincular se puede deshacer: sin diálogo de confirmación, el dispositivo desaparece de la lista ya y la
-  // petición sale pasado el plazo del toast (F23). Mientras tanto el sondeo no lo vuelve a pintar.
+  // petición sale pasado el plazo del toast (F25). Mientras tanto el sondeo no lo vuelve a pintar.
   function desvincular(dispositivo) {
     ocultos.add(dispositivo.serial);
     conTransicion(repintar);
