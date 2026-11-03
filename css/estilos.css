@@ -1415,3 +1415,98 @@ body[data-patron="/plantas/:id"] .indicador-conexion--global {
 .ilustracion-planta--mini {
   max-width: 120px;
 }
+
+/* ---------- historial como lista (tabla con forma de renglones) ---------- */
+
+.historial-lista {
+  container-type: inline-size;
+  margin-top: var(--e1);
+}
+
+.tabla-historial {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabla-historial thead {
+  position: absolute;
+}
+
+.tabla-historial tbody,
+.tabla-historial tr,
+.tabla-historial td {
+  display: block;
+}
+
+.tabla-historial tr {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    "estado valores"
+    "cuando cuando";
+  gap: 0.15rem 0.75rem;
+  align-items: center;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--borde);
+}
+
+.tabla-historial tr:last-child {
+  border-bottom: 0;
+}
+
+.tabla-historial .hist-estado {
+  grid-area: estado;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hist-cuando {
+  grid-area: cuando;
+  font-size: var(--t-chico);
+  font-weight: 600;
+  color: var(--tinta-suave);
+}
+
+.tabla-historial .hist-valores {
+  grid-area: valores;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.hist-valor {
+  white-space: nowrap;
+}
+
+.punto-estado {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--borde-control);
+}
+
+.tabla-historial tr[data-estado="SALUDABLE"] .punto-estado {
+  background: var(--saludable);
+}
+
+.tabla-historial tr[data-estado="EN_RIESGO"] .punto-estado {
+  background: var(--riesgo);
+}
+
+.tabla-historial tr[data-estado="CRITICO"] .punto-estado {
+  background: var(--critico);
+}
+
+@container (min-width: 520px) {
+  .tabla-historial tr {
+    grid-template-columns: 8.5rem 1fr auto;
+    grid-template-areas: "estado cuando valores";
+    gap: 0.75rem;
+  }
+}

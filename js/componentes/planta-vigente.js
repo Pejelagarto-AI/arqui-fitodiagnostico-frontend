@@ -1,7 +1,7 @@
 // RF-F4: diagnóstico vigente de una planta. Cubre el caso "sin diagnóstico"
 // (D45: el backend responde 200 con hayDiagnostico:false, no 404).
 import { obtenerDiagnosticoVigente } from "../api.js";
-import { h, vaciar, crearAviso, formatearFecha } from "../ui.js";
+import { h, vaciar, crearAviso, formatearFechaRelativa } from "../ui.js";
 import { crearVistaDeDiagnostico } from "./diagnostico.js";
 
 const ORIGENES = { MANUAL: "medición manual", DISPOSITIVO: "dispositivo" };
@@ -38,7 +38,7 @@ export function crearPanelVigente(plantaId, ctx, { alCambiarEstado = () => {} } 
     const registro = respuesta.diagnostico;
     vista = crearVistaDeDiagnostico(registro.diagnostico, { serie, resumen: true });
     const contenido = h("div", { class: resaltar ? "actualizado" : "" },
-      h("p", { class: "texto-suave", id: "meta-vigente" }, `Registrado ${formatearFecha(registro.registradoEn)} · ${ORIGENES[registro.origen] || registro.origen}`),
+      h("p", { class: "texto-suave", id: "meta-vigente" }, `Registrado ${formatearFechaRelativa(registro.registradoEn)} · ${ORIGENES[registro.origen] || registro.origen}`),
       vista.nodo,
     );
     cuerpo.append(contenido);

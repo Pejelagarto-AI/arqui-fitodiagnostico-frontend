@@ -57,6 +57,25 @@ export function formatearFecha(iso) {
   return fecha.toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
 }
 
+const HORA = { hour: "numeric", minute: "2-digit" };
+
+/**
+ * Fecha para leer de un vistazo: «hoy 4:33 p. m.», «ayer 4:33 p. m.», «lun 4:33 p. m.» (últimos 6 días)
+ * y la fecha completa si pasó más de una semana. Pura salvo por `ahora`, que se puede inyectar.
+ */
+export function formatearFechaRelativa(iso, ahora = Date.now()) {
+  if (!iso) return "";
+  const fecha = new Date(iso);
+  if (Number.isNaN(fecha.getTime())) return String(iso);
+  const inicioDeDia = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const dias = Math.round((inicioDeDia(new Date(ahora)) - inicioDeDia(fecha)) / 86400000);
+  const hora = fecha.toLocaleTimeString("es-CO", HORA);
+  if (dias === 0) return `hoy ${hora}`;
+  if (dias === 1) return `ayer ${hora}`;
+  if (dias > 1 && dias < 7) return `${fecha.toLocaleDateString("es-CO", { weekday: "short" }).replace(".", "")} ${hora}`;
+  return formatearFecha(iso);
+}
+
 export const ETIQUETAS_ESTADO_GLOBAL = {
   SALUDABLE: "Saludable",
   EN_RIESGO: "En riesgo",
