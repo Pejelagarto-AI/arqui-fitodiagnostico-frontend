@@ -1,7 +1,7 @@
 // RF-E1, RF-E3, RF-E5 (dueño): generar el enlace de invitación, ver y revocar
 // las invitaciones pendientes, y ver y revocar a los invitados.
 import { generarInvitacion, listarInvitaciones, revocarInvitacion, listarInvitados, revocarInvitado } from "../api.js";
-import { h, vaciar, campo, crearAviso, crearNota, conCarga, confirmar, copiarAlPortapapeles, formatearFecha, limpiarErroresDeFormulario, marcarCampoConError, toast } from "../ui.js";
+import { h, vaciar, campo, crearAviso, crearNota, conCarga, confirmar, copiarAlPortapapeles, formatearFecha, limpiarErroresDeFormulario, marcarCampoConError, toast, toastConDeshacer } from "../ui.js";
 
 export function crearPanelCompartir(planta, ctx) {
   const avisoGenerar = crearAviso();
@@ -9,6 +9,8 @@ export function crearPanelCompartir(planta, ctx) {
   const resultado = h("div", { id: "enlace-generado" });
   const pendientes = h("div", { id: "lista-pendientes" });
   const invitados = h("div", { id: "lista-invitados" });
+  let ultimas = { pendientes: [], invitados: [] }; // última respuesta del servidor
+  const ocultas = new Set(); // invitaciones «revocadas» a la espera del plazo de Deshacer
 
   const correo = campo({ id: "inv-correo-destino", nombre: "correo", etiqueta: "Correo del invitado (opcional)", tipo: "email", requerido: false, maxlength: "254", ayuda: "Si lo pones, el backend también le envía el enlace por correo. Sin correo, tú repartes el enlace." });
   const boton = h("button", { type: "submit", class: "boton boton-primario", id: "btn-generar-enlace" }, "Generar enlace de invitación");
@@ -53,17 +55,31 @@ export function crearPanelCompartir(planta, ctx) {
     );
   }
 
-  async function revocarPendiente(invitacion) {
-    if (!(await confirmar("¿Revocar esta invitación? El enlace dejará de funcionar.", { aceptar: "Revocar", peligro: true }))) return;
-    try {
-      await revocarInvitacion(planta.id, invitacion.id);
-      toast("Invitación revocada.");
-      await cargarListas();
-    } catch (error) {
+  // Revocar una invitación pendiente se puede deshacer (F23): sin diálogo, sale de la lista ya y la petición
+  // sale pasado el plazo del toast. Hasta entonces el enlace sigue vivo en el servidor. Quitar el acceso a un
+  // invitado, en cambio, conserva su confirmación: le llega un aviso y no hay cómo retirarlo.
+  function revocarPendiente(invitacion) {
+    ocultas.add(invitacion.id);
+    pintarListas();
+    toastConDeshacer("Invitación revocada.", {
+      ejecutar: () => revocarInvitacion(planta.id, invitacion.id),
+      alDeshacer: () => {
+        ocultas.delete(invitacion.id);
+        if (ctx.vigente()) pintarListas();
+      },
       // La lista pudo quedar vieja (p. ej. el enlace ya se aceptó): se actualiza y se explica el error.
-      await cargarListas();
-      avisoListas.mostrar(error);
-    }
+      alFallar: async (error) => {
+        ocultas.delete(invitacion.id);
+        if (!ctx.vigente()) return;
+        await cargarListas();
+        avisoListas.mostrar(error);
+      },
+      alTerminar: async (error) => {
+        if (error) return;
+        ocultas.delete(invitacion.id);
+        if (ctx.vigente()) await cargarListas();
+      },
+    });
   }
 
   async function revocarAcceso(invitado) {
@@ -78,32 +94,38 @@ export function crearPanelCompartir(planta, ctx) {
     }
   }
 
+  function pintarListas() {
+    vaciar(pendientes);
+    vaciar(invitados);
+    const vigentes = ultimas.pendientes.filter((i) => i.estado === "PENDIENTE" && !ocultas.has(i.id));
+    const inv = ultimas.invitados;
+    pendientes.append(
+      vigentes.length === 0
+        ? h("p", { class: "texto-vacio" }, "No hay invitaciones pendientes.")
+        : h("ul", { class: "lista-limpia" }, vigentes.map((i) =>
+            h("li", { class: "fila fila--separada" },
+              h("span", {}, `Creada ${formatearFecha(i.creadaEn)} · vence ${formatearFecha(i.expiraEn)}`, i.correoDestino ? ` · para ${i.correoDestino}` : ""),
+              h("button", { type: "button", class: "boton boton-secundario boton-chico", "data-accion": "revocar-invitacion", onclick: () => revocarPendiente(i) }, "Revocar"),
+            ))),
+    );
+    invitados.append(
+      inv.length === 0
+        ? h("p", { class: "texto-vacio" }, "Nadie más ve esta planta.")
+        : h("ul", { class: "lista-limpia" }, inv.map((i) =>
+            h("li", { class: "fila fila--separada" },
+              h("span", {}, h("strong", {}, i.nombre), ` · ${i.correo} · desde ${formatearFecha(i.otorgadoEn)}`),
+              h("button", { type: "button", class: "boton boton-secundario boton-chico", "data-accion": "revocar-invitado", onclick: () => revocarAcceso(i) }, "Quitar acceso"),
+            ))),
+    );
+  }
+
   async function cargarListas() {
     try {
       const [pend, inv] = await Promise.all([listarInvitaciones(planta.id), listarInvitados(planta.id)]);
       if (!ctx.vigente()) return;
       avisoListas.limpiar();
-      vaciar(pendientes);
-      vaciar(invitados);
-      const vigentes = pend.filter((i) => i.estado === "PENDIENTE");
-      pendientes.append(
-        vigentes.length === 0
-          ? h("p", { class: "texto-vacio" }, "No hay invitaciones pendientes.")
-          : h("ul", { class: "lista-limpia" }, vigentes.map((i) =>
-              h("li", { class: "fila fila--separada" },
-                h("span", {}, `Creada ${formatearFecha(i.creadaEn)} · vence ${formatearFecha(i.expiraEn)}`, i.correoDestino ? ` · para ${i.correoDestino}` : ""),
-                h("button", { type: "button", class: "boton boton-secundario boton-chico", "data-accion": "revocar-invitacion", onclick: () => revocarPendiente(i) }, "Revocar"),
-              ))),
-      );
-      invitados.append(
-        inv.length === 0
-          ? h("p", { class: "texto-vacio" }, "Nadie más ve esta planta.")
-          : h("ul", { class: "lista-limpia" }, inv.map((i) =>
-              h("li", { class: "fila fila--separada" },
-                h("span", {}, h("strong", {}, i.nombre), ` · ${i.correo} · desde ${formatearFecha(i.otorgadoEn)}`),
-                h("button", { type: "button", class: "boton boton-secundario boton-chico", "data-accion": "revocar-invitado", onclick: () => revocarAcceso(i) }, "Quitar acceso"),
-              ))),
-      );
+      ultimas = { pendientes: pend, invitados: inv };
+      pintarListas();
     } catch (error) {
       if (ctx.vigente()) avisoListas.mostrar(error);
     }

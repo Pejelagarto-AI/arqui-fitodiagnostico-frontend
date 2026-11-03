@@ -788,6 +788,29 @@ a.boton-secundario {
   color: #ffffff;
 }
 
+.toast--deshacer {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  justify-content: space-between;
+}
+
+.toast-boton {
+  font: inherit;
+  font-weight: 800;
+  color: inherit;
+  background: transparent;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  padding: 0.25rem 0.9rem;
+  cursor: pointer;
+}
+
+.toast-boton:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
 .dialogo {
   background: var(--superficie);
   color: var(--tinta);

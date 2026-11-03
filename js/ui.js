@@ -2,6 +2,8 @@
 // anti-XSS: el contenido que viene de la API se inserta SIEMPRE como texto
 // (textContent / nodos de texto), nunca con innerHTML.
 
+import { retrasar, TIEMPO_DESHACER_MS } from "./deshacer.js";
+
 /** Crea un elemento: h("button", { class: "boton", onclick: fn }, "Texto", otroNodo). */
 export function h(etiqueta, atributos = {}, ...hijos) {
   const nodo = document.createElement(etiqueta);
@@ -271,6 +273,34 @@ export function toast(mensaje, tipo = "info") {
   const nodo = h("div", { class: `toast toast--${tipo}` }, mensaje);
   zonaDeToasts().append(nodo);
   setTimeout(() => nodo.remove(), 6000);
+}
+
+/**
+ * Toast con «Deshacer» (F23) para lo reversible: la acción ya se hizo en pantalla, la petición sale
+ * pasado el plazo y el botón la cancela. role="status" (lo leen los lectores sin quitar el foco). Es un
+ * aviso de algo que el usuario acaba de hacer: no tiene que ver con el estado de la planta (F16, sin toasts).
+ * Devuelve { deshacer } para quien necesite cancelar por código. `alDeshacer` revierte la pantalla;
+ * `ejecutar` es la petición; `alFallar(error)` revierte y explica si la petición falla.
+ */
+export function toastConDeshacer(mensaje, { ejecutar, alDeshacer, alFallar = () => {}, alTerminar = () => {}, ms = TIEMPO_DESHACER_MS }) {
+  const nodo = h("div", { class: "toast toast--deshacer", role: "status" });
+  const accion = retrasar(ejecutar, {
+    ms,
+    alTerminar: (error) => {
+      nodo.remove();
+      if (error) alFallar(error);
+      alTerminar(error);
+    },
+  });
+  const boton = h("button", { type: "button", class: "toast-boton", "data-accion": "deshacer" }, "Deshacer");
+  boton.addEventListener("click", () => {
+    if (!accion.deshacer()) return;
+    nodo.remove();
+    alDeshacer();
+  });
+  nodo.append(h("span", {}, mensaje), boton);
+  zonaDeToasts().append(nodo);
+  return accion;
 }
 
 // ---- confirmación ----

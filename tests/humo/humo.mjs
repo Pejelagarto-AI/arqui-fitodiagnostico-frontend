@@ -328,8 +328,17 @@ async function ejecutar() {
     await pAna.click("#btn-generar-enlace");
     await pAna.waitForFunction(() => document.querySelectorAll("#lista-pendientes li").length >= 1);
     const antes = await pAna.locator("#lista-pendientes li").count();
+    // F23: revocar no pide confirmación; sale de la lista ya y el toast permite deshacer antes de que salga la petición.
     await pAna.locator("[data-accion=revocar-invitacion]").first().click();
-    await confirmarDialogo(pAna);
+    assert.equal(await pAna.locator("dialog[open]").count(), 0, "revocar una invitación ya no pide confirmación");
+    await pAna.locator(".toast--deshacer[role=status]", { hasText: "Invitación revocada" }).waitFor();
+    await pAna.waitForFunction((n) => document.querySelectorAll("#lista-pendientes li").length < n || /No hay invitaciones/.test(document.querySelector("#lista-pendientes").textContent), antes);
+    await pAna.locator(".toast--deshacer [data-accion=deshacer]").click();
+    await pAna.waitForFunction((n) => document.querySelectorAll("#lista-pendientes li").length === n, antes);
+    // Sin deshacer, pasado el plazo sale el DELETE y la invitación se va de verdad.
+    const peticion = pAna.waitForResponse((r) => r.request().method() === "DELETE" && /\/invitaciones\//.test(r.url()), { timeout: 15000 });
+    await pAna.locator("[data-accion=revocar-invitacion]").first().click();
+    assert.equal((await peticion).status(), 204);
     await pAna.waitForFunction((n) => document.querySelectorAll("#lista-pendientes li").length < n || /No hay invitaciones/.test(document.querySelector("#lista-pendientes").textContent), antes);
   });
 

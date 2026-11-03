@@ -4,7 +4,7 @@
 // se conectó (ultimaCredencialEn) y se refresca desde el sondeo de planta-detalle (F18).
 import { vincularDispositivo, listarDispositivos, desvincularDispositivo } from "../api.js";
 import { textoHace, estadoDeDispositivo } from "../tiempo.js";
-import { h, svg, vaciar, campo, crearAviso, crearNota, conCarga, confirmar, limpiarErroresDeFormulario, marcarCampoConError, toast } from "../ui.js";
+import { h, svg, vaciar, campo, crearAviso, crearNota, conCarga, limpiarErroresDeFormulario, marcarCampoConError, toastConDeshacer } from "../ui.js";
 
 function iconoDeMatera() {
   return svg("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": "1.8", "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true", class: "matera-icono" },
@@ -20,6 +20,8 @@ export function crearPanelDispositivos(planta, ctx) {
   const nota = crearNota();
   const lista = h("div", { id: "lista-dispositivos", "aria-live": "polite" });
   let firma = null; // lo último que se pintó: si no cambió, no se repinta
+  let ultimos = []; // última lista del servidor
+  const ocultos = new Set(); // seriales «desvinculados» a la espera del plazo de Deshacer (F23)
 
   const serial = campo({
     id: "disp-serial",
@@ -55,20 +57,39 @@ export function crearPanelDispositivos(planta, ctx) {
     }
   });
 
-  async function desvincular(dispositivo) {
-    if (!(await confirmar(`¿Desvincular ${dispositivo.serial}? Dejará de reportar a esta planta y no podrá renovar su credencial.`, { aceptar: "Desvincular", peligro: true }))) return;
-    try {
-      await desvincularDispositivo(planta.id, dispositivo.serial);
-      toast("Dispositivo desvinculado.");
-      await cargar();
-    } catch (error) {
+  // Desvincular se puede deshacer: sin diálogo de confirmación, el dispositivo desaparece de la lista ya y la
+  // petición sale pasado el plazo del toast (F23). Mientras tanto el sondeo no lo vuelve a pintar.
+  function desvincular(dispositivo) {
+    ocultos.add(dispositivo.serial);
+    repintar();
+    toastConDeshacer(`Dispositivo ${dispositivo.serial} desvinculado.`, {
+      ejecutar: () => desvincularDispositivo(planta.id, dispositivo.serial),
+      alDeshacer: () => {
+        ocultos.delete(dispositivo.serial);
+        if (ctx.vigente()) repintar();
+      },
       // La lista pudo quedar vieja (p. ej. ya se había desvinculado): se actualiza y se explica.
-      await cargar();
-      avisoLista.mostrar(error);
-    }
+      alFallar: async (error) => {
+        ocultos.delete(dispositivo.serial);
+        if (!ctx.vigente()) return;
+        await cargar();
+        avisoLista.mostrar(error);
+      },
+      alTerminar: async (error) => {
+        if (error) return;
+        ocultos.delete(dispositivo.serial);
+        if (ctx.vigente()) await cargar();
+      },
+    });
   }
 
-  function pintar(dispositivos) {
+  function repintar() {
+    firma = null;
+    pintar(ultimos);
+  }
+
+  function pintar(todos) {
+    const dispositivos = todos.filter((d) => !ocultos.has(d.serial));
     vaciar(lista);
     lista.append(
       dispositivos.length === 0
@@ -91,7 +112,8 @@ export function crearPanelDispositivos(planta, ctx) {
       const dispositivos = await listarDispositivos(planta.id);
       if (!ctx.vigente()) return;
       avisoLista.limpiar();
-      const nueva = JSON.stringify(dispositivos.map((d) => [d.serial, d.reclamadoEn, d.ultimaCredencialEn || null]));
+      ultimos = dispositivos;
+      const nueva = JSON.stringify(dispositivos.filter((d) => !ocultos.has(d.serial)).map((d) => [d.serial, d.reclamadoEn, d.ultimaCredencialEn || null]));
       if (nueva === firma) return;
       firma = nueva;
       pintar(dispositivos);
