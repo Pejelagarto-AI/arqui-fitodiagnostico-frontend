@@ -52,12 +52,17 @@ async function navegar() {
   const resuelta = resolver(tabla, ruta);
 
   if (!resuelta) {
+    delete document.body.dataset.acceso;
+    delete document.body.dataset.patron;
     contenedor.append(pantallaMensaje("Página no encontrada", `No existe la pantalla «${ruta}».`));
     anunciar("Página no encontrada");
     return;
   }
 
   const { entrada, params } = resuelta;
+  // Para el CSS: el pie solo en pantallas públicas, el indicador global fuera del detalle de planta.
+  document.body.dataset.acceso = entrada.acceso;
+  document.body.dataset.patron = entrada.patron;
 
   if (entrada.acceso === "anonima" && sesion.haySesion()) {
     irA("/plantas", { reemplazar: true });

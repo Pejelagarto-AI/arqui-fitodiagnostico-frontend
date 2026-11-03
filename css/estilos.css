@@ -891,3 +891,31 @@ a.boton-secundario {
     background: transparent;
   }
 }
+
+/* Indicador global de avisos en vivo: un punto, sin competir con el del sondeo. */
+.indicador-conexion--global {
+  padding: 0 0.35rem;
+}
+
+.indicador-conexion--global .punto-conexion {
+  background: var(--borde-control);
+  animation: none;
+}
+
+.indicador-conexion--global[data-estado="conectado"] .punto-conexion {
+  background: var(--saludable);
+}
+
+.indicador-conexion--global[data-estado="reconectando"] .punto-conexion {
+  background: var(--riesgo);
+  animation: none;
+}
+
+.indicador-conexion--global[data-estado="rechazado"] .punto-conexion {
+  background: var(--critico);
+}
+
+/* En el detalle de planta manda el indicador del sondeo. */
+body[data-patron="/plantas/:id"] .indicador-conexion--global {
+  display: none;
+}
