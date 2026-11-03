@@ -875,10 +875,6 @@ a.boton-secundario {
   color: var(--saludable);
 }
 
-.lista-recomendaciones {
-  padding-left: 1.2rem;
-}
-
 .actualizado {
   animation: resaltar 1.6s ease-out;
 }
@@ -1074,4 +1070,271 @@ body[data-patron="/plantas/:id"] .indicador-conexion--global {
   .detalle-rejilla {
     grid-template-columns: minmax(0, 1fr) 340px;
   }
+}
+
+/* ---------- diagnóstico: burbujas por parámetro, minigráfica y «Qué hacer hoy» ---------- */
+
+.estado-global--resumen {
+  padding: 0.15rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.burbujas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--e2);
+  margin-bottom: var(--e2);
+}
+
+@media (min-width: 700px) {
+  .burbujas {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.burbuja {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: var(--e3);
+}
+
+/* Dentro de una tarjeta (diagnóstico rápido) se distingue por el fondo, no por otra tarjeta. */
+.tarjeta .burbuja {
+  background: var(--fondo);
+}
+
+.burbuja-icono {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.burbuja-icono svg {
+  width: 28px;
+  height: 28px;
+}
+
+.burbuja[data-parametro="humedad"] .burbuja-icono {
+  background: var(--humedad-fondo);
+  color: var(--humedad-tinta);
+}
+
+.burbuja[data-parametro="luz"] .burbuja-icono {
+  background: var(--luz-fondo);
+  color: var(--luz-tinta);
+}
+
+.burbuja[data-parametro="temperatura"] .burbuja-icono {
+  background: var(--temperatura-fondo);
+  color: var(--temperatura-tinta);
+}
+
+.tarjeta .burbuja h3,
+.burbuja h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--tinta-suave);
+  font-weight: 700;
+}
+
+.num {
+  position: relative;
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.num small {
+  font-size: 1rem;
+  margin-left: 0.2rem;
+  color: var(--tinta-suave);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+/* Mientras cuenta, el valor real (el que leen los lectores y las pruebas) queda en su sitio, invisible. */
+.num-anim {
+  display: none;
+}
+
+.num[data-animando] .num-valor {
+  visibility: hidden;
+}
+
+.num[data-animando] .num-anim {
+  display: inline;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.burbuja .chip {
+  margin-top: 0.3rem;
+  border: 1.5px solid transparent;
+}
+
+/* Bajo y alto llevan flecha y borde propio: no se confunden con el semáforo del estado global. */
+.burbuja .chip--bajo,
+.burbuja .chip--alto {
+  border-color: currentColor;
+}
+
+.chip-flecha {
+  margin-right: 0.25rem;
+}
+
+.pista {
+  position: relative;
+  height: 14px;
+  margin-top: 0.8rem;
+  border-radius: 999px;
+  background: var(--superficie);
+  border: 1.5px solid var(--borde-control);
+  overflow: hidden;
+}
+
+.tarjeta .pista {
+  background: var(--fondo);
+}
+
+.pista-optima {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--saludable-fondo);
+  border-left: 2px solid var(--saludable);
+  border-right: 2px solid var(--saludable);
+}
+
+.pista-valor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: var(--acento);
+  transform-origin: left center;
+  opacity: 0.9;
+}
+
+.burbuja[data-estado="BAJO"] .pista-valor {
+  background: var(--riesgo);
+}
+
+.burbuja[data-estado="ALTO"] .pista-valor {
+  background: var(--critico);
+}
+
+.pista-ley {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--tinta-suave);
+}
+
+.tendencia {
+  margin-top: 0.7rem;
+  min-height: 3.4rem;
+}
+
+.tendencia-etiqueta {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--tinta-suave);
+}
+
+.minigrafica {
+  display: block;
+  width: 100%;
+  height: 46px;
+}
+
+.minigrafica path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.min-linea {
+  stroke: var(--acento);
+  stroke-width: 2;
+}
+
+.min-area {
+  fill: var(--acento) !important;
+  opacity: 0.1;
+  stroke: none;
+}
+
+.min-banda {
+  fill: var(--saludable);
+  opacity: 0.14;
+}
+
+.min-punto {
+  stroke: var(--acento);
+  stroke-width: 7;
+}
+
+.que-hacer h3 {
+  margin: 0 0 var(--e1);
+  font-size: var(--t-titulo-tarjeta);
+}
+
+.bloque-vigente .que-hacer {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: var(--e3);
+}
+
+.recom {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.recom li {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radio-medio);
+  background: var(--riesgo-fondo);
+  color: var(--tinta);
+  font-weight: 600;
+}
+
+.recom li[data-estado="ALTO"] {
+  background: var(--critico-fondo);
+}
+
+.recom li.recom-ok {
+  background: var(--saludable-fondo);
+}
+
+.recom-icono {
+  flex: none;
+  display: grid;
+}
+
+.recom-icono svg {
+  width: 22px;
+  height: 22px;
+}
+
+.diagnostico > .estado-global--resumen {
+  margin-bottom: var(--e2);
 }

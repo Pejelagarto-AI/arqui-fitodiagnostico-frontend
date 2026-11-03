@@ -64,7 +64,8 @@ export async function montar(contenedor, ctx) {
   };
 
   const vigente = crearPanelVigente(id, ctx, { alCambiarEstado: ponerEstado });
-  const historial = crearPanelHistorial(id, ctx);
+  // El sondeo ya trae la página del historial: de ahí salen las minigráficas (solo la primera, la más reciente).
+  const historial = crearPanelHistorial(id, ctx, { alRecibir: (respuesta) => { if (respuesta.pagina === 0) vigente.ponerSerie(respuesta.contenido); } });
   const principal = h("div", { class: "detalle-principal" }, vigente.elemento, historial.elemento);
   const lateral = h("div", { class: "detalle-lateral" });
   contenedor.append(

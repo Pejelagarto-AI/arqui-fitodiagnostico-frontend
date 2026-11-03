@@ -2,7 +2,7 @@
 // (D45: el backend responde 200 con hayDiagnostico:false, no 404).
 import { obtenerDiagnosticoVigente } from "../api.js";
 import { h, vaciar, crearAviso, formatearFecha } from "../ui.js";
-import { nodoDeDiagnostico } from "./diagnostico.js";
+import { crearVistaDeDiagnostico } from "./diagnostico.js";
 
 const ORIGENES = { MANUAL: "medición manual", DISPOSITIVO: "dispositivo" };
 
@@ -10,6 +10,8 @@ export function crearPanelVigente(plantaId, ctx, { alCambiarEstado = () => {} } 
   // Identidad de lo pintado: el sondeo vuelve a pedir lo mismo cada pocos segundos
   // y no hay por qué repintar (ni parpadear) si no cambió nada.
   let pintado = null;
+  let serie = null; // última página 0 del historial (la trae el sondeo) para las minigráficas
+  let vista = null;
   const aviso = crearAviso();
   const cuerpo = h("div", { id: "diagnostico-vigente", "aria-live": "polite" }, h("p", { class: "texto-vacio" }, "Cargando diagnóstico…"));
   const elemento = h("section", { class: "bloque-vigente", "aria-labelledby": "titulo-vigente" }, h("h2", { id: "titulo-vigente", class: "titulo-bloque" }, "Cómo está hoy"), aviso.elemento, cuerpo);
@@ -22,6 +24,7 @@ export function crearPanelVigente(plantaId, ctx, { alCambiarEstado = () => {} } 
     pintado = identidad;
     resaltar = resaltar && hayCambio;
     vaciar(cuerpo);
+    vista = null;
     alCambiarEstado(respuesta.hayDiagnostico ? respuesta.diagnostico.diagnostico.estado : null);
     if (!respuesta.hayDiagnostico) {
       cuerpo.append(
@@ -33,9 +36,10 @@ export function crearPanelVigente(plantaId, ctx, { alCambiarEstado = () => {} } 
       return;
     }
     const registro = respuesta.diagnostico;
+    vista = crearVistaDeDiagnostico(registro.diagnostico, { serie, resumen: true });
     const contenido = h("div", { class: resaltar ? "actualizado" : "" },
       h("p", { class: "texto-suave", id: "meta-vigente" }, `Registrado ${formatearFecha(registro.registradoEn)} · ${ORIGENES[registro.origen] || registro.origen}`),
-      nodoDeDiagnostico(registro.diagnostico),
+      vista.nodo,
     );
     cuerpo.append(contenido);
   }
@@ -53,5 +57,11 @@ export function crearPanelVigente(plantaId, ctx, { alCambiarEstado = () => {} } 
     }
   }
 
-  return { elemento, cargar };
+  /** Página 0 del historial (más reciente primero): alimenta las minigráficas de tendencia. */
+  function ponerSerie(registros) {
+    serie = registros;
+    if (vista) vista.actualizarSerie(registros);
+  }
+
+  return { elemento, cargar, ponerSerie };
 }

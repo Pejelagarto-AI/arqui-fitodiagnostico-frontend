@@ -11,7 +11,7 @@ function celdaDeParametro(parametros, nombre) {
   return h("td", { class: `valor-${p.estado.toLowerCase()}` }, `${p.valor} ${p.unidad}`);
 }
 
-export function crearPanelHistorial(plantaId, ctx) {
+export function crearPanelHistorial(plantaId, ctx, { alRecibir = () => {} } = {}) {
   let pagina = 0;
   let firmaPintada = null; // evita repintar la tabla cuando el sondeo trae lo mismo
   const aviso = crearAviso();
@@ -62,6 +62,7 @@ export function crearPanelHistorial(plantaId, ctx) {
         return;
       }
       pagina = respuesta.pagina;
+      alRecibir(respuesta);
       aviso.limpiar();
       pintar(respuesta);
     } catch (error) {
