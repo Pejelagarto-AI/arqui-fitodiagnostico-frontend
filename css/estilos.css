@@ -1999,3 +1999,69 @@ li,
     corner-shape: squircle;
   }
 }
+
+/* ---------- sticker con QR y vincular desde el QR (F34) ---------- */
+
+.serial-grande {
+  font-size: clamp(1.8rem, 7vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  margin: var(--e1) 0 var(--e2);
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.sticker-qr {
+  margin: var(--e2) 0;
+}
+
+.sticker-hoja {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--e1);
+  padding: var(--e2);
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-medio);
+  margin-bottom: var(--e1);
+}
+
+.qr {
+  width: min(14rem, 70vw);
+  height: auto;
+  display: block;
+}
+
+.sticker-serial {
+  margin: 0;
+  font-weight: 800;
+  font-size: 1.3rem;
+  letter-spacing: 0.04em;
+  color: #000000;
+}
+
+/* Imprimir el sticker: queda solo el QR y el serial, sin menú, formularios ni el resto de la pantalla. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .sticker-hoja,
+  .sticker-hoja * {
+    visibility: visible;
+  }
+
+  .sticker-hoja {
+    position: absolute;
+    left: 0;
+    top: 0;
+    border: 0;
+    padding: 0;
+  }
+
+  .qr {
+    width: 4cm;
+  }
+}

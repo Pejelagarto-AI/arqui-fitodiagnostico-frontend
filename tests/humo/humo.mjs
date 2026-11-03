@@ -476,6 +476,27 @@ async function ejecutar() {
     await pAna.goto(`${FRONT}/#/admin/dispositivos`);
     await pAna.locator("text=solo para administradores").waitFor();
   });
+  await paso("QR del sticker: el admin registra un dispositivo y Ana lo vincula abriendo #/vincular?serial=", async () => {
+    await pAdmin.fill("#fab-serial", "");
+    await pAdmin.click("#btn-registrar-dispositivo");
+    await pAdmin.locator("#sticker-qr svg.qr path[d]").waitFor();
+    assert.equal(await pAdmin.locator("#sticker-qr svg.qr").getAttribute("role"), "img");
+    const serialQr = (await pAdmin.locator("#sticker-serial").innerText()).trim();
+    assert.match(serialQr, /^fito-[A-Z0-9]{6}$/);
+    assert.equal(await pAdmin.locator("#btn-imprimir-sticker").count(), 1);
+    await pAna.goto(`${FRONT}/#/vincular?serial=${serialQr}`);
+    assert.equal((await pAna.locator("#vincular-serial").innerText()).trim(), serialQr);
+    await pAna.locator("#vincular-planta").selectOption(plantaId);
+    await pAna.click("#btn-vincular-a-planta");
+    await esperarHash(pAna, new RegExp(`^#/plantas/${plantaId}$`));
+    await pAna.locator(`#lista-dispositivos li[data-serial="${serialQr}"]`, { hasText: "esperando que se conecte" }).waitFor();
+    // Sin sesión, la ruta manda a entrar y conserva el serial para volver.
+    const anonimo = await nuevoContexto("qr-anonimo");
+    await anonimo.goto(`${FRONT}/#/vincular?serial=${serialQr}`);
+    await esperarHash(anonimo, /^#\/entrar\?volver=/);
+    assert.match(decodeURIComponent(hash(anonimo)), /\/vincular\?serial=fito-/);
+    await anonimo.context().close();
+  });
   await paso("admin: listar y buscar usuarios, ver detalle con plantas", async () => {
     await pAdmin.goto(`${FRONT}/#/admin/usuarios`);
     await pAdmin.locator("#tabla-usuarios").waitFor();

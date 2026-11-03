@@ -4,3 +4,4 @@
 - Fuente Nunito (SIL OFL 1.1): `css/fuentes/nunito-latin.woff2`, declarada en `css/fuentes.css`.
 
 Nada se pide a un CDN en tiempo de ejecución: la CSP de `index.html` sigue en `'self'`.
+- `qrcode.js`: qrcode-generator 2.0.4 (MIT, Kazuhiko Arase), `dist/qrcode.js` del paquete npm sin cambios, con dos líneas de encabezado. Un solo archivo sin dependencias; define el global `qrcode`. Lo carga `js/componentes/qr.js` bajo demanda (la vista de dispositivos de fábrica) y solo se usa su matriz de módulos: el SVG lo construye el front con `createElementNS`.

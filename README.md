@@ -61,7 +61,7 @@ El detalle de una planta se actualiza solo: cada **5 s** (`INTERVALO_SONDEO_MS` 
 
 El humano no copia ninguna credencial. Cada dispositivo sale de fábrica con un **serial** impreso (`fito-7K2M9Q`) y un secreto guardado adentro. En el detalle de una planta propia, la sección **Dispositivos** pide el serial y llama a `POST /plantas/{id}/dispositivos` con `{serial}`. El dispositivo, por su cuenta, pide un reto, responde con un HMAC de su secreto y recibe su token. La lista de la sección dice «esperando que se conecte» o «conectado hace Xs» (se refresca con el sondeo de 5 s) y permite desvincular. Los diagnósticos que envíe aparecen en el historial con origen «Dispositivo». Detalle en F18 de [`docs/IMPLEMENTACION-CORTE2.md`](docs/IMPLEMENTACION-CORTE2.md).
 
-El administrador registra los dispositivos en `#/admin/dispositivos` (F19): al registrar, el serial y el secreto se muestran **una sola vez** con botón de copiar y el comando listo del simulador. Requiere el backend de la fase 3.
+El administrador registra los dispositivos en `#/admin/dispositivos` (F19): al registrar, el serial y el secreto se muestran **una sola vez** con botón de copiar y el comando listo del simulador, más el **QR del sticker** (`qrcode-generator` vendorizado, SVG propio) con botón de imprimir: quien lo escanee llega a `#/vincular?serial=...` (F34). Requiere el backend de la fase 3.
 
 ## Rutas (hash)
 
@@ -73,6 +73,7 @@ El administrador registra los dispositivos en `#/admin/dispositivos` (F19): al r
 | `#/invitacion?token=` | pública | aceptar invitación, con sesión o registrándose (enlace del correo) |
 | `#/perfil` | sesión | datos, contraseña, eliminar cuenta |
 | `#/plantas`, `#/plantas/nueva`, `#/plantas/{id}` | sesión | mis plantas y compartidas; registrar; detalle (estado por sondeo, historial, dispositivos por serial, compartir, editar) |
+| `#/vincular?serial=` | sesión | vincular una matera a una planta propia; es el destino del QR del sticker (F34) |
 | `#/solicitudes` | sesión | pedir una especie y ver mis solicitudes |
 | `#/admin`, `#/admin/usuarios`, `#/admin/usuarios/{id}`, `#/admin/especies`, `#/admin/solicitudes`, `#/admin/dispositivos` | admin | administración; dispositivos de fábrica (serial y secreto) |
 

@@ -9,6 +9,7 @@ const tabla = [
   { patron: "/plantas/:id", id: "planta" },
   { patron: "/admin/usuarios/:id", id: "usuario" },
   { patron: "/admin/dispositivos", id: "dispositivos" },
+  { patron: "/vincular", id: "vincular" },
 ];
 
 test("parsearHash separa ruta y query", () => {
@@ -35,4 +36,10 @@ test("resolver devuelve null si nada coincide", () => {
 
 test("resolver encuentra la vista de dispositivos de fábrica", () => {
   assert.equal(resolver(tabla, "/admin/dispositivos").entrada.id, "dispositivos");
+});
+
+test("resolver encuentra /vincular y parsearHash conserva el serial del QR", () => {
+  const { ruta, query } = parsearHash("#/vincular?serial=fito-7K2M9Q");
+  assert.equal(resolver(tabla, ruta).entrada.id, "vincular");
+  assert.equal(query.get("serial"), "fito-7K2M9Q");
 });
