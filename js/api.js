@@ -152,9 +152,14 @@ export const obtenerHistorial = (id, pagina = 0, tamano = 10) =>
 
 // ---- dispositivos (dueño) ----
 
-// Devuelve { dispositivoId, plantaId, token, expira }. El token solo se muestra en esta respuesta.
-export const vincularDispositivo = (plantaId, dispositivoId) =>
-  pedir("POST", `/plantas/${seg(plantaId)}/dispositivos`, { cuerpo: { dispositivoId } });
+// Reclamo por serial: el dueño escribe el serial impreso en el dispositivo. El chip pide su
+// propio token por reto HMAC, así que el front nunca ve una credencial. Devuelve { serial, plantaId, reclamadoEn }.
+export const vincularDispositivo = (plantaId, serial) =>
+  pedir("POST", `/plantas/${seg(plantaId)}/dispositivos`, { cuerpo: { serial } });
+// [{ serial, reclamadoEn, ultimaCredencialEn? }]
+export const listarDispositivos = (plantaId) => pedir("GET", `/plantas/${seg(plantaId)}/dispositivos`);
+export const desvincularDispositivo = (plantaId, serial) =>
+  pedir("DELETE", `/plantas/${seg(plantaId)}/dispositivos/${seg(serial)}`);
 
 // ---- compartir ----
 
@@ -199,3 +204,9 @@ export const adminAprobarSolicitud = (id, respuesta) =>
   pedir("POST", `/admin/solicitudes-especie/${seg(id)}/aprobar`, { cuerpo: respuesta ? { respuesta } : {} });
 export const adminRechazarSolicitud = (id, respuesta) =>
   pedir("POST", `/admin/solicitudes-especie/${seg(id)}/rechazar`, { cuerpo: respuesta ? { respuesta } : {} });
+
+// Fábrica de dispositivos. El secreto solo viene en la respuesta del POST: { serial, secreto, creadoEn }.
+export const registrarDispositivoDeFabrica = (serial) =>
+  pedir("POST", "/admin/dispositivos", { cuerpo: serial ? { serial } : {} });
+// [{ serial, estado: SIN_RECLAMAR | RECLAMADO, plantaId?, reclamadoEn?, ultimaCredencialEn?, creadoEn }]
+export const listarDispositivosDeFabrica = () => pedir("GET", "/admin/dispositivos");
