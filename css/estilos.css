@@ -1930,3 +1930,21 @@ select {
     padding-bottom: max(var(--e3), env(safe-area-inset-bottom));
   }
 }
+
+/* ---------- cifras tabulares (F23) ----------
+   Los dígitos miden lo mismo, así los contadores («hace 12 s»), los números de las tablas y los rangos no
+   bailan al cambiar. Ya lo tenían .num, .mosaico-numero, .hist-valores y los valores de la tarjeta. */
+
+.indicador-conexion,
+.estado-dispositivo,
+.tarjeta-planta-cuando,
+.hist-cuando,
+.pista-ley,
+.rango-optimo,
+.fila-rango,
+.tabla-parametros,
+#info-pagina,
+.tendencia-etiqueta,
+.toast {
+  font-variant-numeric: tabular-nums;
+}
