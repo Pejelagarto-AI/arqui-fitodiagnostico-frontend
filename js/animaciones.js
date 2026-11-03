@@ -4,7 +4,10 @@
 //    final en el DOM, así que la pantalla se ve completa y sin movimiento;
 //  - el valor real (el que leen los lectores de pantalla y las pruebas) está en el DOM desde el
 //    primer instante: solo se anima una capa visual aparte;
-//  - ninguna animación queda en bucle salvo el balanceo de las hojas, que se detiene al salir.
+//  - ninguna animación queda en bucle salvo el balanceo de las hojas, que se detiene al salir;
+//  - las que el usuario puede provocar de nuevo a mitad de camino (cambiar de estado, nueva lectura) son
+//    interrumpibles: se matan y la nueva parte del valor actual. Ninguna bloquea la entrada (no hay
+//    pointer-events:none ni esperas a que termine una animación para seguir).
 
 function gsapDisponible() {
   return typeof globalThis.gsap !== "undefined" && typeof globalThis.matchMedia === "function";
@@ -89,9 +92,15 @@ const interpolaciones = new WeakMap();
  */
 export function interpolar(clave, desde, hasta, alActualizar, { duracion = 1.2 } = {}) {
   if (!puedeAnimar()) return false;
+  // Interrumpible (F23): si ya había una animación a medias, la nueva arranca de DONDE VA ESA (su valor vivo),
+  // no de donde iba a terminar; así un cambio de estado a mitad de camino no pega un salto.
   const previa = interpolaciones.get(clave);
-  if (previa) previa.kill();
-  const proxy = { ...desde };
+  let origen = desde;
+  if (previa) {
+    origen = { ...previa.proxy };
+    previa.tween.kill();
+  }
+  const proxy = { ...origen };
   const tween = globalThis.gsap.to(proxy, {
     ...hasta,
     duration: duracion,
@@ -99,7 +108,7 @@ export function interpolar(clave, desde, hasta, alActualizar, { duracion = 1.2 }
     onUpdate: () => alActualizar({ ...proxy }),
     onComplete: () => interpolaciones.delete(clave),
   });
-  interpolaciones.set(clave, tween);
+  interpolaciones.set(clave, { tween, proxy });
   return true;
 }
 
