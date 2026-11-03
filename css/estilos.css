@@ -1970,3 +1970,32 @@ li,
 .banner-ok {
   text-wrap: pretty;
 }
+
+/* ---------- esquinas continuas (F23) ----------
+   corner-shape: squircle suaviza el radio de las superficies redondeadas (solo Chromium lo dibuja; el resto
+   ignora la regla y deja el border-radius normal). Las píldoras y los círculos se quedan como están:
+   en un radio de 999px o 50% el squircle cambiaría su forma, no la mejoraría. */
+
+@supports (corner-shape: squircle) {
+  .tarjeta,
+  .tarjeta-planta,
+  .planta-enlace,
+  .mosaico,
+  .burbuja,
+  .burbuja-icono,
+  .bloque-vigente .que-hacer,
+  .recom li,
+  .sin-diagnostico,
+  .matera,
+  .rangos,
+  .banner-error,
+  .banner-ok,
+  .tarjeta-planta-valor,
+  .toast,
+  .dialogo,
+  input,
+  select,
+  textarea {
+    corner-shape: squircle;
+  }
+}
