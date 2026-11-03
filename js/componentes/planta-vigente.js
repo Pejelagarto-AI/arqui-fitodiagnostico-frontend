@@ -2,6 +2,7 @@
 // (D45: el backend responde 200 con hayDiagnostico:false, no 404).
 import { obtenerDiagnosticoVigente } from "../api.js";
 import { h, vaciar, crearAviso, formatearFechaRelativa } from "../ui.js";
+import { entrada, llenarBarra, contar } from "../animaciones.js";
 import { crearVistaDeDiagnostico } from "./diagnostico.js";
 
 const ORIGENES = { MANUAL: "medición manual", DISPOSITIVO: "dispositivo" };
@@ -37,11 +38,18 @@ export function crearPanelVigente(plantaId, ctx, { alCambiarEstado = () => {} } 
     }
     const registro = respuesta.diagnostico;
     vista = crearVistaDeDiagnostico(registro.diagnostico, { serie, resumen: true });
-    const contenido = h("div", { class: resaltar ? "actualizado" : "" },
+    const contenido = h("div", {},
       h("p", { class: "texto-suave", id: "meta-vigente" }, `Registrado ${formatearFechaRelativa(registro.registradoEn)} · ${ORIGENES[registro.origen] || registro.origen}`),
       vista.nodo,
     );
     cuerpo.append(contenido);
+    // Las burbujas entran escalonadas; la barra se llena y el número cuenta (el valor real ya está en el DOM).
+    vista.burbujas.forEach((b, i) => {
+      llenarBarra(b.relleno, { retraso: 0.12 * i });
+      contar(b.valorReal.parentElement, b.parametro.valor, { retraso: 0.12 * i });
+    });
+    entrada(vista.burbujas.map((b) => b.nodo), { y: 14, escalon: 0.08 });
+    entrada(vista.nodo.querySelectorAll(".recom li"), { y: 8, duracion: 0.35, escalon: 0.08, retraso: 0.4 });
   }
 
   // `silencioso`: lo usa el sondeo, que decide qué mostrar cuando falla; aquí solo relanza el error.

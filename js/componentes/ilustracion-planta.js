@@ -2,6 +2,7 @@
 // el agua de la matera sube con la humedad, el sol brilla según la luz y las hojas caen cuando el
 // estado empeora. Se construye con createElementNS; no entra ningún dato como marcado.
 import { svg } from "../ui.js";
+import { interpolar } from "../animaciones.js";
 
 // Cuánto se inclinan las hojas por estado (grados): saludable erguida, crítica caída.
 const CAIDA = { SALUDABLE: 0, EN_RIESGO: 10, CRITICO: 22, SIN_DIAGNOSTICO: 14 };
@@ -56,16 +57,29 @@ export function crearIlustracionPlanta({ mini = false } = {}) {
 
   const refs = { agua, hojas, grupoHojas, sol };
 
-  /** Aplica el estado final directamente (lo que se ve con reduced-motion o sin GSAP). */
-  function aplicar(visual) {
-    nodo.dataset.estado = visual.clave;
-    agua.setAttribute("y", visual.aguaY.toFixed(1));
+  /** Pinta unos valores numéricos (los del cuadro actual de una animación, o los finales). */
+  function pintarNumeros({ caida, aguaY, solOpacidad, solEscala }) {
+    agua.setAttribute("y", aguaY.toFixed(1));
     hojas.forEach((hoja, i) => {
-      const angulo = i % 2 ? visual.caida : -visual.caida;
-      hoja.setAttribute("transform", `rotate(${angulo} ${hoja.dataset.ox} ${hoja.dataset.oy})`);
+      const angulo = i % 2 ? caida : -caida;
+      hoja.setAttribute("transform", `rotate(${angulo.toFixed(2)} ${hoja.dataset.ox} ${hoja.dataset.oy})`);
     });
-    sol.setAttribute("opacity", visual.solOpacidad.toFixed(2));
-    sol.setAttribute("transform", `translate(216 44) scale(${visual.solEscala.toFixed(2)}) translate(-216 -44)`);
+    sol.setAttribute("opacity", solOpacidad.toFixed(2));
+    sol.setAttribute("transform", `translate(216 44) scale(${solEscala.toFixed(2)}) translate(-216 -44)`);
+  }
+
+  let actual = null;
+
+  /**
+   * Lleva la ilustración al estado `visual`. Con `animar` y movimiento permitido el agua sube y las hojas
+   * giran con GSAP; si no, el estado final se aplica directo. El color por estado cambia siempre al instante.
+   */
+  function aplicar(visual, { animar = false } = {}) {
+    nodo.dataset.estado = visual.clave;
+    const numeros = { caida: visual.caida, aguaY: visual.aguaY, solOpacidad: visual.solOpacidad, solEscala: visual.solEscala };
+    const animado = animar && actual && interpolar(nodo, actual, numeros, pintarNumeros);
+    if (!animado) pintarNumeros(numeros);
+    actual = numeros;
   }
 
   aplicar(estadoVisual({ estado: null }));

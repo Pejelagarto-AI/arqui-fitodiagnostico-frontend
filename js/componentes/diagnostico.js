@@ -11,6 +11,7 @@ import {
 } from "../ui.js";
 import { escalaDe, porcentaje, numeroLegible, serieDeParametro, recomendacionesPorParametro } from "./escala.js";
 import { crearMinigrafica } from "./minigrafica.js";
+import { dibujarLinea } from "../animaciones.js";
 
 const FLECHAS = { BAJO: "↓", ALTO: "↑", OPTIMO: "" };
 
@@ -123,6 +124,7 @@ export function crearVistaDeDiagnostico(diagnostico, { serie = null, resumen = f
       burbuja.linea = linea;
       if (nodo) {
         burbuja.ranura.append(h("span", { class: "tendencia-etiqueta" }, "últimas lecturas"), nodo);
+        dibujarLinea(linea, { retraso: 0.3 });
       }
     }
   }

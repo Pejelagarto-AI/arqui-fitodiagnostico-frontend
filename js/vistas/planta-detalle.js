@@ -12,6 +12,7 @@ import { crearPanelMedicion } from "../componentes/planta-medicion.js";
 import { crearPanelCompartir } from "../componentes/planta-compartir.js";
 import { crearPanelEdicion } from "../componentes/planta-edicion.js";
 import { crearPanelDispositivos } from "../componentes/planta-dispositivos.js";
+import { entrada, cambiarEstado, balancear } from "../animaciones.js";
 import { crearSondeo, textoActualizado } from "../sondeo.js";
 
 export const titulo = "Planta";
@@ -63,11 +64,18 @@ export async function montar(contenedor, ctx) {
   // La ilustración reacciona al diagnóstico vigente: agua = humedad, sol = luz, hojas = estado.
   const ilustracion = crearIlustracionPlanta();
   cabecera.querySelector("#ilustracion-planta").append(ilustracion.nodo);
-  const ponerEstado = (diagnostico) => {
+  let primeraVez = true;
+  const ponerEstado = (diagnostico, { cambio = false } = {}) => {
     const estado = diagnostico ? diagnostico.estado : null;
-    estadoNodo.dataset.estado = estado || "SIN_DIAGNOSTICO";
-    estadoNodo.textContent = estado ? ETIQUETAS_ESTADO_GLOBAL[estado] || estado : "Sin diagnóstico";
-    ilustracion.aplicar(ilustracion.estadoVisual({ estado, ...nivelesDeDiagnostico(diagnostico) }));
+    const aplicar = () => {
+      estadoNodo.dataset.estado = estado || "SIN_DIAGNOSTICO";
+      estadoNodo.textContent = estado ? ETIQUETAS_ESTADO_GLOBAL[estado] || estado : "Sin diagnóstico";
+    };
+    // Al abrir la pantalla el agua sube y las hojas se acomodan; al llegar una lectura distinta rebota la píldora.
+    if (cambio) cambiarEstado(estadoNodo, aplicar);
+    else aplicar();
+    ilustracion.aplicar(ilustracion.estadoVisual({ estado, ...nivelesDeDiagnostico(diagnostico) }), { animar: primeraVez || cambio });
+    primeraVez = false;
   };
 
   const vigente = crearPanelVigente(id, ctx, { alCambiarEstado: ponerEstado });
@@ -81,7 +89,8 @@ export async function montar(contenedor, ctx) {
     h("div", { class: "detalle-rejilla" }, principal, lateral),
   );
 
-  const limpiezas = [];
+  const limpiezas = [balancear(ilustracion.refs.grupoHojas)];
+  entrada([cabecera, vigente.elemento, historial.elemento], { escalon: 0.1 });
 
   // ---- paneles según el rol ----
   let compartir = null;

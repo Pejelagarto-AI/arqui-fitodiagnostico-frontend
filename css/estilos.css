@@ -879,19 +879,6 @@ a.boton-secundario {
   color: var(--saludable);
 }
 
-.actualizado {
-  animation: resaltar 1.6s ease-out;
-}
-
-@keyframes resaltar {
-  from {
-    background: var(--riesgo-fondo);
-  }
-  to {
-    background: transparent;
-  }
-}
-
 /* Indicador global de avisos en vivo: un punto, sin competir con el del sondeo. */
 .indicador-conexion--global {
   padding: 0 0.35rem;
