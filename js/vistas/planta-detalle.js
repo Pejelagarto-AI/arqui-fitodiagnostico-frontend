@@ -14,6 +14,8 @@ import { crearPanelEdicion } from "../componentes/planta-edicion.js";
 import { crearPanelDispositivos } from "../componentes/planta-dispositivos.js";
 import { entrada, cambiarEstado, balancear } from "../animaciones.js";
 import { crearSondeo, textoActualizado } from "../sondeo.js";
+import { leerCache, guardarCache, invalidarCache, alVolver } from "../cache.js";
+import { recargarVista } from "../router.js";
 
 export const titulo = "Planta";
 
@@ -25,18 +27,26 @@ const ESTADO_DEL_INDICADOR = { activo: "conectado", error: "reconectando", deten
 
 export async function montar(contenedor, ctx) {
   const id = ctx.params.id;
-  let planta;
-  try {
-    planta = await obtenerPlanta(id);
-  } catch (error) {
-    // 404: no existe o no es tuya ni compartida contigo (D35); el mensaje del cuerpo lo explica.
-    if (!ctx.vigente()) return;
-    const aviso = crearAviso();
-    aviso.mostrar(error);
-    contenedor.append(
-      h("section", { class: "tarjeta" }, h("h2", { "data-titulo": "" }, "No se pudo abrir la planta"), aviso.elemento, h("p", {}, h("a", { href: "#/plantas" }, "Volver a mis plantas"))),
-    );
-    return;
+  // Stale-while-revalidate (F23): la ficha de la planta (apodo, especie, rol) sale de la caché si ya se vio y
+  // se revalida por detrás. El diagnóstico vigente y el historial NO se cachean: los trae el sondeo, siempre frescos.
+  const clave = `planta:${id}`;
+  let planta = leerCache(clave);
+  let revalidacion = null;
+  if (planta) {
+    revalidacion = obtenerPlanta(id).then((fresca) => ({ fresca }), (error) => ({ error }));
+  } else {
+    try {
+      planta = guardarCache(clave, await obtenerPlanta(id));
+    } catch (error) {
+      // 404: no existe o no es tuya ni compartida contigo (D35); el mensaje del cuerpo lo explica.
+      if (!ctx.vigente()) return;
+      const aviso = crearAviso();
+      aviso.mostrar(error);
+      contenedor.append(
+        h("section", { class: "tarjeta" }, h("h2", { "data-titulo": "" }, "No se pudo abrir la planta"), aviso.elemento, h("p", {}, h("a", { href: "#/plantas" }, "Volver a mis plantas"))),
+      );
+      return;
+    }
   }
   if (!ctx.vigente()) return;
 
@@ -60,6 +70,29 @@ export async function montar(contenedor, ctx) {
       avisoCabecera.elemento,
     ),
   );
+
+  // Llegó lo fresco de la ficha: si cambió el nombre o la especie se actualizan; si cambió el rol o ya no hay
+  // acceso, los paneles que se armaron con lo viejo ya no valen y se vuelve a montar la pantalla.
+  if (revalidacion) {
+    revalidacion.then(({ fresca, error }) => {
+      if (!ctx.vigente()) return;
+      if (error) {
+        if (error.status === 403 || error.status === 404) {
+          invalidarCache();
+          recargarVista();
+        }
+        return; // un fallo de red no tapa lo que ya se ve: el indicador del sondeo lo dirá
+      }
+      guardarCache(clave, fresca);
+      if (fresca.esDueno !== planta.esDueno) {
+        recargarVista();
+        return;
+      }
+      planta = fresca;
+      nombreNodo.textContent = fresca.apodo;
+      especieNodo.textContent = fresca.especie;
+    });
+  }
 
   // La ilustración reacciona al diagnóstico vigente: agua = humedad, sol = luz, hojas = estado.
   const ilustracion = crearIlustracionPlanta();
@@ -134,6 +167,7 @@ export async function montar(contenedor, ctx) {
       if (!(await confirmar(`Dejarás de ver «${planta.apodo}». Para volver a verla necesitarás otra invitación.`, { aceptar: "Dejar de verla", peligro: true }))) return;
       try {
         await conCarga(botonRenunciar, "Saliendo…", () => renunciarAPlanta(id));
+        invalidarCache();
         toast("Ya no ves esa planta.");
         ctx.irA("/plantas");
       } catch (error) {
@@ -183,6 +217,9 @@ export async function montar(contenedor, ctx) {
   };
   window.addEventListener("fito:aviso", alAviso);
   limpiezas.push(() => window.removeEventListener("fito:aviso", alAviso));
+
+  // Al recuperar el foco o volver la red: consulta ya, sin esperar al próximo ciclo de 5 s.
+  limpiezas.push(alVolver(() => sondeo.ahoraMismo()));
 
   return () => limpiezas.forEach((limpiar) => limpiar());
 }

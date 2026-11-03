@@ -1,6 +1,7 @@
 // RF-D1: registrar una planta. Solo se ofrecen las especies activas
 // (GET /especies); si el backend igual rechaza una descontinuada, responde 409.
 import { obtenerEspecies, registrarPlanta } from "../api.js";
+import { invalidarCache } from "../cache.js";
 import { h, campo, campoSelect, crearAviso, conCarga, limpiarErroresDeFormulario, marcarCampoConError } from "../ui.js";
 
 export const titulo = "Registrar planta";
@@ -26,6 +27,7 @@ export async function montar(contenedor, ctx) {
     aviso.limpiar();
     try {
       const planta = await conCarga(boton, "Registrando…", () => registrarPlanta(apodo.input.value.trim(), especie.select.value));
+      invalidarCache();
       ctx.irA(`/plantas/${planta.id}`);
     } catch (error) {
       if (!marcarCampoConError(formulario, error)) aviso.mostrar(error);

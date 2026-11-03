@@ -6,6 +6,7 @@ import * as sesion from "./sesion.js";
 import * as envivo from "./envivo.js";
 import { h, vaciar, toast } from "./ui.js";
 import { iniciarRouter, irA, rutaActual } from "./router.js";
+import { invalidarCache } from "./cache.js";
 
 // acceso: "publica" | "anonima" (solo sin sesión) | "sesion" | "admin"
 const RUTAS = [
@@ -91,6 +92,7 @@ function cerrarSesion() {
 let bajaDeAvisos = null;
 
 function alLlegarUnAviso(aviso) {
+  invalidarCache(); // un aviso (acceso perdido, solicitud resuelta) dice que lo guardado ya no es fiable
   toast(aviso.mensaje, aviso.tipo === "ACCESO_PERDIDO" ? "error" : "info");
   // Las pantallas que muestran esa información se refrescan solas.
   window.dispatchEvent(new CustomEvent("fito:aviso", { detail: aviso }));
@@ -106,6 +108,7 @@ function sincronizarVivo() {
 }
 
 sesion.alCambiar(() => {
+  invalidarCache(); // otra sesión no debe ver lo de la anterior
   sincronizarVivo();
   pintarMenu();
 });

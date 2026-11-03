@@ -9,6 +9,7 @@
 import { listarPlantas, listarPlantasCompartidas, obtenerDiagnosticoVigente } from "../api.js";
 import { textoHace } from "../tiempo.js";
 import { crearSondeo } from "../sondeo.js";
+import { leerCache, guardarCache, sonIguales, alVolver } from "../cache.js";
 import { entrada } from "../animaciones.js";
 import { h, vaciar, crearAviso, formatearFecha, chipDeEstadoGlobal, esqueletoSiTarda, ETIQUETAS_PARAMETRO } from "../ui.js";
 import { crearIlustracionPlanta } from "../componentes/ilustracion-planta.js";
@@ -18,6 +19,7 @@ import { nivelesDeDiagnostico, recomendacionesPorParametro } from "../componente
 export const titulo = "Mis plantas";
 
 const INTERVALO_TABLERO_MS = 30000;
+const CLAVE_CACHE = "plantas:tablero";
 const PARAMETROS = [["humedad", "Humedad"], ["luz", "Luz"], ["temperatura", "Temp."]];
 // Las críticas primero en «Qué hacer hoy».
 const ORDEN_DE_ESTADO = { CRITICO: 0, EN_RIESGO: 1, SALUDABLE: 2 };
@@ -154,6 +156,7 @@ export async function montar(contenedor, ctx) {
   let tarjetas = [];
   let lecturas = new Map(); // id de planta -> lectura
   let mias = [];
+  let pintada = null; // lo último que se pintó de las listas
 
   function repintarResumen() {
     const cuenta = { SALUDABLE: 0, EN_RIESGO: 0, CRITICO: 0, SIN: 0 };
@@ -197,41 +200,72 @@ export async function montar(contenedor, ctx) {
   /** Pide el vigente de cada planta en paralelo; cada tarjeta se completa cuando llega la suya. */
   async function leerTodas() {
     await Promise.all(mias.map(async (planta, i) => {
+      const tarjeta = tarjetas[i]; // la de ESTA pasada: si la lista se repinta mientras tanto, no se mezclan
       const lectura = await leerVigente(planta);
       if (!ctx.vigente()) return;
       // Un fallo transitorio no pisa una lectura buena que ya se tenía.
       if (lectura.tipo === "fallo" && lecturas.get(planta.id)?.tipo === "datos") return;
       lecturas.set(planta.id, lectura);
-      tarjetas[i].completar(lectura);
+      tarjeta.completar(lectura);
       repintarResumen();
       repintarQueHacer();
     }));
   }
 
-  async function cargar() {
+  /** Pinta las dos listas (propias y compartidas) y pide el vigente de cada propia. */
+  function pintarListas(propiasLista, ajenas) {
+    aviso.limpiar();
+    pintada = { propias: propiasLista, ajenas };
+    mias = propiasLista;
+    // Se conservan las lecturas de las plantas que siguen: la revalidación no las borra (siempre se vuelven a pedir).
+    lecturas = new Map([...lecturas].filter(([id]) => mias.some((p) => p.id === id)));
+    vaciar(propias);
+    vaciar(compartidas);
+    tarjetas = mias.map(crearTarjeta);
+    for (const [i, planta] of mias.entries()) if (lecturas.has(planta.id)) tarjetas[i].completar(lecturas.get(planta.id));
+    if (mias.length === 0) propias.append(h("p", { class: "texto-vacio" }, "Todavía no registraste ninguna planta."));
+    else propias.append(h("ul", { class: "rejilla-plantas" }, tarjetas.map((t) => t.nodo)));
+    compartidas.append(
+      ajenas.length === 0
+        ? h("p", { class: "texto-vacio" }, "Nadie te ha compartido plantas todavía.")
+        : h("ul", { class: "rejilla" }, ajenas.map(tarjetaDeCompartida)),
+    );
+    repintarResumen();
+    repintarQueHacer();
+    entrada(tarjetas.map((t) => t.nodo), { y: 14, escalon: 0.06, duracion: 0.4 });
+    leerTodas();
+  }
+
+  /**
+   * Stale-while-revalidate (F23): si ya se vio esta pantalla, las listas salen al instante de la caché y se
+   * revalidan por detrás (solo se repinta si cambiaron). El estado de cada planta (el diagnóstico vigente)
+   * NO se cachea: se pide siempre, y la tarjeta muestra su esqueleto hasta que llega.
+   */
+  async function revalidar() {
     try {
       const [propiasLista, ajenas] = await Promise.all([listarPlantas(), listarPlantasCompartidas()]);
       if (!ctx.vigente()) return;
-      aviso.limpiar();
-      mias = propiasLista;
-      lecturas = new Map();
-      vaciar(propias);
-      vaciar(compartidas);
-      tarjetas = mias.map(crearTarjeta);
-      if (mias.length === 0) propias.append(h("p", { class: "texto-vacio" }, "Todavía no registraste ninguna planta."));
-      else propias.append(h("ul", { class: "rejilla-plantas" }, tarjetas.map((t) => t.nodo)));
-      compartidas.append(
-        ajenas.length === 0
-          ? h("p", { class: "texto-vacio" }, "Nadie te ha compartido plantas todavía.")
-          : h("ul", { class: "rejilla" }, ajenas.map(tarjetaDeCompartida)),
-      );
-      repintarResumen();
-      repintarQueHacer();
-      entrada(tarjetas.map((t) => t.nodo), { y: 14, escalon: 0.06, duracion: 0.4 });
-      leerTodas();
+      const fresca = guardarCache(CLAVE_CACHE, { propias: propiasLista, ajenas });
+      if (pintada && sonIguales(pintada, fresca)) {
+        aviso.limpiar();
+        leerTodas(); // las listas no cambiaron: solo se refrescan los estados
+        return;
+      }
+      pintarListas(propiasLista, ajenas);
     } catch (error) {
-      if (ctx.vigente()) aviso.mostrar(error);
+      // Con algo ya pintado desde la caché, un fallo de red no lo tapa con un aviso: el sondeo lo dirá.
+      if (ctx.vigente() && !pintada) aviso.mostrar(error);
     }
+  }
+
+  async function cargar() {
+    const guardado = leerCache(CLAVE_CACHE);
+    if (guardado) {
+      pintarListas(guardado.propias, guardado.ajenas);
+      revalidar(); // sin esperar: la pantalla ya está lista
+      return;
+    }
+    await revalidar();
   }
   await cargar();
 
@@ -243,10 +277,13 @@ export async function montar(contenedor, ctx) {
 
   // Si pierdo el acceso a una compartida (aviso en vivo), la lista se pone al día sola.
   const alAviso = (evento) => {
-    if (evento.detail.tipo === "ACCESO_PERDIDO") cargar();
+    if (evento.detail.tipo === "ACCESO_PERDIDO") revalidar();
   };
   window.addEventListener("fito:aviso", alAviso);
+  // Al recuperar el foco o volver la red: listas y estados al día sin esperar al próximo ciclo.
+  const quitarRevalidacion = alVolver(revalidar);
   return () => {
+    quitarRevalidacion();
     sondeo.detener();
     clearInterval(reloj);
     window.removeEventListener("fito:aviso", alAviso);

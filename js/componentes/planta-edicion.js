@@ -1,5 +1,6 @@
 // RF-D4 y RF-D5 (dueño): editar el apodo o la especie, y eliminar la planta.
 import { obtenerEspecies, editarPlanta, eliminarPlanta } from "../api.js";
+import { invalidarCache } from "../cache.js";
 import { h, campo, campoSelect, crearAviso, crearNota, conCarga, confirmar, limpiarErroresDeFormulario, marcarCampoConError, toast } from "../ui.js";
 
 export async function crearPanelEdicion(planta, ctx, { alEditar }) {
@@ -39,6 +40,7 @@ export async function crearPanelEdicion(planta, ctx, { alEditar }) {
       const editada = await conCarga(boton, "Guardando…", () => editarPlanta(planta.id, nuevoApodo, especie.select.value));
       if (!ctx.vigente()) return;
       vigente = editada;
+      invalidarCache();
       nota.mostrar("Cambios guardados.");
       alEditar(editada);
     } catch (error) {
@@ -54,6 +56,7 @@ export async function crearPanelEdicion(planta, ctx, { alEditar }) {
     if (!acepta) return;
     try {
       await conCarga(botonBorrar, "Eliminando…", () => eliminarPlanta(planta.id));
+      invalidarCache();
       toast(`Planta «${vigente.apodo}» eliminada.`);
       ctx.irA("/plantas");
     } catch (error) {
