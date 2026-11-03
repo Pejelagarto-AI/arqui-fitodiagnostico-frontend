@@ -2,7 +2,7 @@
 // Aprobar NO da de alta la especie (eso es POST /admin/especies): por eso, tras
 // aprobar se ofrece ir a crearla con el nombre ya puesto.
 import { adminListarSolicitudes, adminAprobarSolicitud, adminRechazarSolicitud } from "../api.js";
-import { h, vaciar, campo, crearAviso, formatearFecha, toast } from "../ui.js";
+import { h, enlaceDeVolver, vaciar, campo, crearAviso, formatearFecha, toast } from "../ui.js";
 
 export const titulo = "Solicitudes de especie";
 
@@ -60,7 +60,7 @@ export async function montar(contenedor, ctx) {
   }
 
   contenedor.append(
-    h("p", {}, h("a", { href: "#/admin" }, "← Administración")),
+    enlaceDeVolver("/admin", "Administración"),
     h("section", { class: "tarjeta tarjeta--ancha" },
       h("h2", { "data-titulo": "" }, "Solicitudes pendientes"),
       h("p", { class: "texto-suave" }, "Aprobar avisa al solicitante, pero no crea la especie: te llevamos a crearla con el nombre ya escrito."),

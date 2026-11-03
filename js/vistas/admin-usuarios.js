@@ -1,6 +1,6 @@
 // RF-B1: listar y buscar usuarios (por nombre o correo, `?q=`).
 import { adminListarUsuarios } from "../api.js";
-import { h, vaciar, campo, crearAviso } from "../ui.js";
+import { h, enlaceDeVolver, vaciar, campo, crearAviso } from "../ui.js";
 
 export const titulo = "Usuarios";
 
@@ -46,7 +46,7 @@ export async function montar(contenedor, ctx) {
   });
 
   contenedor.append(
-    h("p", {}, h("a", { href: "#/admin" }, "← Administración")),
+    enlaceDeVolver("/admin", "Administración"),
     h("section", { class: "tarjeta tarjeta--ancha" }, h("h2", { "data-titulo": "" }, "Usuarios"), formulario, aviso.elemento, resultados),
   );
   await buscar();

@@ -3,14 +3,20 @@
 // El invitado ve todo en solo lectura: los paneles de modificación ni se crean
 // (el backend igual los rechazaría con 403, D36).
 import { obtenerPlanta, obtenerEspecies, renunciarAPlanta } from "../api.js";
-import { h, crearAviso, conCarga, confirmar, toast } from "../ui.js";
+import { h, enlaceDeVolver, crearAviso, conCarga, confirmar, toast, ETIQUETAS_ESTADO_GLOBAL } from "../ui.js";
+import { crearIlustracionPlanta } from "../componentes/ilustracion-planta.js";
+import { nivelesDeDiagnostico } from "../componentes/escala.js";
 import { crearPanelVigente } from "../componentes/planta-vigente.js";
 import { crearPanelHistorial } from "../componentes/planta-historial.js";
 import { crearPanelMedicion } from "../componentes/planta-medicion.js";
 import { crearPanelCompartir } from "../componentes/planta-compartir.js";
 import { crearPanelEdicion } from "../componentes/planta-edicion.js";
 import { crearPanelDispositivos } from "../componentes/planta-dispositivos.js";
+import { entrada, cambiarEstado, balancear } from "../animaciones.js";
 import { crearSondeo, textoActualizado } from "../sondeo.js";
+import { leerCache, guardarCache, invalidarCache, alVolver } from "../cache.js";
+import { recargarVista } from "../router.js";
+import { recordarPlantaActiva, nombrarParaTransicion } from "../transiciones.js";
 
 export const titulo = "Planta";
 
@@ -22,44 +28,106 @@ const ESTADO_DEL_INDICADOR = { activo: "conectado", error: "reconectando", deten
 
 export async function montar(contenedor, ctx) {
   const id = ctx.params.id;
-  let planta;
-  try {
-    planta = await obtenerPlanta(id);
-  } catch (error) {
-    // 404: no existe o no es tuya ni compartida contigo (D35); el mensaje del cuerpo lo explica.
-    if (!ctx.vigente()) return;
-    const aviso = crearAviso();
-    aviso.mostrar(error);
-    contenedor.append(
-      h("section", { class: "tarjeta" }, h("h2", { "data-titulo": "" }, "No se pudo abrir la planta"), aviso.elemento, h("p", {}, h("a", { href: "#/plantas" }, "Volver a mis plantas"))),
-    );
-    return;
+  // Stale-while-revalidate (F26): la ficha de la planta (apodo, especie, rol) sale de la caché si ya se vio y
+  // se revalida por detrás. El diagnóstico vigente y el historial NO se cachean: los trae el sondeo, siempre frescos.
+  const clave = `planta:${id}`;
+  let planta = leerCache(clave);
+  let revalidacion = null;
+  if (planta) {
+    revalidacion = obtenerPlanta(id).then((fresca) => ({ fresca }), (error) => ({ error }));
+  } else {
+    try {
+      planta = guardarCache(clave, await obtenerPlanta(id));
+    } catch (error) {
+      // 404: no existe o no es tuya ni compartida contigo (D35); el mensaje del cuerpo lo explica.
+      if (!ctx.vigente()) return;
+      const aviso = crearAviso();
+      aviso.mostrar(error);
+      contenedor.append(
+        h("section", { class: "tarjeta" }, h("h2", { "data-titulo": "" }, "No se pudo abrir la planta"), aviso.elemento, h("p", {}, h("a", { href: "#/plantas" }, "Volver a mis plantas"))),
+      );
+      return;
+    }
   }
   if (!ctx.vigente()) return;
 
-  // ---- encabezado ----
+  // ---- encabezado: nombre, estado global (lo primero que se ve) e indicador del sondeo ----
   const nombreNodo = h("span", { id: "planta-nombre" }, planta.apodo);
-  const especieNodo = h("span", { id: "planta-especie-texto", class: "texto-suave" }, planta.especie);
+  const especieNodo = h("span", { id: "planta-especie-texto" }, planta.especie);
+  const estadoNodo = h("p", { class: "estado-planta", id: "estado-planta", "data-estado": "SIN_DIAGNOSTICO" }, "Sin diagnóstico");
   const estadoVivo = h("span", { class: "indicador-conexion", id: "indicador-planta", "data-estado": "conectando" });
   const textoVivo = h("span", { id: "texto-actualizado" }, "actualizando…");
   estadoVivo.append(h("span", { class: "punto-conexion", "aria-hidden": "true" }), textoVivo);
   const avisoCabecera = crearAviso();
 
-  const cabecera = h("section", { class: "tarjeta" },
-    h("div", { class: "encabezado-seccion" },
+  const cabecera = h("section", { class: "tarjeta cabecera-planta" },
+    h("div", { class: "cabecera-planta-ilustracion", id: "ilustracion-planta" }),
+    h("div", { class: "cabecera-planta-texto" },
       h("h2", { "data-titulo": "" }, nombreNodo),
+      h("p", { class: "cabecera-planta-especie" }, especieNodo),
       planta.esDueno ? null : h("span", { class: "chip chip--riesgo", id: "etiqueta-compartida" }, "Compartida contigo · solo lectura"),
+      estadoNodo,
+      estadoVivo,
+      avisoCabecera.elemento,
     ),
-    h("p", {}, especieNodo),
-    estadoVivo,
-    avisoCabecera.elemento,
   );
 
-  const vigente = crearPanelVigente(id, ctx);
-  const historial = crearPanelHistorial(id, ctx);
-  contenedor.append(h("p", {}, h("a", { href: "#/plantas" }, "← Mis plantas")), cabecera, vigente.elemento);
+  // Llegó lo fresco de la ficha: si cambió el nombre o la especie se actualizan; si cambió el rol o ya no hay
+  // acceso, los paneles que se armaron con lo viejo ya no valen y se vuelve a montar la pantalla.
+  if (revalidacion) {
+    revalidacion.then(({ fresca, error }) => {
+      if (!ctx.vigente()) return;
+      if (error) {
+        if (error.status === 403 || error.status === 404) {
+          invalidarCache();
+          recargarVista();
+        }
+        return; // un fallo de red no tapa lo que ya se ve: el indicador del sondeo lo dirá
+      }
+      guardarCache(clave, fresca);
+      if (fresca.esDueno !== planta.esDueno) {
+        recargarVista();
+        return;
+      }
+      planta = fresca;
+      nombreNodo.textContent = fresca.apodo;
+      especieNodo.textContent = fresca.especie;
+    });
+  }
 
-  const limpiezas = [];
+  // La ilustración reacciona al diagnóstico vigente: agua = humedad, sol = luz, hojas = estado.
+  const ilustracion = crearIlustracionPlanta();
+  cabecera.querySelector("#ilustracion-planta").append(ilustracion.nodo);
+  // Elemento compartido con la tarjeta del tablero (F28): al volver, esa tarjeta lleva el mismo nombre de transición.
+  recordarPlantaActiva(id);
+  nombrarParaTransicion(cabecera.querySelector("#ilustracion-planta"));
+  let primeraVez = true;
+  const ponerEstado = (diagnostico, { cambio = false } = {}) => {
+    const estado = diagnostico ? diagnostico.estado : null;
+    const aplicar = () => {
+      estadoNodo.dataset.estado = estado || "SIN_DIAGNOSTICO";
+      estadoNodo.textContent = estado ? ETIQUETAS_ESTADO_GLOBAL[estado] || estado : "Sin diagnóstico";
+    };
+    // Al abrir la pantalla el agua sube y las hojas se acomodan; al llegar una lectura distinta rebota la píldora.
+    if (cambio) cambiarEstado(estadoNodo, aplicar);
+    else aplicar();
+    ilustracion.aplicar(ilustracion.estadoVisual({ estado, ...nivelesDeDiagnostico(diagnostico) }), { animar: primeraVez || cambio });
+    primeraVez = false;
+  };
+
+  const vigente = crearPanelVigente(id, ctx, { alCambiarEstado: ponerEstado });
+  // El sondeo ya trae la página del historial: de ahí salen las minigráficas (solo la primera, la más reciente).
+  const historial = crearPanelHistorial(id, ctx, { alRecibir: (respuesta) => { if (respuesta.pagina === 0) vigente.ponerSerie(respuesta.contenido); } });
+  const principal = h("div", { class: "detalle-principal" }, vigente.elemento, historial.elemento);
+  const lateral = h("div", { class: "detalle-lateral" });
+  contenedor.append(
+    enlaceDeVolver("/plantas", "Mis plantas"),
+    cabecera,
+    h("div", { class: "detalle-rejilla" }, principal, lateral),
+  );
+
+  const limpiezas = [balancear(ilustracion.refs.grupoHojas)];
+  entrada([cabecera, vigente.elemento, historial.elemento], { escalon: 0.1 });
 
   // ---- paneles según el rol ----
   let compartir = null;
@@ -75,18 +143,17 @@ export async function montar(contenedor, ctx) {
     }
     if (!ctx.vigente()) return;
 
-    contenedor.append(crearPanelMedicion(planta, ctx, {
+    dispositivos = crearPanelDispositivos(planta, ctx);
+    lateral.append(dispositivos.elemento);
+    lateral.append(crearPanelMedicion(planta, ctx, {
       rangos,
       alRegistrar: () => {
         // El POST ya guardó: se pide el vigente y el historial sin esperar al próximo sondeo.
         Promise.all([vigente.cargar({ resaltar: true }), historial.irAPrimera()]);
       },
     }));
-    contenedor.append(historial.elemento);
     compartir = crearPanelCompartir(planta, ctx);
-    contenedor.append(compartir.elemento);
-    dispositivos = crearPanelDispositivos(planta, ctx);
-    contenedor.append(dispositivos.elemento);
+    lateral.append(compartir.elemento);
     const edicion = await crearPanelEdicion(planta, ctx, {
       alEditar: (editada) => {
         planta = editada;
@@ -95,9 +162,8 @@ export async function montar(contenedor, ctx) {
       },
     });
     if (!ctx.vigente()) return;
-    contenedor.append(edicion);
+    lateral.append(edicion);
   } else {
-    contenedor.append(historial.elemento);
     const avisoRenuncia = crearAviso();
     const botonRenunciar = h("button", { type: "button", class: "boton boton-secundario", id: "btn-renunciar" }, "Dejar de ver esta planta");
     botonRenunciar.addEventListener("click", async () => {
@@ -105,13 +171,14 @@ export async function montar(contenedor, ctx) {
       if (!(await confirmar(`Dejarás de ver «${planta.apodo}». Para volver a verla necesitarás otra invitación.`, { aceptar: "Dejar de verla", peligro: true }))) return;
       try {
         await conCarga(botonRenunciar, "Saliendo…", () => renunciarAPlanta(id));
+        invalidarCache();
         toast("Ya no ves esa planta.");
         ctx.irA("/plantas");
       } catch (error) {
         avisoRenuncia.mostrar(error);
       }
     });
-    contenedor.append(h("section", { class: "tarjeta" }, h("h2", {}, "Acceso"), h("p", { class: "texto-suave" }, "Ves esta planta porque su dueño te invitó. No puedes modificarla."), avisoRenuncia.elemento, botonRenunciar));
+    lateral.append(h("section", { class: "tarjeta" }, h("h2", {}, "Acceso"), h("p", { class: "texto-suave" }, "Ves esta planta porque su dueño te invitó. No puedes modificarla."), avisoRenuncia.elemento, botonRenunciar));
   }
 
   // ---- datos y sondeo (R6) ----
@@ -154,6 +221,9 @@ export async function montar(contenedor, ctx) {
   };
   window.addEventListener("fito:aviso", alAviso);
   limpiezas.push(() => window.removeEventListener("fito:aviso", alAviso));
+
+  // Al recuperar el foco o volver la red: consulta ya, sin esperar al próximo ciclo de 5 s.
+  limpiezas.push(alVolver(() => sondeo.ahoraMismo()));
 
   return () => limpiezas.forEach((limpiar) => limpiar());
 }

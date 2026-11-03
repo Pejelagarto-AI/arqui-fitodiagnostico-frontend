@@ -2,7 +2,8 @@
 // UNA vez, como el enlace de invitación en F14) y ver cuáles están sin reclamar o reclamados.
 import { registrarDispositivoDeFabrica, listarDispositivosDeFabrica } from "../api.js";
 import { estadoDeDispositivo } from "../tiempo.js";
-import { h, vaciar, campo, crearAviso, crearNota, conCarga, copiarAlPortapapeles, formatearFecha, limpiarErroresDeFormulario, marcarCampoConError } from "../ui.js";
+import { crearQr, urlDeVinculacion } from "../componentes/qr.js";
+import { h, enlaceDeVolver, vaciar, campo, crearAviso, crearNota, conCarga, copiarAlPortapapeles, formatearFecha, limpiarErroresDeFormulario, marcarCampoConError } from "../ui.js";
 
 export const titulo = "Dispositivos de fábrica";
 
@@ -40,6 +41,7 @@ export async function montar(contenedor, ctx) {
       if (!ctx.vigente()) return;
       formulario.reset();
       pintarSticker(creado);
+      pintarQr(creado);
       await cargar();
     } catch (error) {
       if (!marcarCampoConError(formulario, error)) avisoForm.mostrar(error);
@@ -69,8 +71,25 @@ export async function montar(contenedor, ctx) {
       filaCopiable({ etiqueta: "Serial", valor: creado.serial, idValor: "valor-serial", idBoton: "btn-copiar-serial" }),
       filaCopiable({ etiqueta: "Secreto", valor: creado.secreto, idValor: "valor-secreto", idBoton: "btn-copiar-secreto" }),
       filaCopiable({ etiqueta: "Comando del simulador", valor: comandoDelSimulador(creado.serial, creado.secreto), idValor: "valor-comando", idBoton: "btn-copiar-comando" }),
+      h("div", { class: "sticker-qr", id: "sticker-qr" }, h("p", { class: "texto-suave" }, "Sticker del dispositivo: quien lo escanee llega a vincularlo a su planta.")),
       h("p", { class: "texto-suave" }, "El secreto se muestra una sola vez: cópialo ahora (el servidor no lo vuelve a entregar). El serial va impreso en el dispositivo; el secreto, grabado adentro."),
     );
+  }
+
+  /** Dibuja el QR del sticker (URL absoluta de #/vincular), el serial en texto y el botón de imprimir. */
+  async function pintarQr(creado) {
+    const zona = resultado.querySelector("#sticker-qr");
+    try {
+      const url = urlDeVinculacion(creado.serial, window.location.origin, window.location.pathname);
+      const dibujo = await crearQr(url, { etiqueta: `QR para vincular el dispositivo ${creado.serial}` });
+      if (!ctx.vigente() || !zona.isConnected) return;
+      zona.append(
+        h("div", { class: "sticker-hoja" }, dibujo, h("p", { class: "sticker-serial", id: "sticker-serial" }, creado.serial)),
+        h("button", { type: "button", class: "boton boton-secundario", id: "btn-imprimir-sticker", onclick: () => window.print() }, "Imprimir sticker"),
+      );
+    } catch (error) {
+      zona.append(h("p", { class: "banner-error", role: "alert" }, error.message));
+    }
   }
 
   async function cargar() {
@@ -105,7 +124,7 @@ export async function montar(contenedor, ctx) {
   }
 
   contenedor.append(
-    h("p", {}, h("a", { href: "#/admin" }, "← Administración")),
+    enlaceDeVolver("/admin", "Administración"),
     h("section", { class: "tarjeta tarjeta--ancha" }, h("h2", { "data-titulo": "" }, "Dispositivos de fábrica"), avisoLista.elemento, lista),
     h("section", { class: "tarjeta tarjeta--ancha" }, h("h2", {}, "Registrar dispositivo"), formulario, resultado),
   );

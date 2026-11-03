@@ -2,6 +2,8 @@
 // anti-XSS: el contenido que viene de la API se inserta SIEMPRE como texto
 // (textContent / nodos de texto), nunca con innerHTML.
 
+import { retrasar, TIEMPO_DESHACER_MS } from "./deshacer.js";
+
 /** Crea un elemento: h("button", { class: "boton", onclick: fn }, "Texto", otroNodo). */
 export function h(etiqueta, atributos = {}, ...hijos) {
   const nodo = document.createElement(etiqueta);
@@ -16,6 +18,22 @@ export function h(etiqueta, atributos = {}, ...hijos) {
     } else {
       nodo.setAttribute(clave, valor);
     }
+  }
+  agregar(nodo, hijos);
+  return nodo;
+}
+
+const NS_SVG = "http://www.w3.org/2000/svg";
+
+/**
+ * Crea un elemento SVG con createElementNS: svg("path", { d: "M0 0" }, hijos...).
+ * Como h(), nunca interpreta texto como marcado: los datos llegan solo como atributos o nodos de texto.
+ */
+export function svg(etiqueta, atributos = {}, ...hijos) {
+  const nodo = document.createElementNS(NS_SVG, etiqueta);
+  for (const [clave, valor] of Object.entries(atributos || {})) {
+    if (valor === undefined || valor === null || valor === false) continue;
+    nodo.setAttribute(clave, valor === true ? "" : String(valor));
   }
   agregar(nodo, hijos);
   return nodo;
@@ -41,6 +59,25 @@ export function formatearFecha(iso) {
   return fecha.toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
 }
 
+const HORA = { hour: "numeric", minute: "2-digit" };
+
+/**
+ * Fecha para leer de un vistazo: «hoy 4:33 p. m.», «ayer 4:33 p. m.», «lun 4:33 p. m.» (últimos 6 días)
+ * y la fecha completa si pasó más de una semana. Pura salvo por `ahora`, que se puede inyectar.
+ */
+export function formatearFechaRelativa(iso, ahora = Date.now()) {
+  if (!iso) return "";
+  const fecha = new Date(iso);
+  if (Number.isNaN(fecha.getTime())) return String(iso);
+  const inicioDeDia = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const dias = Math.round((inicioDeDia(new Date(ahora)) - inicioDeDia(fecha)) / 86400000);
+  const hora = fecha.toLocaleTimeString("es-CO", HORA);
+  if (dias === 0) return `hoy ${hora}`;
+  if (dias === 1) return `ayer ${hora}`;
+  if (dias > 1 && dias < 7) return `${fecha.toLocaleDateString("es-CO", { weekday: "short" }).replace(".", "")} ${hora}`;
+  return formatearFecha(iso);
+}
+
 export const ETIQUETAS_ESTADO_GLOBAL = {
   SALUDABLE: "Saludable",
   EN_RIESGO: "En riesgo",
@@ -64,6 +101,27 @@ export function chipDeEstadoGlobal(estado) {
 export function chipDeSolicitud(estado) {
   const clase = { PENDIENTE: "riesgo", APROBADA: "saludable", RECHAZADA: "critico" }[estado] || "riesgo";
   return h("span", { class: `chip chip--${clase}` }, ETIQUETAS_ESTADO_SOLICITUD[estado] || estado);
+}
+
+// ---- esqueletos de carga (F23) ----
+
+/** Una carga rápida no debe parpadear: el esqueleto solo se ve si la espera pasa de este umbral. */
+export const RETRASO_ESQUELETO_MS = 300;
+
+/**
+ * Pone `nodo` en modo esqueleto: de inmediato `data-esqueleto="espera"` (el CSS lo deja invisible pero
+ * ocupando su lugar, así nada salta) y, si pasaron `ms` sin que se cancele, `"visible"` (bloques grises
+ * con la forma del componente real). Devuelve `cancelar()`, que lo quita; llamarlo dos veces no hace nada.
+ */
+export function esqueletoSiTarda(nodo, { ms = RETRASO_ESQUELETO_MS } = {}) {
+  nodo.setAttribute("data-esqueleto", "espera");
+  let temporizador = setTimeout(() => nodo.setAttribute("data-esqueleto", "visible"), ms);
+  return () => {
+    if (temporizador === null) return;
+    clearTimeout(temporizador);
+    temporizador = null;
+    nodo.removeAttribute("data-esqueleto");
+  };
 }
 
 // ---- errores visibles ----
@@ -217,6 +275,34 @@ export function toast(mensaje, tipo = "info") {
   setTimeout(() => nodo.remove(), 6000);
 }
 
+/**
+ * Toast con «Deshacer» (F25) para lo reversible: la acción ya se hizo en pantalla, la petición sale
+ * pasado el plazo y el botón la cancela. role="status" (lo leen los lectores sin quitar el foco). Es un
+ * aviso de algo que el usuario acaba de hacer: no tiene que ver con el estado de la planta (F16, sin toasts).
+ * Devuelve { deshacer } para quien necesite cancelar por código. `alDeshacer` revierte la pantalla;
+ * `ejecutar` es la petición; `alFallar(error)` revierte y explica si la petición falla.
+ */
+export function toastConDeshacer(mensaje, { ejecutar, alDeshacer, alFallar = () => {}, alTerminar = () => {}, ms = TIEMPO_DESHACER_MS }) {
+  const nodo = h("div", { class: "toast toast--deshacer", role: "status" });
+  const accion = retrasar(ejecutar, {
+    ms,
+    alTerminar: (error) => {
+      nodo.remove();
+      if (error) alFallar(error);
+      alTerminar(error);
+    },
+  });
+  const boton = h("button", { type: "button", class: "toast-boton", "data-accion": "deshacer" }, "Deshacer");
+  boton.addEventListener("click", () => {
+    if (!accion.deshacer()) return;
+    nodo.remove();
+    alDeshacer();
+  });
+  nodo.append(h("span", {}, mensaje), boton);
+  zonaDeToasts().append(nodo);
+  return accion;
+}
+
 // ---- confirmación ----
 
 /** Diálogo de confirmación accesible (<dialog>). Resuelve true si aceptan. */
@@ -273,6 +359,11 @@ export async function copiarAlPortapapeles(texto) {
     area.remove();
     return copiado;
   }
+}
+
+/** Enlace «← Texto» para volver a la pantalla anterior; mismo aspecto en todo el front. */
+export function enlaceDeVolver(ruta, texto) {
+  return h("a", { href: `#${ruta}`, class: "enlace-volver" }, h("span", { "aria-hidden": "true" }, "←"), texto);
 }
 
 /** Enlace de una ruta del front (con hash). */

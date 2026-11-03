@@ -4,6 +4,7 @@
 //    solo paso (POST /invitaciones/aceptar-con-registro, público).
 // Errores del enlace: 404 no existe, 410 ya se usó / caducó / se revocó.
 import { aceptarInvitacion, aceptarInvitacionConRegistro, iniciarSesion } from "../api.js";
+import { invalidarCache } from "../cache.js";
 import * as sesion from "../sesion.js";
 import { h, campo, crearAviso, conCarga, limpiarErroresDeFormulario, marcarCampoConError, toast } from "../ui.js";
 import { rutaActual } from "../router.js";
@@ -33,6 +34,7 @@ export function montar(contenedor, ctx) {
       aviso.limpiar();
       try {
         const planta = await conCarga(boton, "Aceptando…", () => aceptarInvitacion(token));
+        invalidarCache();
         toast(`Ahora ves la planta «${planta.apodo}».`);
         ctx.irA(`/plantas/${planta.id}`);
       } catch (error) {
@@ -64,6 +66,7 @@ export function montar(contenedor, ctx) {
         sesion.iniciar(await iniciarSesion(datos.correo, datos.contrasena));
         return respuesta.planta;
       });
+      invalidarCache();
       toast(`Cuenta creada. Ahora ves la planta «${planta.apodo}».`);
       ctx.irA(`/plantas/${planta.id}`);
     } catch (error) {

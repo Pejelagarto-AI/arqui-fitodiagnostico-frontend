@@ -1,7 +1,7 @@
 // RF-C1..C5: catálogo completo de especies (activas y desactivadas): crear,
 // editar rangos, desactivar y reactivar. No hay DELETE (D27).
 import { adminListarEspecies, adminCrearEspecie, adminEditarEspecie, adminDesactivarEspecie, adminReactivarEspecie } from "../api.js";
-import { h, vaciar, campo, crearAviso, crearNota, conCarga, limpiarErroresDeFormulario, marcarCampoConError, toast } from "../ui.js";
+import { h, enlaceDeVolver, vaciar, campo, crearAviso, crearNota, conCarga, limpiarErroresDeFormulario, marcarCampoConError, toast } from "../ui.js";
 import { camposDeRangos } from "../componentes/rangos.js";
 
 export const titulo = "Especies";
@@ -110,7 +110,7 @@ export async function montar(contenedor, ctx) {
   });
 
   contenedor.append(
-    h("p", {}, h("a", { href: "#/admin" }, "← Administración")),
+    enlaceDeVolver("/admin", "Administración"),
     h("section", { class: "tarjeta tarjeta--ancha" }, h("h2", { "data-titulo": "" }, "Especies"), avisoLista.elemento, lista),
     h("section", { class: "tarjeta tarjeta--ancha" }, tituloForm, formulario),
   );

@@ -2,7 +2,7 @@
 // 409 ULTIMO_ADMINISTRADOR: no se puede quitar/eliminar al único administrador (RN4).
 import { adminObtenerUsuario, adminEditarUsuario, adminEliminarUsuario, adminOtorgarAdministrador, adminRevocarAdministrador, obtenerCuenta } from "../api.js";
 import * as sesion from "../sesion.js";
-import { h, vaciar, campo, crearAviso, crearNota, conCarga, confirmar, formatearFecha, limpiarErroresDeFormulario, marcarCampoConError, toast } from "../ui.js";
+import { h, enlaceDeVolver, vaciar, campo, crearAviso, crearNota, conCarga, confirmar, formatearFecha, limpiarErroresDeFormulario, marcarCampoConError, toast } from "../ui.js";
 
 export const titulo = "Detalle de usuario";
 
@@ -112,7 +112,7 @@ export async function montar(contenedor, ctx) {
   pintarDatos();
   etiquetaDelRol();
   contenedor.append(
-    h("p", {}, h("a", { href: "#/admin/usuarios" }, "← Usuarios")),
+    enlaceDeVolver("/admin/usuarios", "Usuarios"),
     h("section", { class: "tarjeta" }, encabezado, datos, avisoAcciones.elemento, h("div", { class: "acciones" }, botonRol)),
     h("section", { class: "tarjeta" }, h("h2", {}, "Plantas"), plantas),
     h("section", { class: "tarjeta" }, h("h2", {}, "Editar datos"), formulario),

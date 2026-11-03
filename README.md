@@ -41,9 +41,17 @@ http://localhost:5500/?api=http://localhost:9090/api/v1#/plantas
 ### Pruebas
 
 ```bash
-node --test tests/*.test.mjs                                # unitarias (codec STOMP, rutas, sondeo y tiempos de dispositivos), sin dependencias
+node --test tests/*.test.mjs                                # unitarias (codec STOMP, rutas, sondeo, tiempos, escalas del diagnóstico y fechas relativas), sin dependencias
 cd tests/humo && npm install && node humo.mjs               # humo de punta a punta: backend + front levantados, Chrome headless
 ```
+
+## Sin red (demo offline)
+
+La página no pide nada fuera de `'self'`: GSAP está en `js/vendor/` y Nunito en `css/fuentes/`, y la CSP de `index.html` no admite CDN ni Google Fonts. Con el backend y `python3 -m http.server 5500` locales, la demo corre sin internet. Con `prefers-reduced-motion` no hay animaciones y se ve el estado final.
+
+## Diseño
+
+Sistema visual «orgánico ilustrado» (F20, F21, F22): tema claro y oscuro automáticos, la planta en su matera cambia con la humedad, la luz y el estado, cada parámetro tiene su barra con la banda óptima y una minigráfica de las últimas lecturas, y «Mis plantas» es un tablero con el estado de cada una. La auditoría que lo originó vive en el repositorio de la entrega (`ux/AUDITORIA-UX.md`).
 
 ## Estado de la planta: sondeo (polling)
 
@@ -53,7 +61,7 @@ El detalle de una planta se actualiza solo: cada **5 s** (`INTERVALO_SONDEO_MS` 
 
 El humano no copia ninguna credencial. Cada dispositivo sale de fábrica con un **serial** impreso (`fito-7K2M9Q`) y un secreto guardado adentro. En el detalle de una planta propia, la sección **Dispositivos** pide el serial y llama a `POST /plantas/{id}/dispositivos` con `{serial}`. El dispositivo, por su cuenta, pide un reto, responde con un HMAC de su secreto y recibe su token. La lista de la sección dice «esperando que se conecte» o «conectado hace Xs» (se refresca con el sondeo de 5 s) y permite desvincular. Los diagnósticos que envíe aparecen en el historial con origen «Dispositivo». Detalle en F18 de [`docs/IMPLEMENTACION-CORTE2.md`](docs/IMPLEMENTACION-CORTE2.md).
 
-El administrador registra los dispositivos en `#/admin/dispositivos` (F19): al registrar, el serial y el secreto se muestran **una sola vez** con botón de copiar y el comando listo del simulador. Requiere el backend de la fase 3.
+El administrador registra los dispositivos en `#/admin/dispositivos` (F19): al registrar, el serial y el secreto se muestran **una sola vez** con botón de copiar y el comando listo del simulador, más el **QR del sticker** (`qrcode-generator` vendorizado, SVG propio) con botón de imprimir: quien lo escanee llega a `#/vincular?serial=...` (F34). Requiere el backend de la fase 3.
 
 ## Rutas (hash)
 
@@ -65,6 +73,7 @@ El administrador registra los dispositivos en `#/admin/dispositivos` (F19): al r
 | `#/invitacion?token=` | pública | aceptar invitación, con sesión o registrándose (enlace del correo) |
 | `#/perfil` | sesión | datos, contraseña, eliminar cuenta |
 | `#/plantas`, `#/plantas/nueva`, `#/plantas/{id}` | sesión | mis plantas y compartidas; registrar; detalle (estado por sondeo, historial, dispositivos por serial, compartir, editar) |
+| `#/vincular?serial=` | sesión | vincular una matera a una planta propia; es el destino del QR del sticker (F34) |
 | `#/solicitudes` | sesión | pedir una especie y ver mis solicitudes |
 | `#/admin`, `#/admin/usuarios`, `#/admin/usuarios/{id}`, `#/admin/especies`, `#/admin/solicitudes`, `#/admin/dispositivos` | admin | administración; dispositivos de fábrica (serial y secreto) |
 
@@ -86,7 +95,12 @@ El administrador registra los dispositivos en `#/admin/dispositivos` (F19): al r
 | `js/vistas/*.js` | una pantalla por módulo: `export function montar(contenedor, ctx)` |
 | `js/componentes/*.js` | piezas compartidas: diagnóstico, campos de medición, rangos, paneles del detalle de planta |
 | `redireccion.js`, `invitacion/`, `restablecer/` | reenvío de los enlaces de camino del backend a las rutas hash |
-| `css/estilos.css` | variables CSS, colores por estado, responsive y `prefers-reduced-motion` |
+| `css/estilos.css` | sistema visual: tokens en `:root` (claro y oscuro por `prefers-color-scheme`), escala tipográfica, tarjetas, burbujas, historial como lista, responsive y `prefers-reduced-motion` (F20) |
+| `css/fuentes.css`, `css/fuentes/` | Nunito vendorizada (`@font-face`, woff2 latin) |
+| `js/vendor/gsap.min.js` | GSAP 3.12.5 vendorizado; script clásico antes de `app.js` |
+| `js/animaciones.js` | envoltura de GSAP: entrada, barras, números, líneas, ilustración; no hace nada con reduced-motion |
+| `js/componentes/ilustracion-planta.js`, `minigrafica.js`, `escala.js` | planta en matera SVG reactiva, minigráfica de tendencia y cálculos puros (F21) |
+| `js/cache.js`, `js/deshacer.js`, `js/transiciones.js` | caché en memoria para stale-while-revalidate, petición retrasada tras «Deshacer», View Transitions (F25, F26, F28); puros salvo las transiciones, con pruebas |
 | `tests/` | pruebas unitarias y script de humo |
 
 Decisiones y límites: [`docs/IMPLEMENTACION-CORTE2.md`](docs/IMPLEMENTACION-CORTE2.md).

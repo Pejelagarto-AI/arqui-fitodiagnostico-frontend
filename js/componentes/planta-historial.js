@@ -1,24 +1,30 @@
 // RF-F5: historial paginado de diagnósticos de una planta (el más reciente primero).
+import { conTransicion } from "../transiciones.js";
 import { obtenerHistorial } from "../api.js";
-import { h, vaciar, crearAviso, formatearFecha, chipDeEstadoGlobal } from "../ui.js";
+import { h, vaciar, crearAviso, formatearFechaRelativa, chipDeEstadoGlobal, esqueletoSiTarda } from "../ui.js";
 
 const TAMANO = 10;
 const ORIGENES = { MANUAL: "Manual", DISPOSITIVO: "Dispositivo" };
 
-function celdaDeParametro(parametros, nombre) {
+function valorDeParametro(parametros, nombre) {
   const p = parametros.find((x) => x.nombre === nombre);
-  if (!p) return h("td", {}, "—");
-  return h("td", { class: `valor-${p.estado.toLowerCase()}` }, `${p.valor} ${p.unidad}`);
+  if (!p) return h("span", { class: "hist-valor" }, "—");
+  return h("span", { class: `hist-valor valor-${p.estado.toLowerCase()}`, title: nombre }, `${p.valor} ${p.unidad}`);
 }
 
-export function crearPanelHistorial(plantaId, ctx) {
+export function crearPanelHistorial(plantaId, ctx, { alRecibir = () => {} } = {}) {
   let pagina = 0;
   let firmaPintada = null; // evita repintar la tabla cuando el sondeo trae lo mismo
   const aviso = crearAviso();
-  const cuerpo = h("div", { id: "historial" }, h("p", { class: "texto-vacio" }, "Cargando historial…"));
-  const elemento = h("section", { class: "tarjeta", "aria-labelledby": "titulo-historial" }, h("h2", { id: "titulo-historial" }, "Historial"), aviso.elemento, cuerpo);
+  // Esqueleto del historial: tres renglones con la altura de los reales (sin <table>: el humo cuenta las filas reales).
+  const esqueleto = h("div", { class: "historial-esqueleto", "aria-hidden": "true" }, [1, 2, 3].map(() => h("div", { class: "hist-fila-esqueleto" }, h("span", {}, "Cargando"), h("span", {}, "Cargando el historial"))));
+  const cancelarEsqueleto = esqueletoSiTarda(esqueleto);
+  const cuerpo = h("div", { id: "historial", "aria-busy": "true" }, h("p", { class: "solo-lector" }, "Cargando historial…"), esqueleto);
+  const elemento = h("section", { class: "tarjeta", "aria-labelledby": "titulo-historial" }, h("h2", { id: "titulo-historial" }, "Historial"), h("p", { class: "texto-suave" }, "Cada lectura, la más reciente primero."), aviso.elemento, cuerpo);
 
   function pintar(respuesta) {
+    cancelarEsqueleto();
+    cuerpo.removeAttribute("aria-busy");
     const firma = `${respuesta.pagina}|${respuesta.total}|${respuesta.contenido.map((r) => r.id).join(",")}`;
     if (firma === firmaPintada) return;
     firmaPintada = firma;
@@ -27,22 +33,23 @@ export function crearPanelHistorial(plantaId, ctx) {
       cuerpo.append(h("p", { class: "texto-vacio" }, "Todavía no hay mediciones en el historial."));
       return;
     }
+    // Una lista con forma de tabla: sigue siendo <table id="tabla-historial"> (una fila por registro) pero
+    // cada fila se dibuja como renglón: estado, cuándo y origen, y los tres valores (hallazgo 7).
     const filas = respuesta.contenido.map((registro) =>
-      h("tr", {},
-        h("td", {}, formatearFecha(registro.registradoEn)),
-        h("td", {}, ORIGENES[registro.origen] || registro.origen),
-        h("td", {}, chipDeEstadoGlobal(registro.diagnostico.estado)),
-        celdaDeParametro(registro.diagnostico.parametros, "humedad"),
-        celdaDeParametro(registro.diagnostico.parametros, "luz"),
-        celdaDeParametro(registro.diagnostico.parametros, "temperatura"),
+      h("tr", { role: "row", "data-estado": registro.diagnostico.estado },
+        h("td", { role: "cell", class: "hist-estado" }, h("span", { class: "punto-estado", "aria-hidden": "true" }), chipDeEstadoGlobal(registro.diagnostico.estado)),
+        h("td", { role: "cell", class: "hist-cuando" }, `${formatearFechaRelativa(registro.registradoEn)} · ${ORIGENES[registro.origen] || registro.origen}`),
+        h("td", { role: "cell", class: "hist-valores" },
+          ["humedad", "luz", "temperatura"].map((n) => valorDeParametro(registro.diagnostico.parametros, n)),
+        ),
       ),
     );
     const anterior = h("button", { type: "button", class: "boton boton-secundario boton-chico", id: "btn-pagina-anterior", disabled: respuesta.pagina === 0, onclick: () => cargar(respuesta.pagina - 1) }, "Anterior");
     const siguiente = h("button", { type: "button", class: "boton boton-secundario boton-chico", id: "btn-pagina-siguiente", disabled: respuesta.pagina + 1 >= respuesta.totalDePaginas, onclick: () => cargar(respuesta.pagina + 1) }, "Siguiente");
     cuerpo.append(
-      h("div", { class: "tabla-scroll" },
-        h("table", { class: "tabla-parametros", id: "tabla-historial" },
-          h("thead", {}, h("tr", {}, ["Fecha", "Origen", "Estado", "Humedad", "Luz", "Temperatura"].map((t) => h("th", { scope: "col" }, t)))),
+      h("div", { class: "historial-lista" },
+        h("table", { class: "tabla-historial", id: "tabla-historial", role: "table", "aria-label": "Historial de lecturas" },
+          h("thead", { class: "solo-lector" }, h("tr", { role: "row" }, ["Estado", "Cuándo y origen", "Humedad, luz y temperatura"].map((t) => h("th", { scope: "col", role: "columnheader" }, t)))),
           h("tbody", {}, filas),
         ),
       ),
@@ -62,12 +69,21 @@ export function crearPanelHistorial(plantaId, ctx) {
         return;
       }
       pagina = respuesta.pagina;
+      alRecibir(respuesta);
       aviso.limpiar();
-      pintar(respuesta);
+      // Al cambiar de página a mano la lista se funde; el sondeo (silencioso) repinta sin efecto.
+      if (!silencioso && firmaPintada !== null) await conTransicion(() => pintar(respuesta));
+      else pintar(respuesta);
     } catch (error) {
       // El sondeo (silencioso) decide qué mostrar; aquí solo relanza el error.
       if (silencioso) throw error;
-      if (ctx.vigente()) aviso.mostrar(error);
+      if (ctx.vigente()) {
+        if (firmaPintada === null) {
+          cancelarEsqueleto();
+          vaciar(cuerpo);
+        }
+        aviso.mostrar(error);
+      }
     }
   }
 

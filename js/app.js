@@ -6,6 +6,7 @@ import * as sesion from "./sesion.js";
 import * as envivo from "./envivo.js";
 import { h, vaciar, toast } from "./ui.js";
 import { iniciarRouter, irA, rutaActual } from "./router.js";
+import { invalidarCache } from "./cache.js";
 
 // acceso: "publica" | "anonima" (solo sin sesión) | "sesion" | "admin"
 const RUTAS = [
@@ -20,6 +21,7 @@ const RUTAS = [
   { patron: "/plantas", acceso: "sesion", vista: () => import("./vistas/plantas.js") },
   { patron: "/plantas/nueva", acceso: "sesion", vista: () => import("./vistas/planta-nueva.js") },
   { patron: "/plantas/:id", acceso: "sesion", vista: () => import("./vistas/planta-detalle.js") },
+  { patron: "/vincular", acceso: "sesion", vista: () => import("./vistas/vincular.js") },
   { patron: "/solicitudes", acceso: "sesion", vista: () => import("./vistas/solicitudes.js") },
   { patron: "/admin", acceso: "admin", vista: () => import("./vistas/admin-inicio.js") },
   { patron: "/admin/usuarios", acceso: "admin", vista: () => import("./vistas/admin-usuarios.js") },
@@ -29,12 +31,14 @@ const RUTAS = [
   { patron: "/admin/dispositivos", acceso: "admin", vista: () => import("./vistas/admin-dispositivos.js") },
 ];
 
+// Avisos en vivo (WebSocket). No es el estado de la planta (eso lo dice el sondeo en su cabecera):
+// aquí es solo un punto discreto con el texto como tooltip y para lectores de pantalla.
 const ETIQUETAS_CONEXION = {
-  inactivo: "En vivo: sin conexión",
-  conectando: "En vivo: conectando…",
-  conectado: "En vivo: conectado",
-  reconectando: "En vivo: reconectando…",
-  rechazado: "En vivo: rechazada",
+  inactivo: "Avisos en vivo: sin conexión",
+  conectando: "Avisos en vivo: conectando…",
+  conectado: "Avisos en vivo: conectado",
+  reconectando: "Avisos en vivo: reconectando…",
+  rechazado: "Avisos en vivo: conexión rechazada",
 };
 
 const navegacion = document.getElementById("navegacion");
@@ -48,11 +52,12 @@ function enlaceDeMenu(ruta, texto) {
 
 function indicadorDeConexion() {
   const punto = h("span", { class: "punto-conexion", "aria-hidden": "true" });
-  const texto = h("span", {});
-  const nodo = h("span", { class: "indicador-conexion", id: "indicador-conexion", "data-estado": "inactivo" }, punto, texto);
+  const texto = h("span", { class: "solo-lector" });
+  const nodo = h("span", { class: "indicador-conexion indicador-conexion--global", id: "indicador-conexion", "data-estado": "inactivo" }, punto, texto);
   envivo.alCambiarEstado((estado) => {
     nodo.dataset.estado = estado;
     texto.textContent = ETIQUETAS_CONEXION[estado] || estado;
+    nodo.title = texto.textContent;
   });
   return nodo;
 }
@@ -88,6 +93,7 @@ function cerrarSesion() {
 let bajaDeAvisos = null;
 
 function alLlegarUnAviso(aviso) {
+  invalidarCache(); // un aviso (acceso perdido, solicitud resuelta) dice que lo guardado ya no es fiable
   toast(aviso.mensaje, aviso.tipo === "ACCESO_PERDIDO" ? "error" : "info");
   // Las pantallas que muestran esa información se refrescan solas.
   window.dispatchEvent(new CustomEvent("fito:aviso", { detail: aviso }));
@@ -103,6 +109,7 @@ function sincronizarVivo() {
 }
 
 sesion.alCambiar(() => {
+  invalidarCache(); // otra sesión no debe ver lo de la anterior
   sincronizarVivo();
   pintarMenu();
 });
