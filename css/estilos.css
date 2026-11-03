@@ -919,3 +919,159 @@ a.boton-secundario {
 body[data-patron="/plantas/:id"] .indicador-conexion--global {
   display: none;
 }
+
+/* ---------- detalle de planta: estructura ---------- */
+
+.cabecera-planta {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--e3);
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.cabecera-planta::before {
+  content: "";
+  position: absolute;
+  right: -60px;
+  bottom: -80px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: var(--saludable-fondo);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.cabecera-planta > * {
+  position: relative;
+}
+
+.cabecera-planta-ilustracion:empty {
+  display: none;
+}
+
+.tarjeta.cabecera-planta h2[data-titulo] {
+  margin: 0;
+  font-size: var(--t-planta);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.cabecera-planta-especie {
+  margin: 0.1rem 0 0.8rem;
+  color: var(--tinta-suave);
+  font-weight: 600;
+}
+
+.estado-planta {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0.5rem 0.5rem 0;
+  padding: 0.5rem 1.1rem;
+  border-radius: 999px;
+  font-size: 1.3rem;
+  font-weight: 800;
+  background: var(--borde);
+  color: var(--tinta);
+}
+
+.estado-planta[data-estado="SALUDABLE"] {
+  background: var(--saludable-fondo);
+  color: var(--saludable);
+}
+
+.estado-planta[data-estado="EN_RIESGO"] {
+  background: var(--riesgo-fondo);
+  color: var(--riesgo);
+}
+
+.estado-planta[data-estado="CRITICO"] {
+  background: var(--critico-fondo);
+  color: var(--critico);
+}
+
+.cabecera-planta .indicador-conexion {
+  display: flex;
+}
+
+.cabecera-planta .banner-error {
+  margin: var(--e1) 0 0;
+}
+
+.detalle-rejilla {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--e2);
+  align-items: start;
+}
+
+.detalle-principal,
+.detalle-lateral {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  min-width: 0;
+}
+
+.bloque-vigente {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+}
+
+.titulo-bloque {
+  margin: 0;
+  font-size: var(--t-titulo-tarjeta);
+  font-weight: 800;
+}
+
+.matera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: var(--e2);
+  margin-bottom: var(--e1);
+  background: var(--crema);
+  border-radius: var(--radio-medio);
+}
+
+.matera-icono {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  color: var(--tierra);
+}
+
+.matera-datos {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 10rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.matera-datos .estado-dispositivo {
+  color: var(--tinta-suave);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.matera[data-conectada="si"] .estado-dispositivo {
+  color: var(--saludable);
+}
+
+@media (min-width: 760px) {
+  .cabecera-planta:has(.cabecera-planta-ilustracion:not(:empty)) {
+    grid-template-columns: 260px 1fr;
+  }
+}
+
+@media (min-width: 960px) {
+  .detalle-rejilla {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+}

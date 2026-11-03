@@ -6,13 +6,13 @@ import { nodoDeDiagnostico } from "./diagnostico.js";
 
 const ORIGENES = { MANUAL: "medición manual", DISPOSITIVO: "dispositivo" };
 
-export function crearPanelVigente(plantaId, ctx) {
+export function crearPanelVigente(plantaId, ctx, { alCambiarEstado = () => {} } = {}) {
   // Identidad de lo pintado: el sondeo vuelve a pedir lo mismo cada pocos segundos
   // y no hay por qué repintar (ni parpadear) si no cambió nada.
   let pintado = null;
   const aviso = crearAviso();
   const cuerpo = h("div", { id: "diagnostico-vigente", "aria-live": "polite" }, h("p", { class: "texto-vacio" }, "Cargando diagnóstico…"));
-  const elemento = h("section", { class: "tarjeta", "aria-labelledby": "titulo-vigente" }, h("h2", { id: "titulo-vigente" }, "Diagnóstico vigente"), aviso.elemento, cuerpo);
+  const elemento = h("section", { class: "bloque-vigente", "aria-labelledby": "titulo-vigente" }, h("h2", { id: "titulo-vigente", class: "titulo-bloque" }, "Cómo está hoy"), aviso.elemento, cuerpo);
 
   function pintar(respuesta, resaltar) {
     const identidad = respuesta.hayDiagnostico ? respuesta.diagnostico.id : "sin-diagnostico";
@@ -22,6 +22,7 @@ export function crearPanelVigente(plantaId, ctx) {
     pintado = identidad;
     resaltar = resaltar && hayCambio;
     vaciar(cuerpo);
+    alCambiarEstado(respuesta.hayDiagnostico ? respuesta.diagnostico.diagnostico.estado : null);
     if (!respuesta.hayDiagnostico) {
       cuerpo.append(
         h("div", { class: "sin-diagnostico", id: "sin-diagnostico" },

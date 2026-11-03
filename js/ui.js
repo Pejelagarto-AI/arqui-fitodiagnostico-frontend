@@ -21,6 +21,22 @@ export function h(etiqueta, atributos = {}, ...hijos) {
   return nodo;
 }
 
+const NS_SVG = "http://www.w3.org/2000/svg";
+
+/**
+ * Crea un elemento SVG con createElementNS: svg("path", { d: "M0 0" }, hijos...).
+ * Como h(), nunca interpreta texto como marcado: los datos llegan solo como atributos o nodos de texto.
+ */
+export function svg(etiqueta, atributos = {}, ...hijos) {
+  const nodo = document.createElementNS(NS_SVG, etiqueta);
+  for (const [clave, valor] of Object.entries(atributos || {})) {
+    if (valor === undefined || valor === null || valor === false) continue;
+    nodo.setAttribute(clave, valor === true ? "" : String(valor));
+  }
+  agregar(nodo, hijos);
+  return nodo;
+}
+
 function agregar(nodo, hijos) {
   for (const hijo of hijos.flat(Infinity)) {
     if (hijo === null || hijo === undefined || hijo === false) continue;

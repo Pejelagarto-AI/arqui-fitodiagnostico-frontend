@@ -20,7 +20,7 @@ export async function crearPanelEdicion(planta, ctx, { alEditar }) {
 
   const apodo = campo({ id: "editar-apodo", nombre: "apodo", etiqueta: "Apodo", valor: planta.apodo, maxlength: "60" });
   const especie = campoSelect({ id: "editar-especie", nombre: "especie", etiqueta: "Especie", opciones, valor: planta.especie });
-  const boton = h("button", { type: "submit", class: "boton boton-primario", id: "btn-guardar-planta" }, "Guardar cambios");
+  const boton = h("button", { type: "submit", class: "boton boton-secundario", id: "btn-guardar-planta" }, "Guardar cambios");
   const formulario = h("form", { id: "formulario-editar-planta", novalidate: true }, apodo.contenedor, especie.contenedor, aviso.elemento, nota.elemento, boton);
 
   formulario.addEventListener("submit", async (evento) => {
@@ -53,8 +53,13 @@ export async function crearPanelEdicion(planta, ctx, { alEditar }) {
   });
 
   return h("section", { class: "tarjeta", "aria-labelledby": "titulo-editar" },
-    h("h2", { id: "titulo-editar" }, "Editar planta"),
+    h("h2", { id: "titulo-editar" }, "Ajustes de la planta"),
     formulario,
-    h("div", { class: "zona-peligro" }, h("h3", {}, "Eliminar"), avisoBorrar.elemento, botonBorrar),
+    h("div", { class: "zona-peligro" },
+      h("h3", {}, "Eliminar planta"),
+      h("p", { class: "texto-suave" }, "Borra la planta y todo su historial. No se puede deshacer."),
+      avisoBorrar.elemento,
+      botonBorrar,
+    ),
   );
 }

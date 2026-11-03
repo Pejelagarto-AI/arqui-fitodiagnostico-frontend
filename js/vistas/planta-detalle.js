@@ -3,7 +3,7 @@
 // El invitado ve todo en solo lectura: los paneles de modificación ni se crean
 // (el backend igual los rechazaría con 403, D36).
 import { obtenerPlanta, obtenerEspecies, renunciarAPlanta } from "../api.js";
-import { h, crearAviso, conCarga, confirmar, toast } from "../ui.js";
+import { h, crearAviso, conCarga, confirmar, toast, ETIQUETAS_ESTADO_GLOBAL } from "../ui.js";
 import { crearPanelVigente } from "../componentes/planta-vigente.js";
 import { crearPanelHistorial } from "../componentes/planta-historial.js";
 import { crearPanelMedicion } from "../componentes/planta-medicion.js";
@@ -37,27 +37,41 @@ export async function montar(contenedor, ctx) {
   }
   if (!ctx.vigente()) return;
 
-  // ---- encabezado ----
+  // ---- encabezado: nombre, estado global (lo primero que se ve) e indicador del sondeo ----
   const nombreNodo = h("span", { id: "planta-nombre" }, planta.apodo);
-  const especieNodo = h("span", { id: "planta-especie-texto", class: "texto-suave" }, planta.especie);
+  const especieNodo = h("span", { id: "planta-especie-texto" }, planta.especie);
+  const estadoNodo = h("p", { class: "estado-planta", id: "estado-planta", "data-estado": "SIN_DIAGNOSTICO" }, "Sin diagnóstico");
   const estadoVivo = h("span", { class: "indicador-conexion", id: "indicador-planta", "data-estado": "conectando" });
   const textoVivo = h("span", { id: "texto-actualizado" }, "actualizando…");
   estadoVivo.append(h("span", { class: "punto-conexion", "aria-hidden": "true" }), textoVivo);
   const avisoCabecera = crearAviso();
 
-  const cabecera = h("section", { class: "tarjeta" },
-    h("div", { class: "encabezado-seccion" },
+  const cabecera = h("section", { class: "tarjeta cabecera-planta" },
+    h("div", { class: "cabecera-planta-ilustracion", id: "ilustracion-planta" }),
+    h("div", { class: "cabecera-planta-texto" },
       h("h2", { "data-titulo": "" }, nombreNodo),
+      h("p", { class: "cabecera-planta-especie" }, especieNodo),
       planta.esDueno ? null : h("span", { class: "chip chip--riesgo", id: "etiqueta-compartida" }, "Compartida contigo · solo lectura"),
+      estadoNodo,
+      estadoVivo,
+      avisoCabecera.elemento,
     ),
-    h("p", {}, especieNodo),
-    estadoVivo,
-    avisoCabecera.elemento,
   );
 
-  const vigente = crearPanelVigente(id, ctx);
+  const ponerEstado = (estado) => {
+    estadoNodo.dataset.estado = estado || "SIN_DIAGNOSTICO";
+    estadoNodo.textContent = estado ? ETIQUETAS_ESTADO_GLOBAL[estado] || estado : "Sin diagnóstico";
+  };
+
+  const vigente = crearPanelVigente(id, ctx, { alCambiarEstado: ponerEstado });
   const historial = crearPanelHistorial(id, ctx);
-  contenedor.append(h("p", {}, h("a", { href: "#/plantas" }, "← Mis plantas")), cabecera, vigente.elemento);
+  const principal = h("div", { class: "detalle-principal" }, vigente.elemento, historial.elemento);
+  const lateral = h("div", { class: "detalle-lateral" });
+  contenedor.append(
+    h("a", { href: "#/plantas", class: "enlace-volver" }, h("span", { "aria-hidden": "true" }, "←"), "Mis plantas"),
+    cabecera,
+    h("div", { class: "detalle-rejilla" }, principal, lateral),
+  );
 
   const limpiezas = [];
 
@@ -75,18 +89,17 @@ export async function montar(contenedor, ctx) {
     }
     if (!ctx.vigente()) return;
 
-    contenedor.append(crearPanelMedicion(planta, ctx, {
+    dispositivos = crearPanelDispositivos(planta, ctx);
+    lateral.append(dispositivos.elemento);
+    lateral.append(crearPanelMedicion(planta, ctx, {
       rangos,
       alRegistrar: () => {
         // El POST ya guardó: se pide el vigente y el historial sin esperar al próximo sondeo.
         Promise.all([vigente.cargar({ resaltar: true }), historial.irAPrimera()]);
       },
     }));
-    contenedor.append(historial.elemento);
     compartir = crearPanelCompartir(planta, ctx);
-    contenedor.append(compartir.elemento);
-    dispositivos = crearPanelDispositivos(planta, ctx);
-    contenedor.append(dispositivos.elemento);
+    lateral.append(compartir.elemento);
     const edicion = await crearPanelEdicion(planta, ctx, {
       alEditar: (editada) => {
         planta = editada;
@@ -95,9 +108,8 @@ export async function montar(contenedor, ctx) {
       },
     });
     if (!ctx.vigente()) return;
-    contenedor.append(edicion);
+    lateral.append(edicion);
   } else {
-    contenedor.append(historial.elemento);
     const avisoRenuncia = crearAviso();
     const botonRenunciar = h("button", { type: "button", class: "boton boton-secundario", id: "btn-renunciar" }, "Dejar de ver esta planta");
     botonRenunciar.addEventListener("click", async () => {
@@ -111,7 +123,7 @@ export async function montar(contenedor, ctx) {
         avisoRenuncia.mostrar(error);
       }
     });
-    contenedor.append(h("section", { class: "tarjeta" }, h("h2", {}, "Acceso"), h("p", { class: "texto-suave" }, "Ves esta planta porque su dueño te invitó. No puedes modificarla."), avisoRenuncia.elemento, botonRenunciar));
+    lateral.append(h("section", { class: "tarjeta" }, h("h2", {}, "Acceso"), h("p", { class: "texto-suave" }, "Ves esta planta porque su dueño te invitó. No puedes modificarla."), avisoRenuncia.elemento, botonRenunciar));
   }
 
   // ---- datos y sondeo (R6) ----

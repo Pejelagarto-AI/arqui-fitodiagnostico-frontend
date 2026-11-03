@@ -4,7 +4,15 @@
 // se conectó (ultimaCredencialEn) y se refresca desde el sondeo de planta-detalle (F18).
 import { vincularDispositivo, listarDispositivos, desvincularDispositivo } from "../api.js";
 import { textoHace, estadoDeDispositivo } from "../tiempo.js";
-import { h, vaciar, campo, crearAviso, crearNota, conCarga, confirmar, limpiarErroresDeFormulario, marcarCampoConError, toast } from "../ui.js";
+import { h, svg, vaciar, campo, crearAviso, crearNota, conCarga, confirmar, limpiarErroresDeFormulario, marcarCampoConError, toast } from "../ui.js";
+
+function iconoDeMatera() {
+  return svg("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": "1.8", "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true", class: "matera-icono" },
+    svg("path", { d: "M5 9h14l-1.5 11h-11z" }),
+    svg("path", { d: "M4 9V7a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2" }),
+    svg("path", { d: "M9 13h6M10 16h4" }),
+  );
+}
 
 export function crearPanelDispositivos(planta, ctx) {
   const aviso = crearAviso();
@@ -23,7 +31,7 @@ export function crearPanelDispositivos(planta, ctx) {
     spellcheck: "false",
     ayuda: "El serial viene impreso en el dispositivo. Enciéndelo antes o después: se conecta solo cuando lo vincules.",
   });
-  const boton = h("button", { type: "submit", class: "boton boton-primario", id: "btn-vincular-dispositivo" }, "Vincular");
+  const boton = h("button", { type: "submit", class: "boton boton-secundario", id: "btn-vincular-dispositivo" }, "Vincular");
   const formulario = h("form", { id: "formulario-dispositivo", novalidate: true }, serial.contenedor, aviso.elemento, nota.elemento, boton);
 
   formulario.addEventListener("submit", async (evento) => {
@@ -64,11 +72,12 @@ export function crearPanelDispositivos(planta, ctx) {
     vaciar(lista);
     lista.append(
       dispositivos.length === 0
-        ? h("p", { class: "texto-vacio" }, "Ningún dispositivo vinculado.")
+        ? h("p", { class: "texto-vacio" }, "Ninguna matera vinculada todavía.")
         : h("ul", { class: "lista-limpia" }, dispositivos.map((d) =>
-            h("li", { class: "fila fila--separada", "data-serial": d.serial },
-              h("span", {},
-                h("strong", {}, d.serial), " · ",
+            h("li", { class: "matera", "data-serial": d.serial, "data-conectada": d.ultimaCredencialEn ? "si" : "no" },
+              iconoDeMatera(),
+              h("div", { class: "matera-datos" },
+                h("strong", {}, d.serial),
                 h("span", { class: "estado-dispositivo", "data-credencial": d.ultimaCredencialEn || "" }, estadoDeDispositivo(d)),
               ),
               h("button", { type: "button", class: "boton boton-secundario boton-chico", "data-accion": "desvincular-dispositivo", onclick: () => desvincular(d) }, "Desvincular"),
@@ -100,12 +109,12 @@ export function crearPanelDispositivos(planta, ctx) {
   }
 
   const elemento = h("section", { class: "tarjeta", "aria-labelledby": "titulo-dispositivos" },
-    h("h2", { id: "titulo-dispositivos" }, "Dispositivos"),
-    h("p", { class: "texto-suave" }, "Escribe el serial del dispositivo para vincularlo a esta planta. Sus diagnósticos aparecen en el historial con origen «Dispositivo»."),
-    formulario,
+    h("h2", { id: "titulo-dispositivos" }, "Tu matera"),
+    h("p", { class: "texto-suave" }, "Lo que mide la matera llega solo al historial con origen «Dispositivo»."),
     avisoLista.elemento,
-    h("h3", {}, "Dispositivos de esta planta"),
     lista,
+    h("h3", {}, "Vincular una matera"),
+    formulario,
   );
   return { elemento, cargar, refrescar: () => cargar({ silencioso: true }), actualizarTiempos };
 }

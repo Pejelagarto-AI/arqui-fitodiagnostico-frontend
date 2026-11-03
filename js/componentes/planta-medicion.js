@@ -28,5 +28,9 @@ export function crearPanelMedicion(planta, ctx, { alRegistrar, rangos }) {
     }
   });
 
-  return h("section", { class: "tarjeta", "aria-labelledby": "titulo-medicion" }, h("h2", { id: "titulo-medicion" }, "Registrar medición"), formulario);
+  return h("section", { class: "tarjeta", "aria-labelledby": "titulo-medicion" },
+    h("h2", { id: "titulo-medicion" }, "Medir a mano"),
+    h("p", { class: "texto-suave" }, "Si no tienes matera o quieres comprobar algo, escribe lo que mediste y se agrega al historial."),
+    formulario,
+  );
 }
