@@ -22,6 +22,8 @@
   --tierra-oscura: #6e4a2e;
   --hoja: #5fae6c;
   --hoja-oscura: #3f8d4e;
+  --hoja-riesgo: #b3a94a;
+  --hoja-critica: #a8794a;
   --agua: #4c86c8;
   --sol: #f5c542;
 
@@ -79,6 +81,8 @@
     --tierra-oscura: #8a5e38;
     --hoja: #6fc07d;
     --hoja-oscura: #4fa15e;
+    --hoja-riesgo: #c9bd5a;
+    --hoja-critica: #c08a5a;
     --agua: #5b9be0;
 
     --saludable: #86d99a;
@@ -1337,4 +1341,77 @@ body[data-patron="/plantas/:id"] .indicador-conexion--global {
 
 .diagnostico > .estado-global--resumen {
   margin-bottom: var(--e2);
+}
+
+/* ---------- ilustración de la planta ---------- */
+
+.ilustracion-planta {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  margin: 0 auto;
+}
+
+.ilu-sombra {
+  fill: var(--borde);
+}
+
+.ilu-matera {
+  fill: var(--tierra);
+}
+
+.ilu-borde {
+  fill: var(--tierra-oscura);
+}
+
+.ilu-agua {
+  fill: var(--agua);
+  opacity: 0.4;
+}
+
+.ilu-tallo {
+  stroke: var(--hoja-oscura);
+}
+
+.ilu-hoja.hoja-a {
+  fill: var(--hoja);
+}
+
+.ilu-hoja.hoja-b {
+  fill: var(--hoja-oscura);
+}
+
+.ilustracion-planta[data-estado="EN_RIESGO"] .ilu-hoja {
+  fill: var(--hoja-riesgo);
+}
+
+.ilustracion-planta[data-estado="CRITICO"] .ilu-hoja {
+  fill: var(--hoja-critica);
+}
+
+.ilustracion-planta[data-estado="SIN_DIAGNOSTICO"] .ilu-hoja,
+.ilustracion-planta[data-estado="SIN_DIAGNOSTICO"] .ilu-tallo {
+  fill: var(--tinta-suave);
+  opacity: 0.55;
+}
+
+.ilustracion-planta[data-estado="SIN_DIAGNOSTICO"] .ilu-tallo {
+  stroke: var(--tinta-suave);
+  fill: none;
+}
+
+.ilustracion-planta[data-estado="SIN_DIAGNOSTICO"] .ilu-agua {
+  opacity: 0.2;
+}
+
+.ilu-sol circle {
+  fill: var(--sol);
+}
+
+.ilu-sol path {
+  stroke: var(--sol);
+}
+
+.ilustracion-planta--mini {
+  max-width: 120px;
 }

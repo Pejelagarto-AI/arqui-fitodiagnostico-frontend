@@ -52,3 +52,12 @@ export function recomendacionesPorParametro(parametros, recomendaciones) {
   const coincide = fuera.length === recomendaciones.length;
   return recomendaciones.map((texto, i) => ({ texto, parametro: coincide ? fuera[i].nombre : null }));
 }
+
+/** Qué tan llena está la matera (humedad) y qué tan fuerte el sol (luz), de 0 a 100, desde un diagnóstico. */
+export function nivelesDeDiagnostico(diagnostico) {
+  const nivel = (nombre) => {
+    const p = diagnostico && diagnostico.parametros.find((x) => x.nombre === nombre);
+    return p ? porcentaje(p.valor, escalaDe(nombre, p.rangoOptimo, p.valor)) : 0;
+  };
+  return { humedadPct: nivel("humedad"), luzPct: nivel("luz") };
+}

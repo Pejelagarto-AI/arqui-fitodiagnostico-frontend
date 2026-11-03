@@ -4,6 +4,8 @@
 // (el backend igual los rechazaría con 403, D36).
 import { obtenerPlanta, obtenerEspecies, renunciarAPlanta } from "../api.js";
 import { h, crearAviso, conCarga, confirmar, toast, ETIQUETAS_ESTADO_GLOBAL } from "../ui.js";
+import { crearIlustracionPlanta } from "../componentes/ilustracion-planta.js";
+import { nivelesDeDiagnostico } from "../componentes/escala.js";
 import { crearPanelVigente } from "../componentes/planta-vigente.js";
 import { crearPanelHistorial } from "../componentes/planta-historial.js";
 import { crearPanelMedicion } from "../componentes/planta-medicion.js";
@@ -58,9 +60,14 @@ export async function montar(contenedor, ctx) {
     ),
   );
 
-  const ponerEstado = (estado) => {
+  // La ilustración reacciona al diagnóstico vigente: agua = humedad, sol = luz, hojas = estado.
+  const ilustracion = crearIlustracionPlanta();
+  cabecera.querySelector("#ilustracion-planta").append(ilustracion.nodo);
+  const ponerEstado = (diagnostico) => {
+    const estado = diagnostico ? diagnostico.estado : null;
     estadoNodo.dataset.estado = estado || "SIN_DIAGNOSTICO";
     estadoNodo.textContent = estado ? ETIQUETAS_ESTADO_GLOBAL[estado] || estado : "Sin diagnóstico";
+    ilustracion.aplicar(ilustracion.estadoVisual({ estado, ...nivelesDeDiagnostico(diagnostico) }));
   };
 
   const vigente = crearPanelVigente(id, ctx, { alCambiarEstado: ponerEstado });

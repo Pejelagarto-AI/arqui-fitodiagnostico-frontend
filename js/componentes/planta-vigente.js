@@ -25,7 +25,7 @@ export function crearPanelVigente(plantaId, ctx, { alCambiarEstado = () => {} } 
     resaltar = resaltar && hayCambio;
     vaciar(cuerpo);
     vista = null;
-    alCambiarEstado(respuesta.hayDiagnostico ? respuesta.diagnostico.diagnostico.estado : null);
+    alCambiarEstado(respuesta.hayDiagnostico ? respuesta.diagnostico.diagnostico : null, { cambio: hayCambio });
     if (!respuesta.hayDiagnostico) {
       cuerpo.append(
         h("div", { class: "sin-diagnostico", id: "sin-diagnostico" },
