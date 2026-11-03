@@ -1948,3 +1948,25 @@ select {
 .toast {
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- títulos y párrafos (F23) ----------
+   balance reparte las líneas de un título corto para que no quede una palabra huérfana; pretty evita
+   la última línea de un solo término en los párrafos. Navegadores sin soporte lo ignoran. */
+
+h1,
+h2,
+h3,
+.estado-global,
+.mosaico-etiqueta,
+.sin-diagnostico strong {
+  text-wrap: balance;
+}
+
+p,
+li,
+.texto-suave,
+.texto-vacio,
+.banner-error,
+.banner-ok {
+  text-wrap: pretty;
+}
