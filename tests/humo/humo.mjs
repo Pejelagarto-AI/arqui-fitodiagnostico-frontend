@@ -411,7 +411,7 @@ async function ejecutar() {
     assert.equal((await api(null, "POST", `/dispositivos/${dispositivo.serial}/credencial`, { respuesta })).status, 200);
     assert.equal((await api(null, "POST", `/dispositivos/${dispositivo.serial}/credencial`, { respuesta })).cuerpo.error, "CREDENCIAL_RECHAZADA");
     // Con el token del chip se puede reportar una lectura (como el simulador).
-    const lectura = await api(credencial.cuerpo.token, "POST", `/dispositivos/${dispositivo.serial}/lecturas`, { humedad: 50, luz: 600, temperatura: 24 });
+    const lectura = await api(credencial.cuerpo.token, "POST", `/dispositivos/${dispositivo.serial}/lecturas`, { marcaDeTiempo: new Date().toISOString(), humedad: 50, luz: 600, temperatura: 24 });
     assert.ok(lectura.status >= 200 && lectura.status < 300, `lectura ${lectura.status}`);
     // Sin recargar: el sondeo de 5 s trae ultimaCredencialEn.
     await pAna.locator(`#lista-dispositivos li[data-serial="${dispositivo.serial}"]`, { hasText: /conectado hace \d+ s/ }).waitFor({ timeout: 15000 });
