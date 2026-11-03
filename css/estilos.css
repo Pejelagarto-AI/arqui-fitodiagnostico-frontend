@@ -1676,3 +1676,12 @@ body[data-patron="/plantas/:id"] .indicador-conexion--global {
 .recom--tablero li > span:last-child {
   min-width: 0;
 }
+
+/* Estados de carga: las zonas reservan su alto para que el contenido no salte al llegar (hallazgo 10). */
+.bloque-vigente #diagnostico-vigente {
+  min-height: 22rem;
+}
+
+#historial {
+  min-height: 12rem;
+}
