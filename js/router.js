@@ -158,9 +158,25 @@ function anunciar(titulo) {
   window.scrollTo(0, 0);
 }
 
+/**
+ * Precarga (F23): al pasar el puntero, enfocar con el teclado o tocar un enlace del front, se descarga ya el
+ * módulo de su pantalla (import() es perezoso: sin esto el primer clic espera el JS). Solo baja el módulo:
+ * ningún dato ni petición a la API, así que no cambia nada en el servidor ni hay nada que excluir (cerrar sesión
+ * es un botón, no un enlace). Es lo que hace el prefetch de «speculation rules» para un sitio de páginas, pero
+ * adaptado a un enrutador por hash, donde no hay documentos que precargar.
+ */
+function precargarDestino(evento) {
+  const enlace = evento.target instanceof Element ? evento.target.closest("a[href^='#/']") : null;
+  if (!enlace) return;
+  const { ruta } = parsearHash(enlace.getAttribute("href"));
+  const resuelta = resolver(tabla, ruta);
+  if (resuelta) resuelta.entrada.vista().catch(() => {}); // si falla, ya lo dirá navegar() al visitar
+}
+
 export function iniciarRouter(rutas, nodoContenedor) {
   tabla = rutas;
   contenedor = nodoContenedor;
+  for (const tipo of ["pointerover", "focusin", "touchstart"]) document.addEventListener(tipo, precargarDestino, { passive: true });
   window.addEventListener("hashchange", navegar);
   navegar();
 }
