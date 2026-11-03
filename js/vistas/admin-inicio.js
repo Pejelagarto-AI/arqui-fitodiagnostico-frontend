@@ -13,6 +13,7 @@ export function montar(contenedor) {
         tarjeta("/admin/usuarios", "Usuarios", "Buscar, editar, eliminar y dar o quitar el rol de administrador."),
         tarjeta("/admin/especies", "Especies", "Catálogo completo: crear, editar rangos, desactivar y reactivar."),
         tarjeta("/admin/solicitudes", "Solicitudes de especie", "Aprobar o rechazar lo que piden los clientes."),
+        tarjeta("/admin/dispositivos", "Dispositivos", "Registrar dispositivos de fábrica (serial y secreto) y ver cuáles están reclamados."),
       ),
     ),
   );
