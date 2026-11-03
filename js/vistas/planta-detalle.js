@@ -63,6 +63,7 @@ export async function montar(contenedor, ctx) {
 
   // ---- paneles según el rol ----
   let compartir = null;
+  let dispositivos = null;
   if (planta.esDueno) {
     let rangos = null;
     try {
@@ -84,7 +85,8 @@ export async function montar(contenedor, ctx) {
     contenedor.append(historial.elemento);
     compartir = crearPanelCompartir(planta, ctx);
     contenedor.append(compartir.elemento);
-    contenedor.append(crearPanelDispositivos(planta, ctx));
+    dispositivos = crearPanelDispositivos(planta, ctx);
+    contenedor.append(dispositivos.elemento);
     const edicion = await crearPanelEdicion(planta, ctx, {
       alEditar: (editada) => {
         planta = editada;
@@ -113,7 +115,7 @@ export async function montar(contenedor, ctx) {
   }
 
   // ---- datos y sondeo (R6) ----
-  await Promise.all([vigente.cargar(), historial.cargar(), compartir ? compartir.cargar() : null]);
+  await Promise.all([vigente.cargar(), historial.cargar(), compartir ? compartir.cargar() : null, dispositivos ? dispositivos.cargar() : null]);
   if (!ctx.vigente()) return;
 
   let estadoSondeo = "activo";
@@ -128,7 +130,7 @@ export async function montar(contenedor, ctx) {
   const sondeo = crearSondeo({
     // Ya se cargó arriba: la primera vuelta espera un intervalo. Un fallo cambia el
     // indicador y el aviso de la cabecera (uno solo, que se reemplaza); nunca un toast.
-    tarea: () => Promise.all([vigente.cargar({ resaltar: true, silencioso: true }), historial.refrescar()]),
+    tarea: () => Promise.all([vigente.cargar({ resaltar: true, silencioso: true }), historial.refrescar(), dispositivos ? dispositivos.refrescar() : null]),
     alCambiar: ({ estado, error }) => {
       estadoSondeo = estado;
       if (estado === "error" || estado === "detenido") avisoCabecera.mostrar(error);
@@ -141,6 +143,7 @@ export async function montar(contenedor, ctx) {
   // «actualizado hace Xs» corre solo en pantalla, sin pedir nada.
   const reloj = setInterval(() => {
     if (estadoSondeo === "activo") pintarIndicador();
+    if (dispositivos) dispositivos.actualizarTiempos();
   }, 1000);
   limpiezas.push(() => sondeo.detener(), () => clearInterval(reloj));
 
