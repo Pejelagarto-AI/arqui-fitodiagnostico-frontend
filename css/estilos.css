@@ -1828,3 +1828,65 @@ body[data-patron="/plantas/:id"] .indicador-conexion--global {
     animation: none !important;
   }
 }
+
+/* ---------- zona táctil mínima (F23) ----------
+   Todo lo que se toca mide al menos 44 x 44 px (guía de iOS) y 48 x 48 con puntero táctil (Android),
+   aunque el texto o el icono sean menores: el área crece con alto y ancho mínimos (padding real), no con
+   un seudoelemento, así que dos objetivos vecinos nunca se solapan (los espacios entre ellos los dan los gap). */
+
+.boton,
+.boton-chico,
+.navegacion a,
+.enlace-volver,
+.toast-boton,
+.marca,
+.nombre-usuario,
+input:not([type="hidden"]),
+select {
+  min-height: 2.75rem;
+}
+
+.boton,
+.boton-chico,
+.toast-boton {
+  min-width: 2.75rem;
+}
+
+.navegacion a,
+.enlace-volver,
+.marca,
+.nombre-usuario {
+  display: inline-flex;
+  align-items: center;
+}
+
+.enlace-volver {
+  padding-right: 0.9rem;
+}
+
+@media (pointer: coarse) {
+  .boton,
+  .boton-chico,
+  .navegacion a,
+  .enlace-volver,
+  .toast-boton,
+  .marca,
+  .nombre-usuario,
+  input:not([type="hidden"]),
+  select {
+    min-height: 3rem;
+  }
+
+  .boton,
+  .boton-chico,
+  .toast-boton {
+    min-width: 3rem;
+  }
+
+  .acciones,
+  .paginacion,
+  .menu-enlaces,
+  .menu-sesion {
+    gap: 0.6rem;
+  }
+}
