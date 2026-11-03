@@ -1497,3 +1497,182 @@ body[data-patron="/plantas/:id"] .indicador-conexion--global {
     gap: 0.75rem;
   }
 }
+
+/* ---------- Mis plantas: tablero ---------- */
+
+.encabezado-pagina h2[data-titulo] {
+  font-size: var(--t-titulo-pagina);
+  font-weight: 800;
+}
+
+.resumen {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--e2);
+}
+
+@media (min-width: 700px) {
+  .resumen {
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  }
+}
+
+.mosaico {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: var(--e2) var(--e3);
+  display: flex;
+  flex-direction: column;
+}
+
+.mosaico-numero {
+  font-size: 2.2rem;
+  line-height: 1.1;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.mosaico-etiqueta {
+  font-weight: 700;
+  color: var(--tinta-suave);
+}
+
+.mosaico[data-tipo="SALUDABLE"] {
+  background: var(--saludable-fondo);
+  border-color: transparent;
+}
+
+.mosaico[data-tipo="SALUDABLE"] > * {
+  color: var(--saludable);
+}
+
+.mosaico[data-tipo="EN_RIESGO"] {
+  background: var(--riesgo-fondo);
+  border-color: transparent;
+}
+
+.mosaico[data-tipo="EN_RIESGO"] > * {
+  color: var(--riesgo);
+}
+
+.mosaico[data-tipo="CRITICO"] {
+  background: var(--critico-fondo);
+  border-color: transparent;
+}
+
+.mosaico[data-tipo="CRITICO"] > * {
+  color: var(--critico);
+}
+
+.rejilla-plantas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--e2);
+}
+
+.tarjeta-planta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e1);
+  height: 100%;
+  padding: var(--e2);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  color: var(--tinta);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.tarjeta-planta:hover {
+  border-color: var(--acento);
+}
+
+.tarjeta-planta[data-estado="SALUDABLE"] {
+  border-top: 5px solid var(--saludable);
+}
+
+.tarjeta-planta[data-estado="EN_RIESGO"] {
+  border-top: 5px solid var(--riesgo);
+}
+
+.tarjeta-planta[data-estado="CRITICO"] {
+  border-top: 5px solid var(--critico);
+}
+
+.tarjeta-planta[data-estado="SIN_DIAGNOSTICO"] {
+  border-top: 5px solid var(--borde-control);
+}
+
+.tarjeta-planta-cabeza {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+}
+
+.tarjeta-planta-ilustracion {
+  width: 84px;
+  flex: none;
+}
+
+.tarjeta-planta-nombres {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tarjeta-planta-nombres strong {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.tarjeta-planta-estado {
+  margin-top: 0.2rem;
+}
+
+.tarjeta-planta-valores {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.tarjeta-planta-valor {
+  display: flex;
+  flex-direction: column;
+  background: var(--fondo);
+  border-radius: 12px;
+  padding: 0.4rem 0.6rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.tarjeta-planta-etiqueta {
+  font-size: 0.75rem;
+  color: var(--tinta-suave);
+  font-weight: 700;
+}
+
+.tarjeta-planta-valor strong {
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.tarjeta-planta-cuando {
+  margin: 0;
+  font-size: var(--t-chico);
+}
+
+.recom-planta {
+  font-weight: 800;
+  color: var(--tinta);
+}
+
+.recom--tablero li > span:last-child {
+  min-width: 0;
+}
