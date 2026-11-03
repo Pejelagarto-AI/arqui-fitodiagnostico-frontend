@@ -46,7 +46,21 @@ export function estadoGlobalNodo(estado, { resumen = false } = {}) {
   );
 }
 
-function burbujaDeParametro(parametro) {
+/**
+ * Diagnóstico de mentira para el esqueleto de carga (ui.esqueletoSiTarda): mismos tres parámetros y
+ * unidades que el real, así `crearVistaDeDiagnostico(..., { esqueleto: true })` ocupa el mismo alto.
+ */
+export const DIAGNOSTICO_DE_ESQUELETO = {
+  estado: "SALUDABLE",
+  parametros: [
+    { nombre: "humedad", valor: 50, unidad: "%", estado: "OPTIMO", rangoOptimo: [40, 60] },
+    { nombre: "luz", valor: 500, unidad: "lx", estado: "OPTIMO", rangoOptimo: [400, 600] },
+    { nombre: "temperatura", valor: 22, unidad: "°C", estado: "OPTIMO", rangoOptimo: [18, 26] },
+  ],
+  recomendaciones: [],
+};
+
+function burbujaDeParametro(parametro, { esqueleto = false } = {}) {
   const nombre = parametro.nombre;
   const etiqueta = ETIQUETAS_PARAMETRO[nombre] || nombre;
   const [min, max] = parametro.rangoOptimo;
@@ -69,7 +83,9 @@ function burbujaDeParametro(parametro) {
   const valorAnimado = h("span", { class: "num-anim", "aria-hidden": "true" });
   const ranura = h("div", { class: "tendencia" });
 
-  const nodo = h("section", { class: "burbuja", "data-parametro": nombre, "data-estado": parametro.estado },
+  // En el esqueleto no hay datos: sin data-parametro/estado ni el rol de imagen de la barra.
+  if (esqueleto) pista.removeAttribute("role");
+  const nodo = h("section", { class: "burbuja", "data-parametro": esqueleto ? null : nombre, "data-estado": esqueleto ? null : parametro.estado },
     h("div", { class: "burbuja-icono" }, iconoDeParametro(nombre)),
     h("h3", {}, etiqueta),
     h("div", { class: "num" }, valorReal, valorAnimado, h("small", {}, parametro.unidad)),
@@ -105,8 +121,8 @@ function listaDeRecomendaciones(diagnostico) {
  * `actualizarSerie` recibe una página del historial (más reciente primero) y dibuja la minigráfica
  * de cada parámetro sin repintar el resto; así el sondeo la mantiene al día.
  */
-export function crearVistaDeDiagnostico(diagnostico, { serie = null, resumen = false } = {}) {
-  const burbujas = diagnostico.parametros.map(burbujaDeParametro);
+export function crearVistaDeDiagnostico(diagnostico, { serie = null, resumen = false, esqueleto = false } = {}) {
+  const burbujas = diagnostico.parametros.map((p) => burbujaDeParametro(p, { esqueleto }));
   let firmaDeSerie = null;
 
   function actualizarSerie(registros) {
@@ -133,9 +149,11 @@ export function crearVistaDeDiagnostico(diagnostico, { serie = null, resumen = f
   const nodo = h(
     "div",
     { class: "diagnostico" },
-    estadoGlobalNodo(diagnostico.estado, { resumen }),
+    // El esqueleto no lleva .estado-global ni .recom: lo que espera el humo y los lectores es el dato real.
+    esqueleto ? h("p", { class: "estado-esqueleto", "aria-hidden": "true" }, "Cargando") : estadoGlobalNodo(diagnostico.estado, { resumen }),
     h("div", { class: "burbujas" }, burbujas.map((b) => b.nodo)),
-    h("section", { class: "que-hacer" }, h("h3", {}, "Qué hacer hoy"), listaDeRecomendaciones(diagnostico)),
+    h("section", { class: "que-hacer" }, h("h3", {}, "Qué hacer hoy"),
+      esqueleto ? h("ul", { class: "recom" }, h("li", {}, h("span", {}, "Cargando las recomendaciones de hoy"))) : listaDeRecomendaciones(diagnostico)),
   );
   return { nodo, burbujas, actualizarSerie };
 }

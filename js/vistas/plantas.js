@@ -10,7 +10,7 @@ import { listarPlantas, listarPlantasCompartidas, obtenerDiagnosticoVigente } fr
 import { textoHace } from "../tiempo.js";
 import { crearSondeo } from "../sondeo.js";
 import { entrada } from "../animaciones.js";
-import { h, vaciar, crearAviso, formatearFecha, chipDeEstadoGlobal, ETIQUETAS_PARAMETRO } from "../ui.js";
+import { h, vaciar, crearAviso, formatearFecha, chipDeEstadoGlobal, esqueletoSiTarda, ETIQUETAS_PARAMETRO } from "../ui.js";
 import { crearIlustracionPlanta } from "../componentes/ilustracion-planta.js";
 import { iconoDeParametro } from "../componentes/diagnostico.js";
 import { nivelesDeDiagnostico, recomendacionesPorParametro } from "../componentes/escala.js";
@@ -42,6 +42,14 @@ function tarjetaDeCompartida(planta) {
   );
 }
 
+/** Un valor de la tarjeta (humedad, luz o temperatura); sin parámetro es el hueco del esqueleto. */
+function valorDeTarjeta(nombre, etiqueta, p) {
+  return h("div", { class: `tarjeta-planta-valor ${p ? `valor-${p.estado.toLowerCase()}` : ""}`, "data-parametro": nombre },
+    h("span", { class: "tarjeta-planta-etiqueta" }, etiqueta),
+    h("strong", {}, p ? `${p.valor} ${p.unidad}` : "—"),
+  );
+}
+
 /** Tarjeta de una planta propia. Nace con apodo y especie; `completar` le pone la lectura cuando llega. */
 function crearTarjeta(planta) {
   const ilustracion = crearIlustracionPlanta({ mini: true });
@@ -61,7 +69,16 @@ function crearTarjeta(planta) {
   const enlace = nodo.firstElementChild;
   let firma = null;
 
+  // Hasta que llega la primera lectura la tarjeta es su propio esqueleto: los mismos tres valores con
+  // «—», en gris si la espera pasa de 300 ms. `completar` los reemplaza por los reales.
+  for (const [nombre, etiqueta] of PARAMETROS) valores.append(valorDeTarjeta(nombre, etiqueta, null));
+  let cancelarEsqueleto = esqueletoSiTarda(enlace);
+
   function completar(lectura) {
+    if (cancelarEsqueleto) {
+      cancelarEsqueleto();
+      cancelarEsqueleto = null;
+    }
     const nueva = lectura.tipo === "datos" ? lectura.registro.id : lectura.tipo;
     if (nueva === firma) return;
     firma = nueva;
@@ -79,11 +96,7 @@ function crearTarjeta(planta) {
     ilustracion.aplicar(ilustracion.estadoVisual({ estado: diagnostico.estado, ...nivelesDeDiagnostico(diagnostico) }));
     estado.append(chipDeEstadoGlobal(diagnostico.estado));
     for (const [nombre, etiqueta] of PARAMETROS) {
-      const p = diagnostico.parametros.find((x) => x.nombre === nombre);
-      valores.append(h("div", { class: `tarjeta-planta-valor ${p ? `valor-${p.estado.toLowerCase()}` : ""}`, "data-parametro": nombre },
-        h("span", { class: "tarjeta-planta-etiqueta" }, etiqueta),
-        h("strong", {}, p ? `${p.valor} ${p.unidad}` : "—"),
-      ));
+      valores.append(valorDeTarjeta(nombre, etiqueta, diagnostico.parametros.find((x) => x.nombre === nombre)));
     }
     cuando.dataset.registrado = registradoEn;
     cuando.textContent = `última lectura ${textoHace(registradoEn)}`;

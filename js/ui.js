@@ -101,6 +101,27 @@ export function chipDeSolicitud(estado) {
   return h("span", { class: `chip chip--${clase}` }, ETIQUETAS_ESTADO_SOLICITUD[estado] || estado);
 }
 
+// ---- esqueletos de carga ----
+
+/** Una carga rápida no debe parpadear: el esqueleto solo se ve si la espera pasa de este umbral. */
+export const RETRASO_ESQUELETO_MS = 300;
+
+/**
+ * Pone `nodo` en modo esqueleto: de inmediato `data-esqueleto="espera"` (el CSS lo deja invisible pero
+ * ocupando su lugar, así nada salta) y, si pasaron `ms` sin que se cancele, `"visible"` (bloques grises
+ * con la forma del componente real). Devuelve `cancelar()`, que lo quita; llamarlo dos veces no hace nada.
+ */
+export function esqueletoSiTarda(nodo, { ms = RETRASO_ESQUELETO_MS } = {}) {
+  nodo.setAttribute("data-esqueleto", "espera");
+  let temporizador = setTimeout(() => nodo.setAttribute("data-esqueleto", "visible"), ms);
+  return () => {
+    if (temporizador === null) return;
+    clearTimeout(temporizador);
+    temporizador = null;
+    nodo.removeAttribute("data-esqueleto");
+  };
+}
+
 // ---- errores visibles ----
 
 /**

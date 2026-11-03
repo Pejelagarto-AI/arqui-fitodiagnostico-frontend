@@ -1685,3 +1685,94 @@ body[data-patron="/plantas/:id"] .indicador-conexion--global {
 #historial {
   min-height: 12rem;
 }
+
+/* ---------- esqueletos de carga ----------
+   Son el mismo componente que el estado cargado, con datos de mentira (js/ui.js, esqueletoSiTarda).
+   «espera» (los primeros 300 ms) los deja invisibles pero ocupando su sitio; «visible» los pinta en
+   bloques grises. Con prefers-reduced-motion el pulso se detiene (regla global de arriba). */
+
+[data-esqueleto="espera"] {
+  visibility: hidden;
+}
+
+[data-esqueleto="visible"],
+[data-esqueleto="visible"] * {
+  color: transparent !important;
+  border-color: transparent !important;
+  pointer-events: none;
+  user-select: none;
+}
+
+[data-esqueleto="visible"] :is(h2, h3, p, strong, small, .chip, .pista, .num-valor, .estado-esqueleto, .burbuja-icono, li > span, .hist-fila-esqueleto > span) {
+  background: var(--borde);
+  border-radius: 8px;
+  animation: pulso-esqueleto 1.4s ease-in-out infinite;
+}
+
+[data-esqueleto="visible"] svg {
+  opacity: 0;
+}
+
+[data-esqueleto="visible"] .pista-optima,
+[data-esqueleto="visible"] .pista-valor {
+  display: none;
+}
+
+@keyframes pulso-esqueleto {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.estado-esqueleto {
+  display: inline-block;
+  margin: 0 0 var(--e1);
+  padding: 0.15rem 0.7rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.vista-cargando .tarjeta {
+  min-height: 12rem;
+}
+
+.historial-esqueleto {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e1);
+}
+
+.hist-fila-esqueleto {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--e2);
+  padding: 0.6rem 0;
+  min-height: 3.4rem;
+}
+
+/* La tarjeta del tablero ya muestra apodo y especie reales: solo se esqueletiza lo que falta. */
+.tarjeta-planta[data-esqueleto] {
+  color: inherit;
+}
+
+.tarjeta-planta[data-esqueleto="espera"] {
+  visibility: visible;
+}
+
+.tarjeta-planta[data-esqueleto="espera"] :is(.tarjeta-planta-valores, .tarjeta-planta-cuando) {
+  visibility: hidden;
+}
+
+.tarjeta-planta[data-esqueleto="visible"],
+.tarjeta-planta[data-esqueleto="visible"] * {
+  color: inherit !important;
+  pointer-events: auto;
+  user-select: auto;
+}
+
+.tarjeta-planta[data-esqueleto="visible"] :is(.tarjeta-planta-valores strong, .tarjeta-planta-etiqueta, .tarjeta-planta-cuando) {
+  color: transparent !important;
+  background: var(--borde);
+  border-radius: 8px;
+  animation: pulso-esqueleto 1.4s ease-in-out infinite;
+}

@@ -1,6 +1,6 @@
 // RF-F5: historial paginado de diagnósticos de una planta (el más reciente primero).
 import { obtenerHistorial } from "../api.js";
-import { h, vaciar, crearAviso, formatearFechaRelativa, chipDeEstadoGlobal } from "../ui.js";
+import { h, vaciar, crearAviso, formatearFechaRelativa, chipDeEstadoGlobal, esqueletoSiTarda } from "../ui.js";
 
 const TAMANO = 10;
 const ORIGENES = { MANUAL: "Manual", DISPOSITIVO: "Dispositivo" };
@@ -15,10 +15,15 @@ export function crearPanelHistorial(plantaId, ctx, { alRecibir = () => {} } = {}
   let pagina = 0;
   let firmaPintada = null; // evita repintar la tabla cuando el sondeo trae lo mismo
   const aviso = crearAviso();
-  const cuerpo = h("div", { id: "historial" }, h("p", { class: "texto-vacio" }, "Cargando historial…"));
+  // Esqueleto del historial: tres renglones con la altura de los reales (sin <table>: el humo cuenta las filas reales).
+  const esqueleto = h("div", { class: "historial-esqueleto", "aria-hidden": "true" }, [1, 2, 3].map(() => h("div", { class: "hist-fila-esqueleto" }, h("span", {}, "Cargando"), h("span", {}, "Cargando el historial"))));
+  const cancelarEsqueleto = esqueletoSiTarda(esqueleto);
+  const cuerpo = h("div", { id: "historial", "aria-busy": "true" }, h("p", { class: "solo-lector" }, "Cargando historial…"), esqueleto);
   const elemento = h("section", { class: "tarjeta", "aria-labelledby": "titulo-historial" }, h("h2", { id: "titulo-historial" }, "Historial"), h("p", { class: "texto-suave" }, "Cada lectura, la más reciente primero."), aviso.elemento, cuerpo);
 
   function pintar(respuesta) {
+    cancelarEsqueleto();
+    cuerpo.removeAttribute("aria-busy");
     const firma = `${respuesta.pagina}|${respuesta.total}|${respuesta.contenido.map((r) => r.id).join(",")}`;
     if (firma === firmaPintada) return;
     firmaPintada = firma;
@@ -69,7 +74,13 @@ export function crearPanelHistorial(plantaId, ctx, { alRecibir = () => {} } = {}
     } catch (error) {
       // El sondeo (silencioso) decide qué mostrar; aquí solo relanza el error.
       if (silencioso) throw error;
-      if (ctx.vigente()) aviso.mostrar(error);
+      if (ctx.vigente()) {
+        if (firmaPintada === null) {
+          cancelarEsqueleto();
+          vaciar(cuerpo);
+        }
+        aviso.mostrar(error);
+      }
     }
   }
 

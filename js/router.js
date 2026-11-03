@@ -3,13 +3,14 @@
 // refresh en #/plantas/x sigue pidiendo solo index.html). Cada pantalla es un
 // módulo que se importa al visitarla: export function montar(contenedor, ctx).
 import { parsearHash, resolver } from "./rutas.js";
-import { h, vaciar, crearAviso } from "./ui.js";
+import { h, vaciar, crearAviso, esqueletoSiTarda } from "./ui.js";
 import * as sesion from "./sesion.js";
 
 let tabla = [];
 let contenedor = null;
 let limpiezaActual = null;
 let numeroDeNavegacion = 0;
+let marcadorActual = null;
 
 export function irA(ruta, { reemplazar = false } = {}) {
   const destino = `#${ruta}`;
@@ -36,8 +37,35 @@ function pantallaMensaje(titulo, mensaje) {
   return h("section", { class: "tarjeta" }, h("h2", { tabindex: "-1", "data-titulo": "" }, titulo), aviso.elemento, h("p", {}, h("a", { href: "#/" }, "Volver al inicio")));
 }
 
+/**
+ * Marcador de «cargando» de una pantalla: una tarjeta con la forma de las reales, como esqueleto que
+ * solo se ve si la carga pasa de 300 ms (antes, invisible: nada parpadea). Lo retira el primer
+ * contenido que la pantalla agregue (las pantallas piden sus datos antes de pintar y no saben de
+ * este marcador) o, como respaldo, el final de `montar`.
+ */
+function crearMarcadorDeCarga() {
+  const tarjeta = h("div", { class: "tarjeta", "aria-hidden": "true" }, h("h2", {}, "Cargando"), h("p", {}, "Cargando el contenido de la pantalla"), h("p", {}, "Un momento"));
+  const nodo = h("div", { class: "vista-cargando", role: "status" }, h("span", { class: "solo-lector" }, "Cargando…"), tarjeta);
+  const cancelarEsqueleto = esqueletoSiTarda(tarjeta);
+  const observador = new MutationObserver(() => {
+    if (contenedor.children.length > 1 || !contenedor.contains(nodo)) marcador.quitar();
+  });
+  const marcador = {
+    nodo,
+    quitar() {
+      cancelarEsqueleto();
+      observador.disconnect();
+      nodo.remove();
+    },
+  };
+  observador.observe(contenedor, { childList: true });
+  return marcador;
+}
+
 async function navegar() {
   const esta = ++numeroDeNavegacion;
+  if (marcadorActual) marcadorActual.quitar();
+  marcadorActual = null;
   if (limpiezaActual) {
     try {
       limpiezaActual();
@@ -78,19 +106,21 @@ async function navegar() {
     return;
   }
 
-  contenedor.append(h("p", { class: "texto-vacio", role: "status" }, "Cargando…"));
+  const marcador = crearMarcadorDeCarga();
+  marcadorActual = marcador;
+  contenedor.append(marcador.nodo);
 
   let modulo;
   try {
     modulo = await entrada.vista();
   } catch {
     if (esta !== numeroDeNavegacion) return;
+    marcador.quitar();
     vaciar(contenedor);
     contenedor.append(pantallaMensaje("No se pudo cargar la pantalla", "Falló la descarga del módulo de esta pantalla. Revisa la conexión y recarga."));
     return;
   }
   if (esta !== numeroDeNavegacion) return;
-  vaciar(contenedor);
 
   const contexto = {
     params,
@@ -102,6 +132,7 @@ async function navegar() {
 
   try {
     const limpieza = await modulo.montar(contenedor, contexto);
+    marcador.quitar();
     if (esta !== numeroDeNavegacion) {
       if (typeof limpieza === "function") limpieza();
     } else if (typeof limpieza === "function") {
@@ -109,6 +140,7 @@ async function navegar() {
     }
   } catch (error) {
     if (esta !== numeroDeNavegacion) return;
+    marcador.quitar();
     vaciar(contenedor);
     contenedor.append(pantallaMensaje("Algo salió mal", error.mensaje || error.message || "Error inesperado."));
   }

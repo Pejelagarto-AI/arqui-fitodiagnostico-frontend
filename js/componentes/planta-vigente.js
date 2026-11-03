@@ -1,9 +1,9 @@
 // RF-F4: diagnóstico vigente de una planta. Cubre el caso "sin diagnóstico"
 // (D45: el backend responde 200 con hayDiagnostico:false, no 404).
 import { obtenerDiagnosticoVigente } from "../api.js";
-import { h, vaciar, crearAviso, formatearFechaRelativa } from "../ui.js";
+import { h, vaciar, crearAviso, formatearFechaRelativa, esqueletoSiTarda } from "../ui.js";
 import { entrada, llenarBarra, contar } from "../animaciones.js";
-import { crearVistaDeDiagnostico } from "./diagnostico.js";
+import { crearVistaDeDiagnostico, DIAGNOSTICO_DE_ESQUELETO } from "./diagnostico.js";
 
 const ORIGENES = { MANUAL: "medición manual", DISPOSITIVO: "dispositivo" };
 
@@ -14,10 +14,20 @@ export function crearPanelVigente(plantaId, ctx, { alCambiarEstado = () => {} } 
   let serie = null; // última página 0 del historial (la trae el sondeo) para las minigráficas
   let vista = null;
   const aviso = crearAviso();
-  const cuerpo = h("div", { id: "diagnostico-vigente", "aria-live": "polite" }, h("p", { class: "texto-vacio" }, "Cargando diagnóstico…"));
+  // Mientras llega el primer diagnóstico: el mismo componente con datos de mentira, como esqueleto que
+  // solo se ve si la carga pasa de 300 ms. El texto para lectores de pantalla está desde el principio.
+  const esqueleto = h("div", { class: "esqueleto-diagnostico" }, crearVistaDeDiagnostico(DIAGNOSTICO_DE_ESQUELETO, { resumen: true, esqueleto: true }).nodo);
+  const cancelarEsqueleto = esqueletoSiTarda(esqueleto);
+  const cuerpo = h("div", { id: "diagnostico-vigente", "aria-live": "polite", "aria-busy": "true" }, h("p", { class: "solo-lector" }, "Cargando diagnóstico…"), esqueleto);
   const elemento = h("section", { class: "bloque-vigente", "aria-labelledby": "titulo-vigente" }, h("h2", { id: "titulo-vigente", class: "titulo-bloque" }, "Cómo está hoy"), aviso.elemento, cuerpo);
 
+  function terminarCarga() {
+    cancelarEsqueleto();
+    cuerpo.removeAttribute("aria-busy");
+  }
+
   function pintar(respuesta, resaltar) {
+    terminarCarga();
     const identidad = respuesta.hayDiagnostico ? respuesta.diagnostico.id : "sin-diagnostico";
     if (identidad === pintado) return;
     // Resaltar solo si ya había algo pintado y llegó otro (no en la primera carga).
@@ -61,7 +71,14 @@ export function crearPanelVigente(plantaId, ctx, { alCambiarEstado = () => {} } 
       pintar(respuesta, resaltar);
     } catch (error) {
       if (silencioso) throw error;
-      if (ctx.vigente()) aviso.mostrar(error);
+      if (ctx.vigente()) {
+        // Sin nada pintado todavía, el esqueleto no debe quedarse girando bajo el aviso de error.
+        if (pintado === null) {
+          terminarCarga();
+          vaciar(cuerpo);
+        }
+        aviso.mostrar(error);
+      }
     }
   }
 
