@@ -5,12 +5,14 @@
 import { parsearHash, resolver } from "./rutas.js";
 import { h, vaciar, crearAviso, esqueletoSiTarda } from "./ui.js";
 import * as sesion from "./sesion.js";
+import { conTransicion } from "./transiciones.js";
 
 let tabla = [];
 let contenedor = null;
 let limpiezaActual = null;
 let numeroDeNavegacion = 0;
 let marcadorActual = null;
+let esPrimera = true;
 
 export function irA(ruta, { reemplazar = false } = {}) {
   const destino = `#${ruta}`;
@@ -74,23 +76,21 @@ async function navegar() {
     }
     limpiezaActual = null;
   }
-  vaciar(contenedor);
 
   const { ruta, query } = parsearHash(window.location.hash);
   const resuelta = resolver(tabla, ruta);
 
   if (!resuelta) {
-    delete document.body.dataset.acceso;
-    delete document.body.dataset.patron;
-    contenedor.append(pantallaMensaje("Página no encontrada", `No existe la pantalla «${ruta}».`));
-    anunciar("Página no encontrada");
+    await reemplazarVista(esta, () => {
+      delete document.body.dataset.acceso;
+      delete document.body.dataset.patron;
+      contenedor.append(pantallaMensaje("Página no encontrada", `No existe la pantalla «${ruta}».`));
+      anunciar("Página no encontrada");
+    });
     return;
   }
 
   const { entrada, params } = resuelta;
-  // Para el CSS: el pie solo en pantallas públicas, el indicador global fuera del detalle de planta.
-  document.body.dataset.acceso = entrada.acceso;
-  document.body.dataset.patron = entrada.patron;
 
   if (entrada.acceso === "anonima" && sesion.haySesion()) {
     irA("/plantas", { reemplazar: true });
@@ -100,51 +100,79 @@ async function navegar() {
     irA(`/entrar?volver=${encodeURIComponent(rutaActual())}`, { reemplazar: true });
     return;
   }
-  if (entrada.acceso === "admin" && !sesion.esAdmin()) {
-    contenedor.append(pantallaMensaje("Sin permiso", "Esta sección es solo para administradores."));
-    anunciar("Sin permiso");
-    return;
-  }
 
-  const marcador = crearMarcadorDeCarga();
-  marcadorActual = marcador;
-  contenedor.append(marcador.nodo);
-
-  let modulo;
-  try {
-    modulo = await entrada.vista();
-  } catch {
-    if (esta !== numeroDeNavegacion) return;
-    marcador.quitar();
-    vaciar(contenedor);
-    contenedor.append(pantallaMensaje("No se pudo cargar la pantalla", "Falló la descarga del módulo de esta pantalla. Revisa la conexión y recarga."));
-    return;
-  }
-  if (esta !== numeroDeNavegacion) return;
-
-  const contexto = {
-    params,
-    query,
-    irA,
-    // Las pantallas lo consultan tras cada await: si el usuario ya navegó a otra, no pintan.
-    vigente: () => esta === numeroDeNavegacion,
+  // Para el CSS: el pie solo en pantallas públicas, el indicador global fuera del detalle de planta.
+  const marcarCuerpo = () => {
+    document.body.dataset.acceso = entrada.acceso;
+    document.body.dataset.patron = entrada.patron;
   };
 
-  try {
-    const limpieza = await modulo.montar(contenedor, contexto);
-    marcador.quitar();
-    if (esta !== numeroDeNavegacion) {
-      if (typeof limpieza === "function") limpieza();
-    } else if (typeof limpieza === "function") {
-      limpiezaActual = limpieza;
-    }
-  } catch (error) {
-    if (esta !== numeroDeNavegacion) return;
-    marcador.quitar();
-    vaciar(contenedor);
-    contenedor.append(pantallaMensaje("Algo salió mal", error.mensaje || error.message || "Error inesperado."));
+  if (entrada.acceso === "admin" && !sesion.esAdmin()) {
+    await reemplazarVista(esta, () => {
+      marcarCuerpo();
+      contenedor.append(pantallaMensaje("Sin permiso", "Esta sección es solo para administradores."));
+      anunciar("Sin permiso");
+    });
+    return;
   }
-  anunciar(modulo.titulo || "Fitodiagnóstico");
+
+  // Todo lo que toca el DOM va dentro de la transición (F23): la pantalla vieja se queda a la vista hasta
+  // que la nueva tiene contenido (o pasa el tope de espera) y entonces se funden.
+  await reemplazarVista(esta, async () => {
+    marcarCuerpo();
+    const marcador = crearMarcadorDeCarga();
+    marcadorActual = marcador;
+    contenedor.append(marcador.nodo);
+
+    let modulo;
+    try {
+      modulo = await entrada.vista();
+    } catch {
+      if (esta !== numeroDeNavegacion) return;
+      marcador.quitar();
+      vaciar(contenedor);
+      contenedor.append(pantallaMensaje("No se pudo cargar la pantalla", "Falló la descarga del módulo de esta pantalla. Revisa la conexión y recarga."));
+      return;
+    }
+    if (esta !== numeroDeNavegacion) return;
+
+    const contexto = {
+      params,
+      query,
+      irA,
+      // Las pantallas lo consultan tras cada await: si el usuario ya navegó a otra, no pintan.
+      vigente: () => esta === numeroDeNavegacion,
+    };
+
+    try {
+      const limpieza = await modulo.montar(contenedor, contexto);
+      marcador.quitar();
+      if (esta !== numeroDeNavegacion) {
+        if (typeof limpieza === "function") limpieza();
+      } else if (typeof limpieza === "function") {
+        limpiezaActual = limpieza;
+      }
+    } catch (error) {
+      if (esta !== numeroDeNavegacion) return;
+      marcador.quitar();
+      vaciar(contenedor);
+      contenedor.append(pantallaMensaje("Algo salió mal", error.mensaje || error.message || "Error inesperado."));
+    }
+    if (esta === numeroDeNavegacion) anunciar(modulo.titulo || "Fitodiagnóstico");
+  });
+}
+
+/** Cambia la pantalla dentro de una transición: vacía el contenedor y deja que `rellenar` lo llene. */
+function reemplazarVista(esta, rellenar) {
+  // La primera pantalla de la carga de la página no se funde con nada: se pinta directo.
+  const conEfecto = !esPrimera;
+  esPrimera = false;
+  const actualizar = async () => {
+    if (esta !== numeroDeNavegacion) return;
+    vaciar(contenedor);
+    await rellenar();
+  };
+  return conEfecto ? conTransicion(actualizar, { esperarHasta: true }) : actualizar();
 }
 
 // Tras navegar: título de la pestaña y foco al encabezado, para lectores de pantalla y teclado.

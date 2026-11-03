@@ -1,4 +1,5 @@
 // RF-F5: historial paginado de diagnósticos de una planta (el más reciente primero).
+import { conTransicion } from "../transiciones.js";
 import { obtenerHistorial } from "../api.js";
 import { h, vaciar, crearAviso, formatearFechaRelativa, chipDeEstadoGlobal, esqueletoSiTarda } from "../ui.js";
 
@@ -70,7 +71,9 @@ export function crearPanelHistorial(plantaId, ctx, { alRecibir = () => {} } = {}
       pagina = respuesta.pagina;
       alRecibir(respuesta);
       aviso.limpiar();
-      pintar(respuesta);
+      // Al cambiar de página a mano la lista se funde; el sondeo (silencioso) repinta sin efecto.
+      if (!silencioso && firmaPintada !== null) await conTransicion(() => pintar(respuesta));
+      else pintar(respuesta);
     } catch (error) {
       // El sondeo (silencioso) decide qué mostrar; aquí solo relanza el error.
       if (silencioso) throw error;

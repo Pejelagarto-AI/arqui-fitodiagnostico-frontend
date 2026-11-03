@@ -1,5 +1,6 @@
 // RF-E1, RF-E3, RF-E5 (dueño): generar el enlace de invitación, ver y revocar
 // las invitaciones pendientes, y ver y revocar a los invitados.
+import { conTransicion } from "../transiciones.js";
 import { generarInvitacion, listarInvitaciones, revocarInvitacion, listarInvitados, revocarInvitado } from "../api.js";
 import { h, vaciar, campo, crearAviso, crearNota, conCarga, confirmar, copiarAlPortapapeles, formatearFecha, limpiarErroresDeFormulario, marcarCampoConError, toast, toastConDeshacer } from "../ui.js";
 
@@ -60,12 +61,12 @@ export function crearPanelCompartir(planta, ctx) {
   // invitado, en cambio, conserva su confirmación: le llega un aviso y no hay cómo retirarlo.
   function revocarPendiente(invitacion) {
     ocultas.add(invitacion.id);
-    pintarListas();
+    conTransicion(pintarListas);
     toastConDeshacer("Invitación revocada.", {
       ejecutar: () => revocarInvitacion(planta.id, invitacion.id),
       alDeshacer: () => {
         ocultas.delete(invitacion.id);
-        if (ctx.vigente()) pintarListas();
+        if (ctx.vigente()) conTransicion(pintarListas);
       },
       // La lista pudo quedar vieja (p. ej. el enlace ya se aceptó): se actualiza y se explica el error.
       alFallar: async (error) => {

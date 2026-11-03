@@ -2,6 +2,7 @@
 // dispositivo, por su cuenta, demuestra al servidor que conoce su secreto (reto HMAC) y recibe
 // su token. El humano nunca ve ni copia una credencial. La lista muestra si el dispositivo ya
 // se conectó (ultimaCredencialEn) y se refresca desde el sondeo de planta-detalle (F18).
+import { conTransicion } from "../transiciones.js";
 import { vincularDispositivo, listarDispositivos, desvincularDispositivo } from "../api.js";
 import { textoHace, estadoDeDispositivo } from "../tiempo.js";
 import { h, svg, vaciar, campo, crearAviso, crearNota, conCarga, limpiarErroresDeFormulario, marcarCampoConError, toastConDeshacer } from "../ui.js";
@@ -61,12 +62,12 @@ export function crearPanelDispositivos(planta, ctx) {
   // petición sale pasado el plazo del toast (F23). Mientras tanto el sondeo no lo vuelve a pintar.
   function desvincular(dispositivo) {
     ocultos.add(dispositivo.serial);
-    repintar();
+    conTransicion(repintar);
     toastConDeshacer(`Dispositivo ${dispositivo.serial} desvinculado.`, {
       ejecutar: () => desvincularDispositivo(planta.id, dispositivo.serial),
       alDeshacer: () => {
         ocultos.delete(dispositivo.serial);
-        if (ctx.vigente()) repintar();
+        if (ctx.vigente()) conTransicion(repintar);
       },
       // La lista pudo quedar vieja (p. ej. ya se había desvinculado): se actualiza y se explica.
       alFallar: async (error) => {

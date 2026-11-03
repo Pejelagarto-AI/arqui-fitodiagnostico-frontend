@@ -16,6 +16,7 @@ import { entrada, cambiarEstado, balancear } from "../animaciones.js";
 import { crearSondeo, textoActualizado } from "../sondeo.js";
 import { leerCache, guardarCache, invalidarCache, alVolver } from "../cache.js";
 import { recargarVista } from "../router.js";
+import { recordarPlantaActiva, nombrarParaTransicion } from "../transiciones.js";
 
 export const titulo = "Planta";
 
@@ -97,6 +98,9 @@ export async function montar(contenedor, ctx) {
   // La ilustración reacciona al diagnóstico vigente: agua = humedad, sol = luz, hojas = estado.
   const ilustracion = crearIlustracionPlanta();
   cabecera.querySelector("#ilustracion-planta").append(ilustracion.nodo);
+  // Elemento compartido con la tarjeta del tablero (F23): al volver, esa tarjeta lleva el mismo nombre de transición.
+  recordarPlantaActiva(id);
+  nombrarParaTransicion(cabecera.querySelector("#ilustracion-planta"));
   let primeraVez = true;
   const ponerEstado = (diagnostico, { cambio = false } = {}) => {
     const estado = diagnostico ? diagnostico.estado : null;

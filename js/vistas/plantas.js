@@ -9,6 +9,7 @@
 import { listarPlantas, listarPlantasCompartidas, obtenerDiagnosticoVigente } from "../api.js";
 import { textoHace } from "../tiempo.js";
 import { crearSondeo } from "../sondeo.js";
+import { recordarPlantaActiva, esPlantaActiva, nombrarParaTransicion, quitarNombreDeTransicion } from "../transiciones.js";
 import { leerCache, guardarCache, sonIguales, alVolver } from "../cache.js";
 import { entrada } from "../animaciones.js";
 import { h, vaciar, crearAviso, formatearFecha, chipDeEstadoGlobal, esqueletoSiTarda, ETIQUETAS_PARAMETRO } from "../ui.js";
@@ -69,7 +70,17 @@ function crearTarjeta(planta) {
     ),
   );
   const enlace = nodo.firstElementChild;
+  const cajaIlustracion = nodo.querySelector(".tarjeta-planta-ilustracion");
   let firma = null;
+
+  // Elemento compartido con la cabecera del detalle (F23): la ilustración «viaja» de una a otra. El nombre
+  // de la transición solo lo lleva UNA tarjeta (los nombres son únicos en la página): la de la planta que se abre.
+  if (esPlantaActiva(planta.id)) nombrarParaTransicion(cajaIlustracion);
+  enlace.addEventListener("click", () => {
+    for (const otra of document.querySelectorAll(".tarjeta-planta-ilustracion")) quitarNombreDeTransicion(otra);
+    recordarPlantaActiva(planta.id);
+    nombrarParaTransicion(cajaIlustracion);
+  });
 
   // Hasta que llega la primera lectura la tarjeta es su propio esqueleto: los mismos tres valores con
   // «—», en gris si la espera pasa de 300 ms. `completar` los reemplaza por los reales.

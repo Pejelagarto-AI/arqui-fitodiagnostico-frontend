@@ -1799,3 +1799,32 @@ body[data-patron="/plantas/:id"] .indicador-conexion--global {
   border-radius: 8px;
   animation: pulso-esqueleto 1.4s ease-in-out infinite;
 }
+
+/* ---------- view transitions (F23) ----------
+   Fundido corto entre pantallas y entre estados de una lista; la ilustración de la planta viaja de la
+   tarjeta del tablero a la cabecera del detalle (mismo view-transition-name). Todo bajo 300 ms; la capa
+   no captura el puntero (la entrada nunca se bloquea) y con prefers-reduced-motion no hay transición
+   (js/transiciones.js ni la inicia, y aquí se anula por si acaso). */
+
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.16s;
+  animation-timing-function: ease-out;
+}
+
+::view-transition-group(planta-ilustracion) {
+  animation-duration: 0.26s;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
