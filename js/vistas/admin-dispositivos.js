@@ -2,7 +2,7 @@
 // UNA vez, como el enlace de invitación en F14) y ver cuáles están sin reclamar o reclamados.
 import { registrarDispositivoDeFabrica, listarDispositivosDeFabrica } from "../api.js";
 import { estadoDeDispositivo } from "../tiempo.js";
-import { h, vaciar, campo, crearAviso, crearNota, conCarga, copiarAlPortapapeles, formatearFecha, limpiarErroresDeFormulario, marcarCampoConError } from "../ui.js";
+import { h, enlaceDeVolver, vaciar, campo, crearAviso, crearNota, conCarga, copiarAlPortapapeles, formatearFecha, limpiarErroresDeFormulario, marcarCampoConError } from "../ui.js";
 
 export const titulo = "Dispositivos de fábrica";
 
@@ -105,7 +105,7 @@ export async function montar(contenedor, ctx) {
   }
 
   contenedor.append(
-    h("p", {}, h("a", { href: "#/admin" }, "← Administración")),
+    enlaceDeVolver("/admin", "Administración"),
     h("section", { class: "tarjeta tarjeta--ancha" }, h("h2", { "data-titulo": "" }, "Dispositivos de fábrica"), avisoLista.elemento, lista),
     h("section", { class: "tarjeta tarjeta--ancha" }, h("h2", {}, "Registrar dispositivo"), formulario, resultado),
   );

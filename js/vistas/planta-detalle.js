@@ -3,7 +3,7 @@
 // El invitado ve todo en solo lectura: los paneles de modificación ni se crean
 // (el backend igual los rechazaría con 403, D36).
 import { obtenerPlanta, obtenerEspecies, renunciarAPlanta } from "../api.js";
-import { h, crearAviso, conCarga, confirmar, toast, ETIQUETAS_ESTADO_GLOBAL } from "../ui.js";
+import { h, enlaceDeVolver, crearAviso, conCarga, confirmar, toast, ETIQUETAS_ESTADO_GLOBAL } from "../ui.js";
 import { crearIlustracionPlanta } from "../componentes/ilustracion-planta.js";
 import { nivelesDeDiagnostico } from "../componentes/escala.js";
 import { crearPanelVigente } from "../componentes/planta-vigente.js";
@@ -84,7 +84,7 @@ export async function montar(contenedor, ctx) {
   const principal = h("div", { class: "detalle-principal" }, vigente.elemento, historial.elemento);
   const lateral = h("div", { class: "detalle-lateral" });
   contenedor.append(
-    h("a", { href: "#/plantas", class: "enlace-volver" }, h("span", { "aria-hidden": "true" }, "←"), "Mis plantas"),
+    enlaceDeVolver("/plantas", "Mis plantas"),
     cabecera,
     h("div", { class: "detalle-rejilla" }, principal, lateral),
   );

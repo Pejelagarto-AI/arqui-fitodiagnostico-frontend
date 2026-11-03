@@ -310,6 +310,11 @@ export async function copiarAlPortapapeles(texto) {
   }
 }
 
+/** Enlace «← Texto» para volver a la pantalla anterior; mismo aspecto en todo el front. */
+export function enlaceDeVolver(ruta, texto) {
+  return h("a", { href: `#${ruta}`, class: "enlace-volver" }, h("span", { "aria-hidden": "true" }, "←"), texto);
+}
+
 /** Enlace de una ruta del front (con hash). */
 export function enlace(ruta, texto, clase = "") {
   return h("a", { href: `#${ruta}`, class: clase }, texto);
