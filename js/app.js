@@ -26,6 +26,7 @@ const RUTAS = [
   { patron: "/admin/usuarios/:id", acceso: "admin", vista: () => import("./vistas/admin-usuario.js") },
   { patron: "/admin/especies", acceso: "admin", vista: () => import("./vistas/admin-especies.js") },
   { patron: "/admin/solicitudes", acceso: "admin", vista: () => import("./vistas/admin-solicitudes.js") },
+  { patron: "/admin/dispositivos", acceso: "admin", vista: () => import("./vistas/admin-dispositivos.js") },
 ];
 
 const ETIQUETAS_CONEXION = {

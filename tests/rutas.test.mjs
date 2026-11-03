@@ -8,6 +8,7 @@ const tabla = [
   { patron: "/plantas/nueva", id: "nueva" },
   { patron: "/plantas/:id", id: "planta" },
   { patron: "/admin/usuarios/:id", id: "usuario" },
+  { patron: "/admin/dispositivos", id: "dispositivos" },
 ];
 
 test("parsearHash separa ruta y query", () => {
@@ -30,4 +31,8 @@ test("resolver prefiere la ruta literal sobre la parametrizada", () => {
 
 test("resolver devuelve null si nada coincide", () => {
   assert.equal(resolver(tabla, "/nada/por/aqui"), null);
+});
+
+test("resolver encuentra la vista de dispositivos de fábrica", () => {
+  assert.equal(resolver(tabla, "/admin/dispositivos").entrada.id, "dispositivos");
 });

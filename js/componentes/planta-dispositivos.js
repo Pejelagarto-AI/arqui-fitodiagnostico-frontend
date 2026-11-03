@@ -1,73 +1,111 @@
-// Vincular un dispositivo (dueño): el backend genera un token para que el
-// dispositivo (o el simulador) envíe mediciones a esta planta. El token se
-// muestra UNA sola vez, en la respuesta del POST: aquí no se guarda ni se vuelve
-// a pedir. Al volver a vincular el mismo dispositivo se genera uno nuevo.
-import { vincularDispositivo } from "../api.js";
-import { h, vaciar, campo, crearAviso, crearNota, conCarga, copiarAlPortapapeles, formatearFecha, limpiarErroresDeFormulario, marcarCampoConError } from "../ui.js";
+// Reclamar un dispositivo (dueño): el dueño escribe el serial impreso en el dispositivo y el
+// dispositivo, por su cuenta, demuestra al servidor que conoce su secreto (reto HMAC) y recibe
+// su token. El humano nunca ve ni copia una credencial. La lista muestra si el dispositivo ya
+// se conectó (ultimaCredencialEn) y se refresca desde el sondeo de planta-detalle (F18).
+import { vincularDispositivo, listarDispositivos, desvincularDispositivo } from "../api.js";
+import { textoHace, estadoDeDispositivo } from "../tiempo.js";
+import { h, vaciar, campo, crearAviso, crearNota, conCarga, confirmar, limpiarErroresDeFormulario, marcarCampoConError, toast } from "../ui.js";
 
 export function crearPanelDispositivos(planta, ctx) {
   const aviso = crearAviso();
-  const resultado = h("div", { id: "token-generado", "aria-live": "polite" });
+  const avisoLista = crearAviso();
+  const nota = crearNota();
+  const lista = h("div", { id: "lista-dispositivos", "aria-live": "polite" });
+  let firma = null; // lo último que se pintó: si no cambió, no se repinta
 
-  const dispositivo = campo({
-    id: "disp-id",
-    nombre: "dispositivoId",
-    etiqueta: "Identificador del dispositivo",
+  const serial = campo({
+    id: "disp-serial",
+    nombre: "serial",
+    etiqueta: "Serial del dispositivo",
     maxlength: "64",
-    placeholder: "esp32-01",
-    ayuda: "El nombre con el que el dispositivo se identifica, por ejemplo esp32-01.",
+    placeholder: "fito-7K2M9Q",
+    autocomplete: "off",
+    spellcheck: "false",
+    ayuda: "El serial viene impreso en el dispositivo. Enciéndelo antes o después: se conecta solo cuando lo vincules.",
   });
-  const boton = h("button", { type: "submit", class: "boton boton-primario", id: "btn-vincular-dispositivo" }, "Generar token");
-  const formulario = h("form", { id: "formulario-dispositivo", novalidate: true }, dispositivo.contenedor, aviso.elemento, boton);
+  const boton = h("button", { type: "submit", class: "boton boton-primario", id: "btn-vincular-dispositivo" }, "Vincular");
+  const formulario = h("form", { id: "formulario-dispositivo", novalidate: true }, serial.contenedor, aviso.elemento, nota.elemento, boton);
 
   formulario.addEventListener("submit", async (evento) => {
     evento.preventDefault();
     limpiarErroresDeFormulario(formulario);
     aviso.limpiar();
-    const id = dispositivo.input.value.trim();
-    if (!id) {
-      dispositivo.error("Escribe el identificador del dispositivo.");
+    nota.limpiar();
+    const valor = serial.input.value.trim();
+    if (!valor) {
+      serial.error("Escribe el serial del dispositivo.");
       return;
     }
     try {
-      const vinculo = await conCarga(boton, "Generando…", () => vincularDispositivo(planta.id, id));
+      const vinculo = await conCarga(boton, "Vinculando…", () => vincularDispositivo(planta.id, valor));
       if (!ctx.vigente()) return;
       formulario.reset();
-      pintarToken(vinculo);
+      nota.mostrar(`Dispositivo ${vinculo.serial} vinculado. Apenas se conecte lo verás aquí.`);
+      await cargar();
     } catch (error) {
       if (!marcarCampoConError(formulario, error)) aviso.mostrar(error);
     }
   });
 
-  function pintarToken(vinculo) {
-    vaciar(resultado);
-    const campoToken = h("input", { type: "text", readonly: true, id: "valor-token", "aria-label": "Token del dispositivo" });
-    campoToken.value = vinculo.token;
-    const nota = crearNota();
-    const botonCopiar = h("button", { type: "button", class: "boton boton-secundario", id: "btn-copiar-token" }, "Copiar");
-    botonCopiar.addEventListener("click", async () => {
-      if (await copiarAlPortapapeles(vinculo.token)) nota.mostrar("Token copiado.");
-      else {
-        campoToken.select();
-        nota.mostrar("No se pudo copiar solo: el token quedó seleccionado, cópialo con Ctrl+C.");
-      }
-    });
-    resultado.append(
-      h("p", {}, h("strong", {}, `Token para ${vinculo.dispositivoId}`)),
-      h("div", { class: "enlace-copiable" }, campoToken, botonCopiar),
-      nota.elemento,
-      h("p", { class: "texto-suave" },
-        "Se muestra una sola vez: cópialo ahora. El simulador lo necesita en la variable de entorno ",
-        h("code", {}, "FITO_TOKEN_DISPOSITIVO"),
-        `. Vence ${formatearFecha(vinculo.expira)}.`,
-      ),
+  async function desvincular(dispositivo) {
+    if (!(await confirmar(`¿Desvincular ${dispositivo.serial}? Dejará de reportar a esta planta y no podrá renovar su credencial.`, { aceptar: "Desvincular", peligro: true }))) return;
+    try {
+      await desvincularDispositivo(planta.id, dispositivo.serial);
+      toast("Dispositivo desvinculado.");
+      await cargar();
+    } catch (error) {
+      // La lista pudo quedar vieja (p. ej. ya se había desvinculado): se actualiza y se explica.
+      await cargar();
+      avisoLista.mostrar(error);
+    }
+  }
+
+  function pintar(dispositivos) {
+    vaciar(lista);
+    lista.append(
+      dispositivos.length === 0
+        ? h("p", { class: "texto-vacio" }, "Ningún dispositivo vinculado.")
+        : h("ul", { class: "lista-limpia" }, dispositivos.map((d) =>
+            h("li", { class: "fila fila--separada", "data-serial": d.serial },
+              h("span", {},
+                h("strong", {}, d.serial), " · ",
+                h("span", { class: "estado-dispositivo", "data-credencial": d.ultimaCredencialEn || "" }, estadoDeDispositivo(d)),
+              ),
+              h("button", { type: "button", class: "boton boton-secundario boton-chico", "data-accion": "desvincular-dispositivo", onclick: () => desvincular(d) }, "Desvincular"),
+            ))),
     );
   }
 
-  return h("section", { class: "tarjeta", "aria-labelledby": "titulo-dispositivos" },
-    h("h2", { id: "titulo-dispositivos" }, "Vincular dispositivo"),
-    h("p", { class: "texto-suave" }, "Genera el token con el que un dispositivo envía mediciones a esta planta. Sus diagnósticos aparecen en el historial con origen «Dispositivo»."),
+  /** Trae la lista y repinta solo si cambió. Con `silencioso` (sondeo) un fallo no muestra aviso. */
+  async function cargar({ silencioso = false } = {}) {
+    try {
+      const dispositivos = await listarDispositivos(planta.id);
+      if (!ctx.vigente()) return;
+      avisoLista.limpiar();
+      const nueva = JSON.stringify(dispositivos.map((d) => [d.serial, d.reclamadoEn, d.ultimaCredencialEn || null]));
+      if (nueva === firma) return;
+      firma = nueva;
+      pintar(dispositivos);
+    } catch (error) {
+      if (ctx.vigente() && !silencioso) avisoLista.mostrar(error);
+    }
+  }
+
+  /** Reloj de pantalla: actualiza «conectado hace Xs» sin pedir nada ni repintar. */
+  function actualizarTiempos(ahora = Date.now()) {
+    for (const nodo of lista.querySelectorAll(".estado-dispositivo[data-credencial]")) {
+      const iso = nodo.dataset.credencial;
+      if (iso) nodo.textContent = `conectado ${textoHace(iso, ahora)}`;
+    }
+  }
+
+  const elemento = h("section", { class: "tarjeta", "aria-labelledby": "titulo-dispositivos" },
+    h("h2", { id: "titulo-dispositivos" }, "Dispositivos"),
+    h("p", { class: "texto-suave" }, "Escribe el serial del dispositivo para vincularlo a esta planta. Sus diagnósticos aparecen en el historial con origen «Dispositivo»."),
     formulario,
-    resultado,
+    avisoLista.elemento,
+    h("h3", {}, "Dispositivos de esta planta"),
+    lista,
   );
+  return { elemento, cargar, refrescar: () => cargar({ silencioso: true }), actualizarTiempos };
 }

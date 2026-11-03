@@ -41,7 +41,7 @@ http://localhost:5500/?api=http://localhost:9090/api/v1#/plantas
 ### Pruebas
 
 ```bash
-node --test tests/*.test.mjs                                # unitarias (codec STOMP, rutas y sondeo), sin dependencias
+node --test tests/*.test.mjs                                # unitarias (codec STOMP, rutas, sondeo y tiempos de dispositivos), sin dependencias
 cd tests/humo && npm install && node humo.mjs               # humo de punta a punta: backend + front levantados, Chrome headless
 ```
 
@@ -49,9 +49,11 @@ cd tests/humo && npm install && node humo.mjs               # humo de punta a pu
 
 El detalle de una planta se actualiza solo: cada **5 s** (`INTERVALO_SONDEO_MS` en `js/sondeo.js`) pide `GET /plantas/{id}/diagnostico` (el vigente) y la página actual de `GET /plantas/{id}/diagnosticos` (el historial, con el origen MANUAL o DISPOSITIVO de cada registro). El indicador de la cabecera dice «actualizado hace Xs». Se detiene al salir de la pantalla y se pausa con la pestaña oculta. Si la API falla lo dice en pantalla (sin apilar avisos) y reintenta con espera creciente. El WebSocket ya no mueve el estado de la planta: queda solo para los avisos (toasts, acceso perdido). Detalle en F16 de [`docs/IMPLEMENTACION-CORTE2.md`](docs/IMPLEMENTACION-CORTE2.md).
 
-## Vincular un dispositivo
+## Vincular un dispositivo (reclamo por serial)
 
-En el detalle de una planta propia, la sección **Vincular dispositivo** pide el identificador (p. ej. `esp32-01`) y llama a `POST /plantas/{id}/dispositivos`. Muestra el token **una sola vez**, con botón de copiar y su vencimiento. El simulador lo lee de la variable de entorno `FITO_TOKEN_DISPOSITIVO`. Los diagnósticos que envíe aparecen en el historial con origen «Dispositivo» y, por el sondeo, en el vigente en pocos segundos. Requiere un backend con ese endpoint.
+El humano no copia ninguna credencial. Cada dispositivo sale de fábrica con un **serial** impreso (`fito-7K2M9Q`) y un secreto guardado adentro. En el detalle de una planta propia, la sección **Dispositivos** pide el serial y llama a `POST /plantas/{id}/dispositivos` con `{serial}`. El dispositivo, por su cuenta, pide un reto, responde con un HMAC de su secreto y recibe su token. La lista de la sección dice «esperando que se conecte» o «conectado hace Xs» (se refresca con el sondeo de 5 s) y permite desvincular. Los diagnósticos que envíe aparecen en el historial con origen «Dispositivo». Detalle en F18 de [`docs/IMPLEMENTACION-CORTE2.md`](docs/IMPLEMENTACION-CORTE2.md).
+
+El administrador registra los dispositivos en `#/admin/dispositivos` (F19): al registrar, el serial y el secreto se muestran **una sola vez** con botón de copiar y el comando listo del simulador. Requiere el backend de la fase 3.
 
 ## Rutas (hash)
 
@@ -62,9 +64,9 @@ En el detalle de una planta propia, la sección **Vincular dispositivo** pide el
 | `#/restablecer?token=` | pública | elegir contraseña nueva (enlace del correo) |
 | `#/invitacion?token=` | pública | aceptar invitación, con sesión o registrándose (enlace del correo) |
 | `#/perfil` | sesión | datos, contraseña, eliminar cuenta |
-| `#/plantas`, `#/plantas/nueva`, `#/plantas/{id}` | sesión | mis plantas y compartidas; registrar; detalle (estado por sondeo, historial, vincular dispositivo, compartir, editar) |
+| `#/plantas`, `#/plantas/nueva`, `#/plantas/{id}` | sesión | mis plantas y compartidas; registrar; detalle (estado por sondeo, historial, dispositivos por serial, compartir, editar) |
 | `#/solicitudes` | sesión | pedir una especie y ver mis solicitudes |
-| `#/admin`, `#/admin/usuarios`, `#/admin/usuarios/{id}`, `#/admin/especies`, `#/admin/solicitudes` | admin | administración |
+| `#/admin`, `#/admin/usuarios`, `#/admin/usuarios/{id}`, `#/admin/especies`, `#/admin/solicitudes`, `#/admin/dispositivos` | admin | administración; dispositivos de fábrica (serial y secreto) |
 
 ## Estructura
 
@@ -74,6 +76,7 @@ En el detalle de una planta propia, la sección **Vincular dispositivo** pide el
 | `js/config.js` | `API_BASE` y `WS_URL`, sobreescribibles con `?api=` y `?ws=` |
 | `js/api.js` | **único archivo que llama a `fetch`.** Una función por endpoint; normaliza todo error a `ErrorApi {codigo, mensaje, campo, status}`; maneja 204; adjunta el token (salvo en rutas públicas); un 401 con token vigente avisa a `app.js` |
 | `js/envivo.js` | **único archivo que abre un WebSocket.** STOMP 1.2, suscripciones, reconexión con espera creciente, estado de la conexión. Solo para avisos (toasts, acceso perdido) |
+| `js/tiempo.js` | «conectado hace Xs» y «esperando que se conecte» de los dispositivos; puro, con pruebas |
 | `js/sondeo.js` | sondeo periódico (polling) con pausa por pestaña oculta y espera creciente ante errores; puro, con pruebas |
 | `js/stomp.js` | codec STOMP puro (sin red), con pruebas |
 | `js/sesion.js` | token, caducidad y usuario en `sessionStorage`; único que toca el almacenamiento |

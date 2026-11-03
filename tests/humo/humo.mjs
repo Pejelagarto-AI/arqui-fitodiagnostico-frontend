@@ -10,6 +10,7 @@
 // Sale con código 1 si algún paso falla. Sin Mailpit se omiten los pasos de correo.
 import { chromium } from "playwright-core";
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 
 const FRONT = process.env.FRONT || "http://localhost:5500";
 const API = process.env.API || "http://localhost:8080/api/v1";
@@ -89,6 +90,15 @@ async function api(token, metodo, ruta, cuerpo) {
   });
   const texto = await r.text();
   return { status: r.status, cuerpo: texto ? JSON.parse(texto) : null };
+}
+
+// El chip: pide un reto y responde base64(HMAC-SHA256(clave = secreto como texto, mensaje = reto como texto)).
+const respuestaDelChip = (secreto, reto) => createHmac("sha256", secreto).update(reto).digest("base64");
+
+async function chipPideCredencial({ serial, secreto }) {
+  const reto = await api(null, "POST", `/dispositivos/${serial}/reto`);
+  assert.equal(reto.status, 200, JSON.stringify(reto.cuerpo));
+  return api(null, "POST", `/dispositivos/${serial}/credencial`, { respuesta: respuestaDelChip(secreto, reto.cuerpo.reto) });
 }
 
 async function medirPorUi(pagina, h, l, t) {
@@ -360,13 +370,51 @@ async function ejecutar() {
     await pBeto.locator("#diagnostico-vigente .estado-global", { hasText: /Crítico|En riesgo/ }).waitFor({ timeout: 15000 });
     assert.equal(await pBeto.evaluate(() => window.__sinRecarga), "sigo aqui", "la página se recargó");
   });
-  await paso("vincular dispositivo (dueño): muestra el token una vez; el invitado no ve la sección", async () => {
-    await pAna.fill("#disp-id", "esp32-humo");
+  const dispositivo = { serial: `fito-H${sufijo.slice(-5).toUpperCase()}`, secreto: null };
+  await paso("fábrica: el admin registra un dispositivo por API y el chip aún no recibe credencial (409 sin reclamar)", async () => {
+    const sesionAdmin = await api(null, "POST", "/auth/sesion", { correo: ADMIN_CORREO, contrasena: ADMIN_CLAVE });
+    assert.equal(sesionAdmin.status, 200);
+    const creado = await api(sesionAdmin.cuerpo.token, "POST", "/admin/dispositivos", { serial: dispositivo.serial });
+    assert.equal(creado.status, 201);
+    assert.equal(creado.cuerpo.serial, dispositivo.serial);
+    assert.ok(creado.cuerpo.secreto.length >= 32, "el secreto debe venir en la respuesta");
+    dispositivo.secreto = creado.cuerpo.secreto;
+    assert.equal((await api(sesionAdmin.cuerpo.token, "POST", "/admin/dispositivos", { serial: dispositivo.serial })).cuerpo.error, "DISPOSITIVO_YA_EXISTE");
+    const credencial = await chipPideCredencial(dispositivo);
+    assert.equal(credencial.status, 409);
+    assert.equal(credencial.cuerpo.error, "DISPOSITIVO_SIN_RECLAMAR");
+  });
+  await paso("reclamar dispositivo (dueño): escribe el serial, ve «esperando que se conecte», sin token en pantalla; el invitado no ve la sección", async () => {
+    assert.equal(await pAna.locator("#disp-serial").getAttribute("placeholder"), "fito-7K2M9Q");
+    await pAna.fill("#disp-serial", "fito-NOEXIS");
     await pAna.click("#btn-vincular-dispositivo");
-    await pAna.locator("#valor-token").waitFor();
-    assert.ok((await pAna.inputValue("#valor-token")).length > 10);
-    assert.match(await pAna.locator("#token-generado").innerText(), /FITO_TOKEN_DISPOSITIVO/);
+    // Serial inexistente (404): el error sale junto al campo si el cuerpo nombra «serial», si no en la zona de alerta.
+    await pAna.locator("#disp-serial[aria-invalid=true], #formulario-dispositivo [role=alert]:not([hidden])").first().waitFor();
+    await pAna.fill("#disp-serial", dispositivo.serial);
+    await pAna.click("#btn-vincular-dispositivo");
+    const fila = pAna.locator(`#lista-dispositivos li[data-serial="${dispositivo.serial}"]`);
+    await fila.waitFor();
+    assert.match(await fila.innerText(), /esperando que se conecte/);
+    assert.equal(await pAna.locator("#valor-token").count(), 0, "el front ya no muestra tokens");
+    assert.doesNotMatch(await pAna.locator("#formulario-dispositivo").locator("xpath=..").innerText(), /FITO_TOKEN_DISPOSITIVO/);
     assert.equal(await pBeto.locator("#formulario-dispositivo").count(), 0);
+    assert.equal(await pBeto.locator("#lista-dispositivos").count(), 0);
+  });
+  await paso("el humo hace de chip (reto + HMAC + credencial) y el front pasa a «conectado hace Xs» con el sondeo", async () => {
+    const credencial = await chipPideCredencial(dispositivo);
+    assert.equal(credencial.status, 200, JSON.stringify(credencial.cuerpo));
+    assert.equal(credencial.cuerpo.plantaId, plantaId);
+    assert.ok(credencial.cuerpo.token && credencial.cuerpo.expira);
+    // El reto es de un solo uso: repetir la misma respuesta ya no sirve.
+    const reto = (await api(null, "POST", `/dispositivos/${dispositivo.serial}/reto`)).cuerpo.reto;
+    const respuesta = respuestaDelChip(dispositivo.secreto, reto);
+    assert.equal((await api(null, "POST", `/dispositivos/${dispositivo.serial}/credencial`, { respuesta })).status, 200);
+    assert.equal((await api(null, "POST", `/dispositivos/${dispositivo.serial}/credencial`, { respuesta })).cuerpo.error, "CREDENCIAL_RECHAZADA");
+    // Con el token del chip se puede reportar una lectura (como el simulador).
+    const lectura = await api(credencial.cuerpo.token, "POST", `/dispositivos/${dispositivo.serial}/lecturas`, { marcaDeTiempo: new Date().toISOString(), humedad: 50, luz: 600, temperatura: 24 });
+    assert.ok(lectura.status >= 200 && lectura.status < 300, `lectura ${lectura.status}`);
+    // Sin recargar: el sondeo de 5 s trae ultimaCredencialEn.
+    await pAna.locator(`#lista-dispositivos li[data-serial="${dispositivo.serial}"]`, { hasText: /conectado hace \d+ s/ }).waitFor({ timeout: 15000 });
   });
   await paso("quitar el acceso al invitado: recibe el aviso en vivo y sale de la planta", async () => {
     await pAna.locator("#lista-invitados li", { hasText: beto.nombre }).locator("[data-accion=revocar-invitado]").click();
@@ -393,6 +441,31 @@ async function ejecutar() {
     await entrarPorUi(pAdmin, ADMIN_CORREO, ADMIN_CLAVE);
     await esperarHash(pAdmin, /^#\/plantas$/);
     await pAdmin.locator("#navegacion a", { hasText: "Administración" }).waitFor();
+  });
+  await paso("admin: dispositivos de fábrica (lista con estado y planta; registrar muestra serial y secreto una vez con el comando del simulador)", async () => {
+    await pAdmin.locator("#navegacion a", { hasText: "Administración" }).click();
+    await pAdmin.locator("a[href='#/admin/dispositivos']").click();
+    const fila = pAdmin.locator(`#tabla-dispositivos tr[data-serial="${dispositivo.serial}"]`);
+    await fila.waitFor();
+    assert.match(await fila.innerText(), /Reclamado/);
+    assert.match(await fila.innerText(), new RegExp(plantaId));
+    assert.match(await fila.innerText(), /conectado/);
+    await pAdmin.click("#btn-registrar-dispositivo"); // sin serial: lo genera el servidor
+    await pAdmin.locator("#valor-secreto").waitFor();
+    const serialNuevo = await pAdmin.inputValue("#valor-serial");
+    const secretoNuevo = await pAdmin.inputValue("#valor-secreto");
+    assert.match(serialNuevo, /^fito-[A-Z0-9]{6}$/);
+    assert.equal(await pAdmin.inputValue("#valor-comando"), `FITO_SERIAL=${serialNuevo} FITO_SECRETO=${secretoNuevo} python3 simulador/simulador_esp32.py --especie potos`);
+    await pAdmin.click("#btn-copiar-secreto");
+    await pAdmin.locator("#dispositivo-registrado .banner-ok:not([hidden])").first().waitFor();
+    await pAdmin.locator(`#tabla-dispositivos tr[data-serial="${serialNuevo}"]`, { hasText: "Sin reclamar" }).waitFor();
+    // Registrar uno con serial repetido: error junto al campo.
+    await pAdmin.fill("#fab-serial", serialNuevo);
+    await pAdmin.click("#btn-registrar-dispositivo");
+    await pAdmin.locator("#fab-serial[aria-invalid=true], #formulario-fabrica [role=alert]:not([hidden])").first().waitFor();
+    // Un cliente no entra a esta vista.
+    await pAna.goto(`${FRONT}/#/admin/dispositivos`);
+    await pAna.locator("text=solo para administradores").waitFor();
   });
   await paso("admin: listar y buscar usuarios, ver detalle con plantas", async () => {
     await pAdmin.goto(`${FRONT}/#/admin/usuarios`);
