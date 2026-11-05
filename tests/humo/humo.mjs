@@ -593,7 +593,7 @@ async function ejecutar() {
     await pAna.locator("#btn-asistente-reintentar").waitFor();
     await pAna.click("#btn-asistente-escribir");
     await pAna.locator("#asistente-codigo").waitFor();
-    assert.match(await pAna.locator("#asistente-paso-titulo").innerText(), /Escribe el código de tu matera/);
+    assert.match(await pAna.locator("#asistente-paso-titulo").innerText(), /Dinos cuál es tu matera/);
   });
   await paso("asistente: la matera aparece («Encontramos una matera»), se escribe el código y llega «Conexión exitosa»", async () => {
     const matera = await materaDeFabrica();

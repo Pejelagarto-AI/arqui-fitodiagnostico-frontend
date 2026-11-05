@@ -250,7 +250,7 @@ export async function montar(contenedor, ctx) {
           h("p", { class: "serial-grande asistente-enmascarado", id: "asistente-enmascarado", "aria-label": `Empieza por ${[...codigoVisible(encontradas[0].serialEnmascarado).replace(/·/g, "")].join(" ")}` }, encontradas.map((e) => enmascaradoVisible(e.serialEnmascarado)).join("   ")),
           h("p", { class: "texto-suave" }, "¿Es la tuya? Confírmalo con el código que muestra su pantalla."),
         ]
-      : [h("p", { class: "texto-suave" }, "El código de 6 letras y números está en la pantalla de la matera, junto al cuadro QR.")];
+      : [h("p", { class: "texto-suave" }, "La pantalla de la matera muestra un código de 6 letras y números y, al lado, un cuadro QR. Usa el que prefieras.")];
 
     // Código: un solo campo para lectores de pantalla; las seis casillas son su reflejo visual.
     const casillas = Array.from({ length: 6 }, () => h("span", { class: "casilla", "aria-hidden": "true" }));
@@ -336,7 +336,7 @@ export async function montar(contenedor, ctx) {
 
     const atras = h("button", { type: "button", class: "asistente-enlace", id: "btn-asistente-atras", onclick: () => despachar({ tipo: "ATRAS" }) }, "Volver a buscar");
     return {
-      titulo: hay ? "Confirma que es la tuya" : "Escribe el código de tu matera",
+      titulo: hay ? "Confirma que es la tuya" : "Dinos cuál es tu matera",
       anunciar: hay ? `${anuncioDePaso("confirma")}. ${encontradas.length === 1 ? "Encontramos una matera." : `Encontramos ${encontradas.length} materas.`}` : undefined,
       nodos: [...cabecera, selector, panelCodigo, panelQr, atras],
       limpiar: () => lector.destruir(), // al salir del paso o de la pantalla, la cámara se apaga
