@@ -4116,3 +4116,147 @@ body[data-sesion="no"] .pie {
     padding: 0.6rem 0.75rem;
   }
 }
+
+/* ---------- recorrido guiado (F39) ----------
+   Una capa sobre toda la pantalla; el foco es una caja transparente cuya sombra gigante oscurece el resto
+   (así el elemento real se ve tal cual, sin copiarlo); el globo va debajo o encima, nunca sobre el foco. */
+
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.tour-foco {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 18px;
+  box-shadow: 0 0 0 200vmax rgba(8, 14, 10, 0.66), 0 0 0 3px rgba(255, 255, 255, 0.92) inset;
+  pointer-events: none;
+}
+
+.tour-globo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: min(21.5rem, calc(100vw - 16px));
+  padding: 1rem 1.1rem 0.8rem;
+  border-radius: 20px;
+  background: var(--superficie);
+  color: var(--tinta);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
+}
+
+.tour-flecha {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  background: var(--superficie);
+  transform: rotate(45deg);
+}
+
+.tour-globo[data-lado="abajo"] .tour-flecha {
+  top: -7px;
+}
+
+.tour-globo[data-lado="arriba"] .tour-flecha {
+  bottom: -7px;
+}
+
+.tour-titulo {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.tour-texto {
+  margin: 0;
+  color: var(--tinta-suave);
+  font-weight: 600;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.tour-progreso {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+}
+
+.tour-puntos {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tour-puntos li {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--borde-control);
+  opacity: 0.45;
+}
+
+.tour-puntos li[data-activo] {
+  width: 1.2rem;
+  background: var(--acento);
+  opacity: 1;
+}
+
+.tour-cuenta {
+  font-size: var(--t-chico);
+  font-weight: 700;
+  color: var(--tinta-suave);
+  font-variant-numeric: tabular-nums;
+}
+
+.tour-pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.tour-botones {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.tour-omitir {
+  min-height: 2.75rem;
+  padding: 0 0.5rem 0 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 800;
+  color: var(--tinta-suave);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.tour-omitir:hover {
+  color: var(--tinta);
+}
+
+@media (pointer: coarse) {
+  .tour-omitir {
+    min-height: 3rem;
+  }
+}
+
+@media print {
+  .tour {
+    display: none;
+  }
+}

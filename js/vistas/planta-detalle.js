@@ -20,6 +20,7 @@ import { crearSondeo, textoActualizado } from "../sondeo.js";
 import { leerCache, guardarCache, invalidarCache, alVolver } from "../cache.js";
 import { recargarVista } from "../router.js";
 import { recordarPlantaActiva, nombrarParaTransicion, conTransicion } from "../transiciones.js";
+import { lanzarRecorridoSiToca } from "../componentes/recorrido.js";
 import { pestanasDePlanta, pestanaValida, pestanaVecina, rutaDePestana, consultasDeSondeo, tituloDePestana } from "../pestanas.js";
 
 export const titulo = "Planta";
@@ -298,6 +299,12 @@ export async function montar(contenedor, ctx) {
     if (dispositivos) dispositivos.actualizarTiempos();
   }, 1000);
   limpiezas.push(() => sondeo.detener(), () => clearInterval(reloj));
+
+  // Recorrido guiado (F39): la primera vez que se abre una planta, en «Hoy», con lo suyo ya cargado y quieto.
+  const esperaDelRecorrido = setTimeout(() => {
+    if (ctx.vigente() && activa === "hoy") lanzarRecorridoSiToca("detalle", { vigente: ctx.vigente });
+  }, 1100);
+  limpiezas.push(() => clearTimeout(esperaDelRecorrido));
 
   // Si el dueño me quita el acceso o elimina la planta, esta pantalla ya no tiene sentido.
   const alAviso = (evento) => {

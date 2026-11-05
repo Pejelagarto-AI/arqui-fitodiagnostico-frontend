@@ -232,3 +232,25 @@ export function barrerMira(linea, { recorrido = 76 } = {}) {
     globalThis.gsap.set(linea, { clearProps: "transform" });
   };
 }
+
+/**
+ * Lleva una caja (top, left, width, height en px; las que vengan) a su sitio. Lo usa el recorrido guiado (F39)
+ * para mover el foco y el globo de una parada a otra. Interrumpible: una orden nueva pisa a la anterior. Con
+ * movimiento reducido, sin GSAP o con `animar: false`, la caja queda en su sitio de una vez.
+ */
+export function moverCaja(nodo, caja, { animar = true, duracion = 0.32 } = {}) {
+  if (!nodo) return;
+  const destino = Object.fromEntries(Object.entries(caja).map(([clave, valor]) => [clave, Math.round(valor)]));
+  if (animar && puedeAnimar()) {
+    globalThis.gsap.to(nodo, { ...destino, duration: duracion, ease: "power2.out", overwrite: true });
+    return;
+  }
+  if (gsapDisponible()) globalThis.gsap.killTweensOf(nodo);
+  for (const [clave, valor] of Object.entries(destino)) nodo.style[clave] = `${valor}px`;
+}
+
+/** El globo del recorrido aparece con un salto corto. Sin movimiento, ya está. */
+export function aparecer(nodo) {
+  if (!puedeAnimar() || !nodo) return;
+  globalThis.gsap.fromTo(nodo, { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.25, ease: "power2.out", clearProps: "opacity,transform" });
+}

@@ -16,6 +16,7 @@ import * as sesion from "../sesion.js";
 import { conTransicion } from "../transiciones.js";
 import { FILTROS, cuentaPorEstado, pasaElFiltro, filtroVigente, plegar } from "../tablero.js";
 import { recomendacionEnPalabras } from "../voz-planta.js";
+import { lanzarRecorridoSiToca } from "../componentes/recorrido.js";
 import { h, vaciar, crearAviso, chipDeEstadoGlobal, esqueletoSiTarda, ETIQUETAS_PARAMETRO } from "../ui.js";
 import { crearIlustracionPlanta } from "../componentes/ilustracion-planta.js";
 import { esCarnivora } from "../componentes/especie.js";
@@ -296,8 +297,22 @@ export async function montar(contenedor, ctx) {
     repintarQueHacer();
   });
 
+  // Recorrido guiado (F39): la primera vez que se ve el tablero con plantas, cuando ya llegaron sus lecturas
+  // y terminó la entrada de las tarjetas (así el foco cae sobre algo quieto y con su tamaño final).
+  let esperaDelRecorrido = null;
+  function quizasRecorrido() {
+    if (mias.length === 0) return;
+    clearTimeout(esperaDelRecorrido);
+    esperaDelRecorrido = setTimeout(() => lanzarRecorridoSiToca("tablero", { vigente: ctx.vigente }), 700);
+  }
+
   /** Pide el vigente de cada planta en paralelo; cada tarjeta se completa cuando llega la suya. */
   async function leerTodas() {
+    await leerCadaUna();
+    if (ctx.vigente()) quizasRecorrido();
+  }
+
+  async function leerCadaUna() {
     await Promise.all(mias.map(async (planta, i) => {
       const tarjeta = tarjetas[i]; // la de ESTA pasada: si la lista se repinta mientras tanto, no se mezclan
       const lectura = await leerVigente(planta);
@@ -378,6 +393,7 @@ export async function montar(contenedor, ctx) {
   // Al recuperar el foco o volver la red: listas y estados al día sin esperar al próximo ciclo.
   const quitarRevalidacion = alVolver(revalidar);
   return () => {
+    clearTimeout(esperaDelRecorrido);
     pararBalanceo();
     quitarRevalidacion();
     sondeo.detener();

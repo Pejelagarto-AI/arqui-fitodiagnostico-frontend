@@ -1,6 +1,7 @@
 // RF-A4..A6: ver y editar los datos de la cuenta, cambiar la contraseña y eliminar la cuenta.
 import { obtenerCuenta, actualizarCuenta, cambiarContrasena, eliminarCuenta } from "../api.js";
 import * as sesion from "../sesion.js";
+import { olvidarRecorridos } from "../componentes/recorrido.js";
 import { h, campo, crearAviso, crearNota, conCarga, confirmar, limpiarErroresDeFormulario, marcarCampoConError, toast } from "../ui.js";
 
 export const titulo = "Mi perfil";
@@ -77,6 +78,12 @@ export async function montar(contenedor, ctx) {
       formDatos,
     ),
     h("section", { class: "tarjeta" }, h("h2", {}, "Cambiar contraseña"), formClave),
+    // El recorrido guiado se puede repetir (F39): se olvida que ya se vio y vuelve a salir en el tablero y en una planta.
+    h("section", { class: "tarjeta" },
+      h("h2", {}, "Ayuda"),
+      h("p", { class: "texto-suave" }, "¿Quieres que te mostremos otra vez dónde está cada cosa?"),
+      h("button", { type: "button", class: "boton boton-secundario", id: "btn-ver-recorrido", onclick: () => { olvidarRecorridos(); toast("Listo. Verás el recorrido al abrir tus plantas."); ctx.irA("/plantas"); } }, "Ver el recorrido otra vez"),
+    ),
     // En teléfono el menú de arriba no existe (F37): cerrar sesión vive aquí. En escritorio sigue en la cabecera.
     h("section", { class: "tarjeta solo-movil" },
       h("h2", {}, "Sesión"),

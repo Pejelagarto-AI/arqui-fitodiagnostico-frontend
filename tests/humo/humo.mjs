@@ -55,7 +55,11 @@ async function paso(nombre, fn) {
 async function nuevoContexto(etiqueta, opciones = {}) {
   // bypassCSP: Playwright evalúa con eval() los textos de waitForFunction y la CSP de la página (sin
   // 'unsafe-eval') lo bloquearía. La CSP real se comprueba aparte, en el paso «la CSP no bloquea nada».
-  const contexto = await navegador.newContext({ viewport: { width: 1100, height: 900 }, bypassCSP: opciones.csp !== true, ...opciones });
+  const { tour = false, csp, ...resto } = opciones;
+  const contexto = await navegador.newContext({ viewport: { width: 1100, height: 900 }, bypassCSP: csp !== true, ...resto });
+  // El recorrido guiado (F39) tapa la pantalla la primera vez: el humo lo apaga con su clave de almacenamiento,
+  // salvo en el contexto del paso que lo recorre (`tour: true`).
+  if (!tour) await contexto.addInitScript(() => { try { localStorage.setItem("fito.tour", "no"); } catch { /* sin almacenamiento */ } });
   const pagina = await contexto.newPage();
   pagina.on("pageerror", (e) => erroresDeConsola.push(`[${etiqueta}] pageerror: ${e.message}`));
   pagina.on("console", (m) => {
@@ -856,6 +860,62 @@ async function ejecutar() {
     await esperarHash(p, /^#\/invitacion\?token=abc_DEF-123$/);
     await p.goto(`${FRONT}/restablecer?token=xyz`);
     await esperarHash(p, /^#\/restablecer\?token=xyz$/);
+    await p.context().close();
+  });
+
+  console.log("Recorrido guiado");
+  await paso("recorrido guiado: sale la primera vez en el tablero con el foco atrapado, se recorre y no vuelve; en una planta sale el suyo y Esc lo cierra; desde Perfil se repite", async () => {
+    // Único contexto del humo con el recorrido encendido (los demás lo apagan con la clave «fito.tour»).
+    const p = await nuevoContexto("tour", { tour: true });
+    await p.goto(`${FRONT}/#/entrar`);
+    await p.fill("#entrar-correo", ana.correo);
+    await p.fill("#entrar-contrasena", "ana-clave-final-1");
+    await p.click("#btn-entrar");
+    await esperarHash(p, /^#\/plantas$/);
+    await p.locator("#tour-globo").waitFor({ timeout: 10000 });
+    assert.equal(await p.locator("#tour").getAttribute("data-recorrido"), "tablero");
+    assert.equal(await p.locator("#tour-globo").getAttribute("role"), "dialog");
+    await p.waitForFunction(() => document.activeElement && document.activeElement.id === "btn-tour-siguiente");
+    assert.match(await p.locator("#tour-anuncio").textContent(), /^Paso 1 de \d\. /);
+    // Foco atrapado: Tab da la vuelta dentro del globo.
+    await p.keyboard.press("Tab");
+    assert.equal(await p.evaluate(() => document.activeElement.id), "btn-tour-omitir");
+    await p.keyboard.press("Tab");
+    assert.equal(await p.evaluate(() => document.activeElement.id), "btn-tour-siguiente");
+    // El globo nunca tapa lo que explica, en ninguna parada.
+    let paradas = 0;
+    while (await p.locator("#tour").count()) {
+      const seTapan = await p.evaluate(() => {
+        const g = document.querySelector("#tour-globo").getBoundingClientRect();
+        const f = document.querySelector(".tour-foco").getBoundingClientRect();
+        return g.left < f.right && f.left < g.right && g.top < f.bottom && f.top < g.bottom;
+      });
+      assert.equal(seTapan, false, `el globo tapa el elemento en la parada ${paradas + 1}`);
+      await p.click("#btn-tour-siguiente");
+      await p.waitForTimeout(400);
+      paradas += 1;
+      assert.ok(paradas <= 6, "el recorrido no termina");
+    }
+    assert.ok(paradas >= 3, `solo ${paradas} paradas`);
+    assert.equal(await p.evaluate(() => localStorage.getItem("fito.tour.tablero")), "visto");
+    await p.reload();
+    await p.locator(".tarjeta-planta").first().waitFor();
+    await p.waitForTimeout(1500);
+    assert.equal(await p.locator("#tour").count(), 0, "ya visto: no vuelve a salir");
+    // La primera vez que se abre una planta sale el recorrido del detalle; Esc lo cierra y lo da por visto.
+    await p.goto(`${FRONT}/#/plantas/${plantaId}`);
+    await p.locator("#tour-globo").waitFor({ timeout: 10000 });
+    assert.equal(await p.locator("#tour").getAttribute("data-recorrido"), "detalle");
+    await p.keyboard.press("Escape");
+    await p.waitForFunction(() => !document.querySelector("#tour"));
+    assert.equal(await p.evaluate(() => localStorage.getItem("fito.tour.detalle")), "visto");
+    // «Ver el recorrido otra vez», en Perfil.
+    await p.goto(`${FRONT}/#/perfil`);
+    await p.click("#btn-ver-recorrido");
+    await esperarHash(p, /^#\/plantas$/);
+    await p.locator("#tour-globo").waitFor({ timeout: 10000 });
+    await p.click("#btn-tour-omitir");
+    await p.waitForFunction(() => !document.querySelector("#tour"));
     await p.context().close();
   });
 
