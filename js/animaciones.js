@@ -164,3 +164,39 @@ export function exito({ aro, planta, hojas, chulo, insignia }) {
     if (largo > 0) linea.fromTo(chulo, { strokeDasharray: largo, strokeDashoffset: largo }, { strokeDashoffset: 0, duration: 0.5, ease: "power2.inOut", clearProps: "strokeDasharray,strokeDashoffset" }, "-=0.1");
   }
 }
+
+/**
+ * Un mordisco de la planta carnívora (llega una lectura nueva): las mandíbulas se cierran de golpe y vuelven a su
+ * posición de reposo (abierta). Las mandíbulas son grupos SVG con un transform de reposo; GSAP parte de él y anima
+ * `y`: 0 es la boca cerrada.
+ */
+export function morder(superior, inferior, { abiertaSup = -14, abiertaInf = 6 } = {}) {
+  if (!puedeAnimar() || !superior || !inferior) return;
+  const { gsap } = globalThis;
+  gsap.killTweensOf([superior, inferior]);
+  gsap.timeline()
+    .to(superior, { y: 0, duration: 0.09, ease: "power2.in" }, 0)
+    .to(inferior, { y: 0, duration: 0.09, ease: "power2.in" }, 0)
+    .to(superior, { y: abiertaSup, duration: 0.5, ease: "elastic.out(1, 0.4)" }, 0.16)
+    .to(inferior, { y: abiertaInf, duration: 0.5, ease: "elastic.out(1, 0.4)" }, 0.16);
+}
+
+/** La carnívora abre la boca de par en par y la cierra, dos veces, cada cierto rato. Devuelve la función que lo detiene. */
+export function masticar(superior, inferior, { abiertaSup = -14, abiertaInf = 6 } = {}) {
+  if (!puedeAnimar() || !superior || !inferior) return () => {};
+  const { gsap } = globalThis;
+  const linea = gsap.timeline({ repeat: -1, repeatDelay: 5.5, delay: 3 });
+  for (let i = 0; i < 2; i++) {
+    linea
+      .to(superior, { y: abiertaSup - 8, duration: 0.3, ease: "power1.out" })
+      .to(inferior, { y: abiertaInf + 4, duration: 0.3, ease: "power1.out" }, "<")
+      .to(superior, { y: 0, duration: 0.16, ease: "power2.in" })
+      .to(inferior, { y: 0, duration: 0.16, ease: "power2.in" }, "<");
+  }
+  linea.to(superior, { y: abiertaSup, duration: 0.4 }).to(inferior, { y: abiertaInf, duration: 0.4 }, "<");
+  return () => {
+    linea.kill();
+    gsap.set(superior, { y: abiertaSup });
+    gsap.set(inferior, { y: abiertaInf });
+  };
+}

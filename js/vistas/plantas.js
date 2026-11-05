@@ -14,6 +14,7 @@ import { leerCache, guardarCache, sonIguales, alVolver } from "../cache.js";
 import { entrada } from "../animaciones.js";
 import { h, vaciar, crearAviso, formatearFecha, chipDeEstadoGlobal, esqueletoSiTarda, ETIQUETAS_PARAMETRO } from "../ui.js";
 import { crearIlustracionPlanta } from "../componentes/ilustracion-planta.js";
+import { esCarnivora } from "../componentes/especie.js";
 import { iconoDeParametro } from "../componentes/diagnostico.js";
 import { nivelesDeDiagnostico, recomendacionesPorParametro } from "../componentes/escala.js";
 
@@ -55,7 +56,7 @@ function valorDeTarjeta(nombre, etiqueta, p) {
 
 /** Tarjeta de una planta propia. Nace con apodo y especie; `completar` le pone la lectura cuando llega. */
 function crearTarjeta(planta) {
-  const ilustracion = crearIlustracionPlanta({ mini: true });
+  const ilustracion = crearIlustracionPlanta({ mini: true, carnivora: esCarnivora(planta.especie) });
   const estado = h("span", { class: "tarjeta-planta-estado" });
   const valores = h("div", { class: "tarjeta-planta-valores" });
   const cuando = h("p", { class: "tarjeta-planta-cuando texto-suave" }, "leyendo…");

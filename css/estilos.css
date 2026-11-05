@@ -26,6 +26,8 @@
   --hoja-critica: #a8794a;
   --agua: #4c86c8;
   --sol: #f5c542;
+  --boca: #b3261e;
+  --boca-seca: #7d4a43;
 
   --saludable: #1f6e38;
   --saludable-fondo: #dff3e3;
@@ -84,6 +86,8 @@
     --hoja-riesgo: #c9bd5a;
     --hoja-critica: #c08a5a;
     --agua: #5b9be0;
+    --boca: #d4574d;
+    --boca-seca: #8a5a52;
 
     --saludable: #86d99a;
     --saludable-fondo: #1f3a28;
@@ -1420,6 +1424,52 @@ body[data-patron="/plantas/:id"] .indicador-conexion--global {
 
 .ilu-sol path {
   stroke: var(--sol);
+}
+
+/* planta carnívora: cabeza de trampa con ojos y dientes (contraste medido en claro y oscuro) */
+.ilu-cabeza {
+  fill: var(--hoja);
+  stroke: var(--hoja-oscura);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.ilu-boca-interior {
+  fill: var(--boca);
+}
+
+.ilu-diente {
+  fill: #fffdf5;
+  stroke: var(--hoja-oscura);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.ilu-ojo {
+  fill: #ffffff;
+  stroke: var(--hoja-oscura);
+  stroke-width: 2;
+}
+
+.ilu-pupila {
+  fill: #1b251e;
+}
+
+.ilustracion-planta[data-estado="EN_RIESGO"] .ilu-cabeza {
+  fill: var(--hoja-riesgo);
+}
+
+.ilustracion-planta[data-estado="CRITICO"] .ilu-cabeza {
+  fill: var(--hoja-critica);
+}
+
+.ilustracion-planta[data-estado="CRITICO"] .ilu-boca-interior {
+  fill: var(--boca-seca);
+}
+
+.ilustracion-planta[data-estado="SIN_DIAGNOSTICO"] .ilu-cabeza {
+  fill: var(--tinta-suave);
+  opacity: 0.55;
 }
 
 .ilustracion-planta--mini {
