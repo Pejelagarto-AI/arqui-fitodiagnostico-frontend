@@ -11,6 +11,7 @@ import { h, enlaceDeVolver, crearAviso } from "../ui.js";
 import { crearIlustracionPlanta } from "../componentes/ilustracion-planta.js";
 import { esCarnivora } from "../componentes/especie.js";
 import { ilustracionEnciende, ilustracionRadar, ilustracionQr, anilloDeEspera, escenaDeExito, iconoDeAyuda } from "../componentes/asistente-ilustraciones.js";
+import { crearLectorQr } from "../componentes/lector-qr.js";
 import {
   AYUDAS,
   ESPERA_MAXIMA_CONEXION_MS,
@@ -301,15 +302,34 @@ export async function montar(contenedor, ctx) {
     });
 
     const panelCodigo = h("div", { class: "asistente-panel", id: "panel-codigo", role: "tabpanel", "aria-labelledby": "opcion-codigo" }, formulario);
+    // El QR se lee aquí mismo (F40): cámara en vivo si el navegador la permite, una foto si no. Del QR solo se
+    // saca el código y se sigue por el mismo camino que al escribirlo.
+    const lector = crearLectorQr({
+      reposo: ilustracionQr(),
+      alLeer: ({ codigo, serial }) => {
+        if (!coincideConEncontradas(codigo, encontradas)) {
+          return `Ese QR es de otra matera, no de la que encontramos (${enmascaradoVisible(encontradas[0].serialEnmascarado)}). Revisa cuál tienes enfrente.`;
+        }
+        serialObjetivo = serial;
+        setTimeout(() => despachar({ tipo: "VINCULAR" }), 0); // cuando el lector ya apagó la cámara
+        return true;
+      },
+    });
+    const comoLeer = {
+      vivo: "Apunta la cámara al cuadro blanco y negro de la pantalla de la matera. Lo leemos aquí mismo.",
+      foto: "Tómale una foto al cuadro blanco y negro de la pantalla de la matera. La leemos aquí mismo.",
+      manual: "Para leer el QR hace falta la cámara. Mejor escribe el código.",
+    }[lector.modos[0]];
     const panelQr = h("div", { class: "asistente-panel", id: "panel-qr", role: "tabpanel", "aria-labelledby": "opcion-qr", hidden: true },
-      ilustracionQr(),
-      h("p", {}, "Abre la cámara del celular y apunta al cuadro de la pantalla de la matera."),
-      h("p", { class: "texto-suave" }, `Se abre un enlace y la matera se vincula sola a «${planta.apodo}», sin preguntarte nada más.`));
+      h("p", { id: "lector-como" }, comoLeer),
+      lector.nodo,
+      h("p", { class: "texto-suave" }, `Al leerlo, la matera se vincula a «${planta.apodo}» sin preguntarte nada más.`));
     const opciones = [["codigo", "Escribir el código", panelCodigo], ["qr", "Usar el QR", panelQr]];
     const botonesOpcion = opciones.map(([clave, texto, panel]) => h("button", {
       type: "button", role: "tab", class: "asistente-opcion", id: `opcion-${clave}`, "aria-controls": panel.id, "aria-selected": clave === "codigo" ? "true" : "false",
       onclick: () => {
         botonesOpcion.forEach((b, i) => { b.setAttribute("aria-selected", b === botonesOpcion[opciones.findIndex((o) => o[0] === clave)] ? "true" : "false"); opciones[i][2].hidden = opciones[i][0] !== clave; });
+        if (clave !== "qr") lector.detener(); // la cámara no sigue prendida detrás de la otra opción
       },
     }, texto));
     const selector = h("div", { class: "asistente-opciones", role: "tablist", "aria-label": "Cómo confirmar" }, botonesOpcion);
@@ -319,6 +339,7 @@ export async function montar(contenedor, ctx) {
       titulo: hay ? "Confirma que es la tuya" : "Escribe el código de tu matera",
       anunciar: hay ? `${anuncioDePaso("confirma")}. ${encontradas.length === 1 ? "Encontramos una matera." : `Encontramos ${encontradas.length} materas.`}` : undefined,
       nodos: [...cabecera, selector, panelCodigo, panelQr, atras],
+      limpiar: () => lector.destruir(), // al salir del paso o de la pantalla, la cámara se apaga
       enfocar: () => document.getElementById("asistente-paso-titulo")?.focus({ preventScroll: true }),
     };
   }

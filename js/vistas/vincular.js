@@ -4,6 +4,7 @@ import { listarPlantas, vincularDispositivo } from "../api.js";
 import { invalidarCache } from "../cache.js";
 import { leerPlantaRecordada } from "./vincular-asistente.js";
 import { codigoVisible, normalizarCodigo } from "../vinculacion.js";
+import { crearLectorQr } from "../componentes/lector-qr.js";
 import { h, enlaceDeVolver, campoSelect, crearAviso, conCarga, marcarCampoConError, limpiarErroresDeFormulario } from "../ui.js";
 
 export const titulo = "Vincular matera";
@@ -13,9 +14,23 @@ export async function montar(contenedor, ctx) {
   const aviso = crearAviso();
 
   if (!serial) {
-    aviso.mostrar("El enlace no trae el código de la matera. Escanea de nuevo el QR.");
-    contenedor.append(h("section", { class: "tarjeta tarjeta--angosta" }, h("h2", { "data-titulo": "" }, "Vincular matera"), aviso.elemento, h("p", {}, h("a", { href: "#/plantas" }, "Ir a mis plantas"))));
-    return;
+    // Sin código en el enlace: se puede leer el QR de la matera aquí mismo (F40) y seguir con el código leído.
+    const lector = crearLectorQr({
+      alLeer: (leido) => {
+        setTimeout(() => ctx.irA(`/vincular?serial=${encodeURIComponent(leido.serial)}`, { reemplazar: true }), 0);
+        return true;
+      },
+    });
+    contenedor.append(
+      enlaceDeVolver("/plantas", "Mis plantas"),
+      h("section", { class: "tarjeta tarjeta--angosta" },
+        h("h2", { "data-titulo": "" }, "Vincular matera"),
+        h("p", {}, "Lee el cuadro blanco y negro (el QR) de la pantalla de tu matera."),
+        lector.nodo,
+        h("p", { class: "texto-suave" }, "¿No puedes leerlo? Abre tu planta, ve a «Matera» y escribe el código."),
+      ),
+    );
+    return () => lector.destruir();
   }
 
   // Si el usuario venía del asistente (planta recordada en sessionStorage), el QR vincula directo a esa planta y

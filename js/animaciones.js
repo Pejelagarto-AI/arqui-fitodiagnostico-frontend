@@ -219,3 +219,16 @@ export function orquestarPortada({ escena, planta, globo, lecturas = [], textos 
   if (pasos.length) linea.from(pasos, { opacity: 0, y: 16, duration: 0.45, stagger: 0.1, clearProps: "opacity,transform" }, 0.75);
   return () => linea.kill();
 }
+
+/**
+ * Mira del lector de QR (F40): una línea que sube y baja dentro del recuadro de la cámara. Es un bucle y se
+ * detiene con la función que devuelve. Con movimiento reducido (o sin GSAP) la línea queda quieta en el centro.
+ */
+export function barrerMira(linea, { recorrido = 76 } = {}) {
+  if (!puedeAnimar() || !linea) return () => {};
+  const tween = globalThis.gsap.fromTo(linea, { y: -recorrido / 2 }, { y: recorrido / 2, duration: 1.6, yoyo: true, repeat: -1, ease: "sine.inOut" });
+  return () => {
+    tween.kill();
+    globalThis.gsap.set(linea, { clearProps: "transform" });
+  };
+}

@@ -11,6 +11,7 @@
 import { chromium } from "playwright-core";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
+import { pngDeQr } from "./qr-png.mjs";
 
 const FRONT = process.env.FRONT || "http://localhost:5500";
 const API = process.env.API || "http://localhost:8080/api/v1";
@@ -628,6 +629,31 @@ async function ejecutar() {
     await pAna.locator("#btn-asistente-ver").waitFor({ timeout: 20000 });
     await pAna.click("#btn-asistente-ver");
     await esperarHash(pAna, new RegExp(`^#/plantas/${plantaId}$`));
+  });
+  await paso("lector de QR dentro de la app, por el camino de la foto: un QR de Wi-Fi o ajeno se explica y el de la matera vincula sin navegar a su enlace", async () => {
+    const matera = await materaDeFabrica();
+    const codigo = matera.serial.slice(5);
+    await pAna.goto(`${FRONT}/#/plantas/${plantaId}/vincular`);
+    await pAna.click("#btn-asistente-a-mano");
+    await pAna.click("#opcion-qr");
+    await pAna.locator("#lector-foto").waitFor({ state: "attached" });
+    await pAna.locator("#btn-lector-foto").waitFor();
+    // La «foto» es un PNG de un QR armado aquí mismo (tests/humo/qr-png.mjs).
+    const foto = (nombre, texto, opciones) => ({ name: nombre, mimeType: "image/png", buffer: pngDeQr(texto, opciones) });
+    await pAna.setInputFiles("#lector-foto", foto("wifi.png", `WIFI:S:Fito-${codigo};T:nopass;;`));
+    await pAna.locator("#lector-estado", { hasText: "conectar la matera al Wi-Fi" }).waitFor();
+    await pAna.setInputFiles("#lector-foto", foto("ajeno.png", "https://example.com/promo"));
+    await pAna.locator("#lector-estado", { hasText: "Ese QR no es de una matera" }).waitFor();
+    assert.equal(hash(pAna), `#/plantas/${plantaId}/vincular`, "un QR ajeno no lleva a ningún lado");
+    // El QR de la pantalla de la matera, claro sobre oscuro como en la OLED y con otro host: solo se usa su código.
+    const reclamo = pAna.waitForResponse((r) => r.request().method() === "POST" && r.url().includes(`/plantas/${plantaId}/dispositivos`));
+    await pAna.setInputFiles("#lector-foto", foto("matera.png", `http://192.168.43.105:5500/#/v/${codigo}`, { invertido: true }));
+    await pAna.locator("#asistente-conectando-texto").waitFor({ timeout: 15000 });
+    assert.match(await pAna.locator("#asistente-conectando-texto").innerText(), new RegExp(codigo));
+    assert.equal(hash(pAna), `#/plantas/${plantaId}/vincular`, "no se navega a la URL leída");
+    assert.ok((await reclamo).ok(), "el reclamo salió con el código leído del QR");
+    assert.equal((await chipPideCredencial(matera)).status, 200);
+    await pAna.locator("#btn-asistente-ver").waitFor({ timeout: 20000 });
   });
   await paso("planta carnívora (especie «atrapamoscas»): su ilustración es la carnívora, con dos mandíbulas", async () => {
     const especies = (await api(null, "GET", "/especies")).cuerpo;

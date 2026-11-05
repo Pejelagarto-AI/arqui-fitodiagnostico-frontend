@@ -3373,3 +3373,145 @@ body[data-sesion="no"] .pie {
     padding: var(--e3);
   }
 }
+
+/* ---------- lector de QR dentro de la app (F40) ----------
+   El video de la cámara vive dentro de la tarjeta del asistente, en un recuadro con una mira. Sin cámara en
+   vivo queda el botón de la foto. Nada de esto necesita abrir la cámara del teléfono por fuera. */
+
+.lector {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  text-align: center;
+}
+
+.lector-reposo {
+  width: 100%;
+}
+
+.lector-reposo[hidden] {
+  display: none;
+}
+
+.lector-visor {
+  position: relative;
+  width: min(100%, 19rem);
+  aspect-ratio: 1;
+  border-radius: 24px;
+  overflow: hidden;
+  background: #101510;
+  box-shadow: 0 0 0 4px var(--saludable-fondo);
+}
+
+.lector-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lector-mira {
+  position: absolute;
+  inset: 9%;
+  width: 82%;
+  height: 82%;
+  max-width: none;
+  pointer-events: none;
+}
+
+.lector-mira-esquina {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
+.lector-mira-linea {
+  fill: none;
+  stroke: #7ed08c;
+  stroke-width: 2;
+  stroke-linecap: round;
+  opacity: 0.95;
+}
+
+.lector-cerrar {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(16, 21, 16, 0.72);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.lector-cerrar svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.lector-cerrar:focus-visible {
+  outline-color: #ffffff;
+}
+
+.lector-estado {
+  margin: 0;
+  min-height: 1.4em;
+  font-weight: 700;
+  color: var(--tinta-suave);
+  text-wrap: balance;
+}
+
+.lector-estado:empty {
+  display: none;
+}
+
+.lector-estado[data-tipo="error"] {
+  color: var(--critico);
+}
+
+.lector-acciones {
+  display: grid;
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.lector-acciones[hidden] {
+  display: none;
+}
+
+.lector-accion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  width: 100%;
+  min-height: 3.25rem;
+}
+
+.lector-icono {
+  width: 1.4rem;
+  height: 1.4rem;
+  flex: none;
+}
+
+/* Oculto a la vista, pero presente: el botón «Tomar foto del QR» lo abre. */
+.lector-archivo {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  opacity: 0;
+  min-height: 0 !important;
+}
