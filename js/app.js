@@ -7,6 +7,7 @@ import * as envivo from "./envivo.js";
 import { h, vaciar, toast } from "./ui.js";
 import { iniciarRouter, irA, rutaActual } from "./router.js";
 import { invalidarCache } from "./cache.js";
+import { patronesDePestanas } from "./pestanas.js";
 
 // acceso: "publica" | "anonima" (solo sin sesión) | "sesion" | "admin"
 const RUTAS = [
@@ -21,7 +22,8 @@ const RUTAS = [
   { patron: "/plantas", acceso: "sesion", vista: () => import("./vistas/plantas.js") },
   { patron: "/plantas/nueva", acceso: "sesion", vista: () => import("./vistas/planta-nueva.js") },
   { patron: "/plantas/:id/vincular", acceso: "sesion", vista: () => import("./vistas/vincular-asistente.js") },
-  { patron: "/plantas/:id", acceso: "sesion", vista: () => import("./vistas/planta-detalle.js") },
+  // El detalle de planta tiene una ruta por pestaña (F37): la misma pantalla, que cambia de cara sin desmontarse.
+  ...patronesDePestanas().map(({ patron, pestana }) => ({ patron, pestana, familia: "planta", acceso: "sesion", vista: () => import("./vistas/planta-detalle.js") })),
   { patron: "/v/:codigo", acceso: "publica", vista: () => import("./vistas/vinculo-corto.js") },
   { patron: "/vincular", acceso: "sesion", vista: () => import("./vistas/vincular.js") },
   { patron: "/solicitudes", acceso: "sesion", vista: () => import("./vistas/solicitudes.js") },

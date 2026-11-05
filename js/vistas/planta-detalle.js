@@ -1,5 +1,7 @@
-// Detalle de una planta: diagnóstico vigente (actualizado por sondeo), historial,
-// y, según el rol, medir / compartir / editar (dueño) o renunciar (invitado).
+// Detalle de una planta, en pestañas (F37): una cabecera compacta con la planta y su estado y, debajo,
+// «Hoy» (los tres valores y qué hacer), «Historial», «Matera» (solo el dueño) y «Más» (medir a mano,
+// compartir y ajustes para el dueño; renunciar para el invitado). La pestaña activa vive en la URL
+// (js/pestanas.js) y cambiar de pestaña no desmonta la pantalla: el sondeo y lo cargado siguen vivos.
 // El invitado ve todo en solo lectura: los paneles de modificación ni se crean
 // (el backend igual los rechazaría con 403, D36).
 import { obtenerPlanta, obtenerEspecies, renunciarAPlanta } from "../api.js";
@@ -16,7 +18,8 @@ import { entrada, cambiarEstado, balancear } from "../animaciones.js";
 import { crearSondeo, textoActualizado } from "../sondeo.js";
 import { leerCache, guardarCache, invalidarCache, alVolver } from "../cache.js";
 import { recargarVista } from "../router.js";
-import { recordarPlantaActiva, nombrarParaTransicion } from "../transiciones.js";
+import { recordarPlantaActiva, nombrarParaTransicion, conTransicion } from "../transiciones.js";
+import { pestanasDePlanta, pestanaValida, pestanaVecina, rutaDePestana, consultasDeSondeo, tituloDePestana } from "../pestanas.js";
 
 export const titulo = "Planta";
 
@@ -118,12 +121,69 @@ export async function montar(contenedor, ctx) {
   const vigente = crearPanelVigente(id, ctx, { alCambiarEstado: ponerEstado });
   // El sondeo ya trae la página del historial: de ahí salen las minigráficas (solo la primera, la más reciente).
   const historial = crearPanelHistorial(id, ctx, { alRecibir: (respuesta) => { if (respuesta.pagina === 0) vigente.ponerSerie(respuesta.contenido); } });
-  const principal = h("div", { class: "detalle-principal" }, vigente.elemento, historial.elemento);
-  const lateral = h("div", { class: "detalle-lateral" });
+
+  // ---- pestañas (F37): la activa sale de la ruta; las que no se ven quedan con `hidden` ----
+  const disponibles = pestanasDePlanta({ esDueno: planta.esDueno });
+  const claves = disponibles.map((p) => p.clave);
+  let activa = pestanaValida(ctx.entrada && ctx.entrada.pestana, disponibles);
+  // Un invitado que abre .../matera (o una pestaña que no le toca) queda en «Hoy», y la URL lo dice.
+  if (ctx.entrada && ctx.entrada.pestana !== activa) history.replaceState(null, "", `#${rutaDePestana(id, activa)}`);
+
+  const botones = {};
+  const paneles = {};
+  for (const p of disponibles) {
+    botones[p.clave] = h("a", {
+      class: "pestana", role: "tab", id: `pestana-${p.clave}`, href: `#${rutaDePestana(id, p.clave)}`,
+      "aria-controls": `panel-${p.clave}`, "data-pestana": p.clave,
+    }, p.etiqueta);
+    paneles[p.clave] = h("div", { class: "panel-pestana", role: "tabpanel", id: `panel-${p.clave}`, "aria-labelledby": `pestana-${p.clave}`, "data-pestana": p.clave });
+  }
+  const barraPestanas = h("div", { class: "pestanas", role: "tablist", "aria-label": "Secciones de la planta" }, disponibles.map((p) => botones[p.clave]));
+
+  function aplicarPestana(clave) {
+    activa = clave;
+    for (const p of disponibles) {
+      const es = p.clave === clave;
+      botones[p.clave].setAttribute("aria-selected", String(es));
+      botones[p.clave].tabIndex = es ? 0 : -1;
+      paneles[p.clave].hidden = !es;
+    }
+    barraPestanas.dataset.activa = clave;
+    document.title = `${tituloDePestana(planta.apodo, clave)} — Fitodiagnóstico`;
+  }
+
+  // Cambiar de pestaña reemplaza la entrada del historial del navegador: «atrás» sale de la planta (como en
+  // una app) en vez de recorrer las pestañas visitadas, y recargar conserva la pestaña.
+  const irAPestana = (clave) => ctx.irA(rutaDePestana(id, clave), { reemplazar: true });
+  barraPestanas.addEventListener("click", (evento) => {
+    const boton = evento.target instanceof Element ? evento.target.closest("[role=tab]") : null;
+    if (!boton || evento.metaKey || evento.ctrlKey || evento.shiftKey) return; // abrir en otra pestaña del navegador sigue funcionando
+    evento.preventDefault();
+    irAPestana(boton.dataset.pestana);
+  });
+  barraPestanas.addEventListener("keydown", (evento) => {
+    const boton = evento.target instanceof Element ? evento.target.closest("[role=tab]") : null;
+    if (!boton) return;
+    if (evento.key === " ") {
+      evento.preventDefault();
+      irAPestana(boton.dataset.pestana);
+      return;
+    }
+    const destino = pestanaVecina(claves, boton.dataset.pestana, evento.key);
+    if (!destino) return;
+    evento.preventDefault();
+    botones[destino].focus();
+    irAPestana(destino); // activación automática: la pestaña con el foco es la que se ve
+  });
+
+  paneles.hoy.append(vigente.elemento);
+  paneles.historial.append(historial.elemento);
+  aplicarPestana(activa);
   contenedor.append(
     enlaceDeVolver("/plantas", "Mis plantas"),
     cabecera,
-    h("div", { class: "detalle-rejilla" }, principal, lateral),
+    barraPestanas,
+    ...disponibles.map((p) => paneles[p.clave]),
   );
 
   const limpiezas = [balancear(ilustracion.refs.grupoHojas)];
@@ -144,16 +204,16 @@ export async function montar(contenedor, ctx) {
     if (!ctx.vigente()) return;
 
     dispositivos = crearPanelDispositivos(planta, ctx);
-    lateral.append(dispositivos.elemento);
-    lateral.append(crearPanelMedicion(planta, ctx, {
+    paneles.matera.append(dispositivos.elemento);
+    const medicion = crearPanelMedicion(planta, ctx, {
       rangos,
       alRegistrar: () => {
         // El POST ya guardó: se pide el vigente y el historial sin esperar al próximo sondeo.
         Promise.all([vigente.cargar({ resaltar: true }), historial.irAPrimera()]);
+        irAPestana("hoy"); // el resultado de lo que se acaba de medir se ve en «Hoy»
       },
-    }));
+    });
     compartir = crearPanelCompartir(planta, ctx);
-    lateral.append(compartir.elemento);
     const edicion = await crearPanelEdicion(planta, ctx, {
       alEditar: (editada) => {
         planta = editada;
@@ -162,7 +222,13 @@ export async function montar(contenedor, ctx) {
       },
     });
     if (!ctx.vigente()) return;
-    lateral.append(edicion);
+    // «Más» son tres secciones plegables, una abierta a la vez (medir a mano, la de más uso, abierta al llegar):
+    // así la pestaña cabe en una pantalla y media en vez de tres tarjetas largas apiladas.
+    paneles.mas.append(
+      seccionPlegable("seccion-medir", "Medir a mano", "Anota una lectura tú mismo.", medicion, { abierta: true }),
+      seccionPlegable("seccion-compartir", "Compartir", "Invita a alguien a ver esta planta.", compartir.elemento),
+      seccionPlegable("seccion-ajustes", "Ajustes de la planta", "Nombre, especie y eliminar.", edicion),
+    );
   } else {
     const avisoRenuncia = crearAviso();
     const botonRenunciar = h("button", { type: "button", class: "boton boton-secundario", id: "btn-renunciar" }, "Dejar de ver esta planta");
@@ -178,7 +244,7 @@ export async function montar(contenedor, ctx) {
         avisoRenuncia.mostrar(error);
       }
     });
-    lateral.append(h("section", { class: "tarjeta" }, h("h2", {}, "Acceso"), h("p", { class: "texto-suave" }, "Ves esta planta porque su dueño te invitó. No puedes modificarla."), avisoRenuncia.elemento, botonRenunciar));
+    paneles.mas.append(h("section", { class: "tarjeta" }, h("h2", {}, "Acceso"), h("p", { class: "texto-suave" }, "Ves esta planta porque su dueño te invitó. No puedes modificarla."), avisoRenuncia.elemento, botonRenunciar));
   }
 
   // ---- datos y sondeo (R6) ----
@@ -197,7 +263,16 @@ export async function montar(contenedor, ctx) {
   const sondeo = crearSondeo({
     // Ya se cargó arriba: la primera vuelta espera un intervalo. Un fallo cambia el
     // indicador y el aviso de la cabecera (uno solo, que se reemplaza); nunca un toast.
-    tarea: () => Promise.all([vigente.cargar({ resaltar: true, silencioso: true }), historial.refrescar(), dispositivos ? dispositivos.refrescar() : null]),
+    // Solo se pide lo que la pestaña a la vista muestra (consultasDeSondeo): el vigente siempre, porque pinta
+    // el estado de la cabecera; el historial en «Hoy» e «Historial»; los dispositivos en «Matera».
+    tarea: () => {
+      const pedir = consultasDeSondeo(activa);
+      return Promise.all([
+        vigente.cargar({ resaltar: true, silencioso: true }),
+        pedir.historial ? historial.refrescar() : null,
+        pedir.dispositivos && dispositivos ? dispositivos.refrescar() : null,
+      ]);
+    },
     alCambiar: ({ estado, error }) => {
       estadoSondeo = estado;
       if (estado === "error" || estado === "detenido") avisoCabecera.mostrar(error);
@@ -225,5 +300,26 @@ export async function montar(contenedor, ctx) {
   // Al recuperar el foco o volver la red: consulta ya, sin esperar al próximo ciclo de 5 s.
   limpiezas.push(alVolver(() => sondeo.ahoraMismo()));
 
-  return () => limpiezas.forEach((limpiar) => limpiar());
+  return {
+    limpiar: () => limpiezas.forEach((limpiar) => limpiar()),
+    // El enrutador llama aquí cuando la ruta nueva es otra pestaña de esta misma planta.
+    alCambiarRuta: ({ entrada: destino }) => {
+      const nueva = pestanaValida(destino.pestana, disponibles);
+      if (nueva === activa) return;
+      activa = nueva; // ya: el sondeo que se dispara abajo debe pedir lo de la pestaña nueva
+      conTransicion(() => aplicarPestana(nueva));
+      // Si la barra de pestañas quedó arriba del borde, se vuelve a ella: la pestaña nueva empieza por su principio.
+      const tope = barraPestanas.getBoundingClientRect().top;
+      if (tope < 0) window.scrollTo(0, Math.max(0, window.scrollY + tope - 8));
+      sondeo.ahoraMismo(); // lo que la pestaña nueva muestra se pone al día ya, sin esperar el ciclo
+    },
+  };
+}
+
+/** Sección plegable de «Más»: <details> con el título en el <summary>; `name` hace que solo una esté abierta. */
+function seccionPlegable(id, titulo, pista, contenido, { abierta = false } = {}) {
+  return h("details", { class: "plegable", id, name: "mas-planta", open: abierta },
+    h("summary", {}, h("span", { class: "plegable-titulo" }, titulo), h("span", { class: "plegable-pista" }, pista)),
+    contenido,
+  );
 }

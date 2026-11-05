@@ -926,7 +926,7 @@ a.boton-secundario {
 }
 
 /* En el detalle de planta manda el indicador del sondeo. */
-body[data-patron="/plantas/:id"] .indicador-conexion--global {
+body[data-familia="planta"] .indicador-conexion--global {
   display: none;
 }
 
@@ -2501,6 +2501,10 @@ html {
 html,
 body {
   max-width: 100%;
+}
+
+/* Solo en html: en body, `hidden` lo volvería un contenedor de scroll y rompería lo pegajoso (las pestañas). */
+html {
   overflow-x: hidden;
 }
 
@@ -2538,4 +2542,268 @@ textarea {
 .toast {
   overflow-wrap: anywhere;
   min-width: 0;
+}
+
+/* ---------- detalle de planta en pestañas (F37) ----------
+   Cabecera compacta (planta a la izquierda, nombre y estado a la derecha), barra de pestañas pegajosa y un
+   panel a la vez. Antes eran seis tarjetas apiladas: 4992 px, casi seis pantallas de iPhone. */
+
+.tarjeta.cabecera-planta {
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: var(--e2);
+  padding: var(--e2);
+}
+
+.tarjeta.cabecera-planta:has(.cabecera-planta-ilustracion:empty) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cabecera-planta::before {
+  background: radial-gradient(circle at calc(100% - 24px) calc(100% - 6px), var(--saludable-fondo) 0 84px, transparent 85px);
+}
+
+.cabecera-planta .ilustracion-planta {
+  max-width: 100%;
+}
+
+.tarjeta.cabecera-planta h2[data-titulo] {
+  font-size: clamp(1.35rem, 6vw, 1.75rem);
+}
+
+.cabecera-planta-especie {
+  margin: 0 0 0.45rem;
+  font-size: 0.95rem;
+}
+
+.cabecera-planta .estado-planta {
+  margin: 0 0.4rem 0.3rem 0;
+  padding: 0.25rem 0.8rem;
+  font-size: 1rem;
+}
+
+.cabecera-planta .indicador-conexion {
+  font-size: var(--t-chico);
+}
+
+.pestanas {
+  position: sticky;
+  top: max(0.5rem, env(safe-area-inset-top));
+  z-index: 5;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 0.2rem;
+  padding: 0.25rem;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(36, 49, 39, 0.08);
+}
+
+.pestana {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  color: var(--tinta-suave);
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pestana:hover {
+  color: var(--tinta);
+}
+
+.pestana[aria-selected="true"] {
+  background: var(--acento);
+  color: var(--boton-texto);
+}
+
+@media (pointer: coarse) {
+  .pestana {
+    min-height: 3rem;
+  }
+}
+
+.panel-pestana {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  min-width: 0;
+}
+
+/* Secciones plegables de «Más». El <summary> hace de título; el de la tarjeta de adentro sobra a la vista
+   (sigue en el DOM: es el nombre accesible de la sección). */
+.plegable {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+}
+
+.plegable > summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--e2);
+  min-height: 4rem;
+  padding: 0.7rem var(--e2) 0.7rem 1.25rem;
+  border-radius: var(--radio);
+  cursor: pointer;
+  list-style: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.plegable > summary::-webkit-details-marker {
+  display: none;
+}
+
+.plegable > summary::after {
+  content: "";
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  width: 0.6rem;
+  height: 0.6rem;
+  margin-right: 0.4rem;
+  border-right: 2.5px solid var(--tinta-suave);
+  border-bottom: 2.5px solid var(--tinta-suave);
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+.plegable[open] > summary::after {
+  transform: rotate(-135deg);
+}
+
+.plegable-titulo {
+  grid-column: 1;
+  font-size: var(--t-titulo-tarjeta);
+  font-weight: 800;
+}
+
+.plegable-pista {
+  grid-column: 1;
+  color: var(--tinta-suave);
+  font-size: var(--t-chico);
+  font-weight: 600;
+}
+
+.plegable > .tarjeta {
+  border: 0;
+  border-radius: 0 0 var(--radio) var(--radio);
+  box-shadow: none;
+  background: transparent;
+  padding-top: 0;
+}
+
+.plegable > .tarjeta > h2:first-child {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plegable > summary::after {
+    transition: none;
+  }
+}
+
+/* En teléfono cada parámetro es un renglón compacto: icono, nombre y estado a la izquierda, el número a la
+   derecha, y debajo la barra con su banda óptima y la minigráfica. Tres caben en una pantalla. */
+@media (max-width: 699px) {
+  .burbujas {
+    gap: 0.6rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .burbuja {
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+    column-gap: 0.75rem;
+    align-items: center;
+    padding: 0.85rem 1rem;
+  }
+
+  .burbuja-icono {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin: 0;
+  }
+
+  .burbuja h3 {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .burbuja .chip {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+    margin-top: 0.1rem;
+  }
+
+  .burbuja .num {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    font-size: 1.9rem;
+    white-space: nowrap;
+  }
+
+  .burbuja .pista,
+  .burbuja .pista-ley,
+  .burbuja .tendencia {
+    grid-column: 1 / -1;
+  }
+
+  .burbuja .pista {
+    height: 12px;
+    margin-top: 0.65rem;
+  }
+
+  .burbuja .tendencia {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.3rem;
+    min-height: 0;
+  }
+
+  .burbuja .tendencia:empty {
+    display: none;
+  }
+
+  .burbuja .minigrafica {
+    height: 30px;
+  }
+
+  .bloque-vigente {
+    gap: 0.6rem;
+  }
+
+  .bloque-vigente .que-hacer {
+    padding: var(--e2);
+  }
+
+  .diagnostico > .estado-global--resumen {
+    margin-bottom: 0.6rem;
+  }
+}
+
+@media (min-width: 760px) {
+  .tarjeta.cabecera-planta {
+    grid-template-columns: 9rem minmax(0, 1fr);
+    gap: var(--e3);
+    padding: var(--e3);
+  }
+
+  .pestanas {
+    align-self: flex-start;
+    grid-auto-columns: minmax(7.5rem, 1fr);
+  }
 }

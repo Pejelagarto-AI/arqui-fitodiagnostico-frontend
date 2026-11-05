@@ -55,3 +55,14 @@ export function destinoDeEnlaceCorto(codigo) {
   if (!/^[A-Za-z0-9]{4,12}$/.test(limpio)) return null;
   return `/vincular?serial=fito-${limpio.toUpperCase()}`;
 }
+
+/**
+ * ¿La ruta nueva es otra cara de la pantalla que ya está montada? Pasa con las pestañas del detalle de planta
+ * (F37): las cuatro rutas comparten `familia` y el mismo `:id`. En ese caso el enrutador no desmonta nada: le
+ * avisa a la pantalla y ella cambia de pestaña (el sondeo y lo ya cargado siguen vivos).
+ */
+export function mismaPantalla(montada, nueva) {
+  if (!montada || !nueva) return false;
+  const familia = montada.entrada.familia;
+  return Boolean(familia) && familia === nueva.entrada.familia && montada.params.id === nueva.params.id;
+}
