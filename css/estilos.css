@@ -942,14 +942,12 @@ body[data-patron="/plantas/:id"] .indicador-conexion--global {
 }
 
 .cabecera-planta::before {
+  /* El círculo decorativo se pinta DENTRO de la tarjeta (inset: 0 + degradado). Antes era una caja de 260 px
+     corrida 60 px a la derecha y 80 px abajo: la tarjeta medía 424 px por dentro en un teléfono de 390 (F37). */
   content: "";
   position: absolute;
-  right: -60px;
-  bottom: -80px;
-  width: 260px;
-  height: 260px;
-  border-radius: 50%;
-  background: var(--saludable-fondo);
+  inset: 0;
+  background: radial-gradient(circle at calc(100% - 70px) calc(100% - 50px), var(--saludable-fondo) 0 129px, transparent 130px);
   opacity: 0.6;
   pointer-events: none;
 }
@@ -2487,4 +2485,57 @@ li,
   .qr {
     width: 4cm;
   }
+}
+
+/* ---------- nada se sale del ancho del teléfono (F37) ----------
+   Cinturón de seguridad además de corregir a los culpables: la página nunca se desplaza de lado. `clip` no crea
+   un contenedor de scroll (lo fijo y lo pegajoso siguen funcionando); `hidden` queda de respaldo para Safari < 16.
+   text-size-adjust evita que iOS infle el texto por su cuenta, y los campos en 16 px evitan el zoom automático
+   de Safari al enfocarlos (ese zoom deja la página más ancha que la pantalla hasta que el usuario la pellizca). */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+@supports (overflow-x: clip) {
+  html,
+  body {
+    overflow-x: clip;
+  }
+}
+
+body {
+  overflow-wrap: break-word;
+}
+
+.contenido,
+.contenido > *,
+.tarjeta {
+  min-width: 0;
+}
+
+svg,
+img {
+  max-width: 100%;
+}
+
+input,
+select,
+textarea {
+  max-width: 100%;
+  font-size: max(1rem, 16px);
+}
+
+.banner-error,
+.banner-error p,
+.toast {
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
