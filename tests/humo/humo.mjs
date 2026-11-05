@@ -181,7 +181,12 @@ async function ejecutar() {
     const p = await nuevoContexto("csp", { csp: true });
     const violaciones = [];
     p.on("console", (m) => { if (/Content Security Policy|Refused to/i.test(m.text())) violaciones.push(m.text()); });
+    // La raíz es la portada (F38): se mira sin violaciones y desde ella «Prueba sin cuenta» lleva al diagnóstico.
     await p.goto(`${FRONT}/`);
+    await p.locator("#portada-crear").waitFor();
+    await p.locator(".portada-escena .ilustracion-planta").first().waitFor();
+    await p.click("#portada-probar");
+    await p.waitForURL(/#\/diagnostico$/); // sin esperarHash: con la CSP puesta no se puede evaluar texto en la página
     await p.locator("#especie-select option[value='potos']").waitFor({ state: "attached" });
     await p.selectOption("#especie-select", "potos");
     await p.fill("#suelto-humedad", "50");
@@ -196,7 +201,7 @@ async function ejecutar() {
     await p.context().close();
   });
   await paso("diagnóstico suelto funciona sin sesión y muestra el resultado", async () => {
-    await pAna.goto(`${FRONT}/`);
+    await pAna.goto(`${FRONT}/#/diagnostico`);
     await pAna.waitForSelector("#especie-select option[value='potos']", { state: "attached" });
     await pAna.selectOption("#especie-select", "potos");
     await pAna.fill("#suelto-humedad", "15");
@@ -776,6 +781,9 @@ async function ejecutar() {
     await esperarHash(pAna, /^#\/$/);
     assert.equal(await pAna.evaluate(() => sessionStorage.getItem("fitodiagnostico.sesion")), null);
     await pAna.locator("#navegacion a", { hasText: "Iniciar sesión" }).waitFor();
+    // Sin sesión la raíz es la portada, con sus tres acciones.
+    await pAna.locator("#portada-titulo").waitFor();
+    for (const id of ["#portada-crear", "#portada-entrar", "#portada-probar"]) await pAna.locator(id).waitFor();
   });
 
   if (hayCorreo) {
@@ -828,12 +836,18 @@ async function ejecutar() {
   console.log("Responsive");
   await paso("a 375 px no hay desplazamiento horizontal en las pantallas principales", async () => {
     const movil = await nuevoContexto("movil", { viewport: { width: 375, height: 800 } });
+    // La portada (sin sesión) tampoco se sale de ancho.
+    await movil.goto(`${FRONT}/`);
+    await movil.locator("#portada-crear").waitFor();
+    await movil.waitForTimeout(700);
+    const portada = await movil.evaluate(() => ({ s: document.documentElement.scrollWidth, w: window.innerWidth }));
+    assert.ok(portada.s <= portada.w + 1, `portada: scrollWidth ${portada.s} > ${portada.w}`);
     await movil.goto(`${FRONT}/#/entrar`);
     await movil.fill("#entrar-correo", ana.correo);
     await movil.fill("#entrar-contrasena", "ana-clave-final-1");
     await movil.click("#btn-entrar");
     await esperarHash(movil, /^#\/plantas$/);
-    for (const ruta of ["/", "/plantas", `/plantas/${plantaId}`, `/plantas/${plantaId}/historial`, `/plantas/${plantaId}/matera`, `/plantas/${plantaId}/mas`, "/plantas/nueva", "/perfil", "/solicitudes"]) {
+    for (const ruta of ["/diagnostico", "/plantas", `/plantas/${plantaId}`, `/plantas/${plantaId}/historial`, `/plantas/${plantaId}/matera`, `/plantas/${plantaId}/mas`, "/plantas/nueva", "/perfil", "/solicitudes"]) {
       await movil.goto(`${FRONT}/#${ruta}`);
       await movil.waitForTimeout(700);
       const ancho = await movil.evaluate(() => ({ s: document.documentElement.scrollWidth, w: window.innerWidth }));

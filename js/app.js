@@ -11,7 +11,9 @@ import { patronesDePestanas } from "./pestanas.js";
 
 // acceso: "publica" | "anonima" (solo sin sesión) | "sesion" | "admin"
 const RUTAS = [
-  { patron: "/", acceso: "publica", vista: () => import("./vistas/diagnostico-suelto.js") },
+  // La raíz es la portada (F38): qué es el producto y por dónde empezar. Con sesión lleva al tablero.
+  { patron: "/", acceso: "anonima", vista: () => import("./vistas/portada.js") },
+  { patron: "/diagnostico", acceso: "publica", vista: () => import("./vistas/diagnostico-suelto.js") },
   { patron: "/entrar", acceso: "anonima", vista: () => import("./vistas/entrar.js") },
   { patron: "/registro", acceso: "anonima", vista: () => import("./vistas/registro.js") },
   { patron: "/recuperar", acceso: "anonima", vista: () => import("./vistas/recuperar.js") },
@@ -68,8 +70,6 @@ const TRAZOS = {
   especies: ["M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z", "M12 8v8", "M8 12h8"],
   perfil: ["M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z", "M4.5 20.5c1-3.5 4-5.5 7.5-5.5s6.5 2 7.5 5.5"],
   admin: ["M12 3l7 3v5.5c0 4.3-2.9 7.8-7 9.5-4.1-1.7-7-5.2-7-9.5V6l7-3Z", "M9 12l2 2 4-4"],
-  entrar: ["M10 17l5-5-5-5", "M15 12H3", "M14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14"],
-  registro: ["M10 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z", "M3 20.5c.9-3.5 3.6-5.5 7-5.5 1.5 0 2.9.4 4 1.1", "M18 14v6", "M15 17h6"],
 };
 
 function icono(nombre) {
@@ -84,15 +84,18 @@ function pestanaDeBarra(ruta, texto, nombreIcono) {
 
 function pintarBarraInferior(usuario) {
   vaciar(barraInferior);
-  const pestanas = usuario
-    ? [
-        pestanaDeBarra("/plantas", "Plantas", "plantas"),
-        pestanaDeBarra("/", "Diagnóstico", "diagnostico"),
-        pestanaDeBarra("/solicitudes", "Especies", "especies"),
-        sesion.esAdmin() ? pestanaDeBarra("/admin", "Admin", "admin") : null,
-        pestanaDeBarra("/perfil", "Perfil", "perfil"),
-      ]
-    : [pestanaDeBarra("/", "Diagnóstico", "diagnostico"), pestanaDeBarra("/entrar", "Entrar", "entrar"), pestanaDeBarra("/registro", "Crear cuenta", "registro")];
+  // Sin sesión no hay barra: la portada trae sus propias acciones (crear cuenta, entrar, probar) y la marca
+  // de la cabecera vuelve a ella. La barra es la navegación de quien ya está dentro.
+  barraInferior.hidden = !usuario;
+  document.body.dataset.sesion = usuario ? "si" : "no";
+  if (!usuario) return;
+  const pestanas = [
+    pestanaDeBarra("/plantas", "Plantas", "plantas"),
+    pestanaDeBarra("/diagnostico", "Diagnóstico", "diagnostico"),
+    pestanaDeBarra("/solicitudes", "Especies", "especies"),
+    sesion.esAdmin() ? pestanaDeBarra("/admin", "Admin", "admin") : null,
+    pestanaDeBarra("/perfil", "Perfil", "perfil"),
+  ];
   barraInferior.append(...pestanas.filter(Boolean));
 }
 
@@ -119,9 +122,9 @@ function indicadorDeConexion() {
 function pintarMenu() {
   vaciar(navegacion);
   const usuario = sesion.usuario();
-  const enlaces = [enlaceDeMenu("/", "Diagnóstico rápido")];
+  const enlaces = usuario ? [] : [enlaceDeMenu("/diagnostico", "Probar sin cuenta")];
   if (usuario) {
-    enlaces.push(enlaceDeMenu("/plantas", "Mis plantas"), enlaceDeMenu("/solicitudes", "Solicitar especie"));
+    enlaces.push(enlaceDeMenu("/plantas", "Mis plantas"), enlaceDeMenu("/diagnostico", "Diagnóstico rápido"), enlaceDeMenu("/solicitudes", "Solicitar especie"));
     if (sesion.esAdmin()) enlaces.push(enlaceDeMenu("/admin", "Administración"));
   }
 

@@ -66,3 +66,21 @@ export function mismaPantalla(montada, nueva) {
   const familia = montada.entrada.familia;
   return Boolean(familia) && familia === nueva.entrada.familia && montada.params.id === nueva.params.id;
 }
+
+/**
+ * Qué hacer con una ruta según quién la pide (F38). Devuelve:
+ *  - { accion: "mostrar" }
+ *  - { accion: "ir", ruta } con a dónde mandar al usuario
+ *  - { accion: "sin-permiso" }
+ * Reglas: lo de «anonima» (portada, entrar, registro) es para quien no tiene sesión, y quien sí la tiene va a
+ * su tablero; lo de «sesion» y «admin» manda a entrar (recordando a dónde quería ir); «admin» sin el rol no pasa.
+ */
+export function decidirAcceso(acceso, { haySesion, esAdmin, rutaPedida = "/" }) {
+  if (acceso === "anonima" && haySesion) return { accion: "ir", ruta: RUTA_DE_INICIO_CON_SESION };
+  if ((acceso === "sesion" || acceso === "admin") && !haySesion) return { accion: "ir", ruta: `/entrar?volver=${encodeURIComponent(rutaPedida)}` };
+  if (acceso === "admin" && !esAdmin) return { accion: "sin-permiso" };
+  return { accion: "mostrar" };
+}
+
+/** La casa de quien ya entró: su tablero. La de quien no, la portada («/»). */
+export const RUTA_DE_INICIO_CON_SESION = "/plantas";

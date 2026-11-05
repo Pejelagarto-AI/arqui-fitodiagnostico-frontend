@@ -3003,3 +3003,373 @@ textarea {
     display: none;
   }
 }
+
+/* ---------- portada (F38) ----------
+   Lo primero que ve quien llega sin sesión: la planta en su matera, viva, y una promesa en una frase.
+   En teléfono cabe en un pantallazo (escena, titular, bajada y acciones); «Así funciona» queda justo debajo.
+   A partir de 900 px son dos columnas: el mensaje a la izquierda y la escena a la derecha. */
+
+body[data-sesion="no"] .contenido {
+  padding-bottom: max(var(--e3), env(safe-area-inset-bottom));
+}
+
+body[data-sesion="no"] .pie {
+  padding-bottom: max(var(--e2), env(safe-area-inset-bottom));
+}
+
+.portada {
+  display: grid;
+  gap: var(--e3);
+}
+
+.portada-heroe {
+  display: grid;
+  gap: var(--e2);
+  min-width: 0;
+}
+
+.portada-escena {
+  position: relative;
+  min-width: 0;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 82% 16%, var(--luz-fondo) 0 22%, transparent 23%),
+    var(--saludable-fondo);
+  overflow: hidden;
+}
+
+.portada-escena-vivo {
+  display: grid;
+  justify-items: center;
+  padding: 3.4rem var(--e2) 0.9rem;
+}
+
+.portada-planta {
+  width: min(52vw, 12.5rem);
+}
+
+.portada-planta .ilustracion-planta {
+  max-width: 100%;
+}
+
+/* El sol de la ilustración sobra: el de la escena es el círculo del fondo. */
+.portada-escena .ilu-sombra {
+  fill: var(--superficie);
+  opacity: 0.7;
+}
+
+.portada-globo {
+  position: absolute;
+  top: 0.85rem;
+  left: 0.85rem;
+  max-width: min(15rem, calc(100% - 4.5rem));
+  padding: 0.5rem 0.85rem;
+  border-radius: 18px 18px 18px 5px;
+  background: var(--superficie);
+  color: var(--tinta);
+  box-shadow: 0 6px 18px rgba(36, 49, 39, 0.12);
+  border-left: 5px solid var(--saludable);
+}
+
+.portada-globo[data-estado="EN_RIESGO"] {
+  border-left-color: var(--riesgo);
+}
+
+.portada-globo[data-estado="CRITICO"] {
+  border-left-color: var(--critico);
+}
+
+.portada-frase {
+  margin: 0;
+  font-weight: 800;
+  font-size: 0.98rem;
+  line-height: 1.25;
+}
+
+.portada-lecturas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.2rem;
+}
+
+.portada-lectura {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.65rem 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: var(--superficie);
+  color: var(--tinta);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--sombra);
+}
+
+.portada-lectura svg {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+}
+
+.portada-lectura[data-sensor="agua"] svg {
+  color: var(--humedad-tinta);
+}
+
+.portada-lectura[data-sensor="luz"] svg {
+  color: var(--luz-tinta);
+}
+
+.portada-lectura[data-sensor="temperatura"] svg {
+  color: var(--temperatura-tinta);
+}
+
+.portada-lectura[data-alerta] {
+  background: var(--riesgo-fondo);
+  color: var(--riesgo);
+}
+
+.portada-lectura[data-alerta] svg {
+  color: inherit;
+}
+
+.portada-pausa {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--tinta-suave);
+  cursor: pointer;
+}
+
+.portada-pausa svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.portada-pausa .pausa-barras {
+  stroke: currentColor;
+}
+
+.portada-pausa .pausa-triangulo {
+  fill: currentColor;
+  display: none;
+}
+
+.portada-pausa[aria-pressed="true"] .pausa-barras {
+  display: none;
+}
+
+.portada-pausa[aria-pressed="true"] .pausa-triangulo {
+  display: block;
+}
+
+.portada-mensaje {
+  min-width: 0;
+}
+
+.portada-titulo {
+  margin: 0;
+  font-size: clamp(2rem, 8.6vw, 3.4rem);
+  font-weight: 900;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.portada-bajada {
+  margin: 0.55rem 0 0;
+  color: var(--tinta-suave);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.portada-acciones {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: var(--e2);
+}
+
+.portada-acciones a.boton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3.25rem;
+  font-size: 1.05rem;
+}
+
+.portada-probar {
+  margin: 0.75rem 0 0;
+  text-align: center;
+  color: var(--tinta-suave);
+  font-weight: 600;
+}
+
+.portada-probar a {
+  display: inline-block;
+  padding: 0.45rem 0.2rem;
+  font-weight: 800;
+}
+
+.portada-subtitulo {
+  margin: 0 0 var(--e1);
+  font-size: var(--t-titulo-tarjeta);
+  font-weight: 800;
+}
+
+.portada-pasos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.portada-paso {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.85rem 1rem;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+}
+
+.portada-paso-dibujo {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 18px;
+  background: var(--fondo);
+}
+
+.paso-icono {
+  width: 2.6rem;
+  height: 2.6rem;
+}
+
+.portada-paso h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.portada-paso-numero {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--saludable-fondo);
+  color: var(--saludable);
+  font-size: 0.85rem;
+  font-weight: 900;
+}
+
+.portada-paso p {
+  margin: 0.15rem 0 0;
+  color: var(--tinta-suave);
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.pi-matera { fill: var(--tierra); }
+.pi-borde { fill: var(--tierra-oscura); }
+.pi-tallo { stroke: var(--hoja-oscura); }
+.pi-hoja { fill: var(--hoja); }
+.pi-onda { stroke: var(--acento); }
+.pi-punto { fill: var(--acento); }
+.pi-pista { fill: var(--borde); }
+.pi-agua { fill: var(--agua); }
+.pi-sol { fill: var(--sol); }
+.pi-calor { fill: var(--critico); }
+.pi-chulo { stroke: #ffffff; }
+
+@media (min-width: 900px) {
+  .portada {
+    gap: var(--e4);
+    padding-top: var(--e3);
+  }
+
+  .portada-heroe {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    align-items: center;
+    gap: var(--e4);
+  }
+
+  .portada-mensaje {
+    order: -1;
+  }
+
+  .portada-escena-vivo {
+    padding: 4.5rem var(--e3) var(--e3);
+  }
+
+  .portada-planta {
+    width: min(26vw, 20rem);
+  }
+
+  .portada-globo {
+    top: 1.4rem;
+    left: 1.4rem;
+    max-width: 18rem;
+    padding: 0.7rem 1.1rem;
+  }
+
+  .portada-frase {
+    font-size: 1.15rem;
+  }
+
+  .portada-lectura {
+    font-size: 0.95rem;
+    padding: 0.35rem 0.85rem 0.35rem 0.65rem;
+  }
+
+  .portada-bajada {
+    font-size: 1.2rem;
+    max-width: 30rem;
+  }
+
+  .portada-acciones {
+    grid-template-columns: repeat(2, max-content);
+    gap: 0.75rem;
+    margin-top: var(--e3);
+  }
+
+  .portada-acciones a.boton {
+    padding-inline: 2rem;
+  }
+
+  .portada-probar {
+    text-align: left;
+  }
+
+  .portada-pasos {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--e2);
+  }
+
+  .portada-paso {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    padding: var(--e3);
+  }
+}

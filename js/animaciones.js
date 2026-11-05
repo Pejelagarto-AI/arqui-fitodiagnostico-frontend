@@ -200,3 +200,22 @@ export function masticar(superior, inferior, { abiertaSup = -14, abiertaInf = 6 
     gsap.set(inferior, { y: abiertaInf });
   };
 }
+
+/**
+ * Entrada de la portada (F38), orquestada y sobria: la escena aparece, la planta crece desde la matera, el
+ * globo salta, y el titular, la bajada y las acciones suben escalonados; los pasos de «Así funciona» llegan al
+ * final. Una sola línea de tiempo, menos de 1,4 s, nada en bucle. Con movimiento reducido (o sin GSAP) no hace
+ * nada: todo está ya en su sitio. Devuelve la función que la corta si el usuario sale antes.
+ */
+export function orquestarPortada({ escena, planta, globo, lecturas = [], textos = [], pasos = [] }) {
+  if (!puedeAnimar()) return () => {};
+  const { gsap } = globalThis;
+  const linea = gsap.timeline({ defaults: { ease: "power2.out" } });
+  if (escena) linea.from(escena, { opacity: 0, scale: 0.96, duration: 0.45, clearProps: "opacity,transform" }, 0);
+  if (planta) linea.from(planta, { scale: 0.2, opacity: 0, svgOrigin: "130 150", duration: 0.7, ease: "back.out(1.4)", clearProps: "opacity,transform" }, 0.15);
+  if (globo) linea.from(globo, { opacity: 0, scale: 0.7, y: 8, duration: 0.4, ease: "back.out(1.8)", clearProps: "opacity,transform" }, 0.6);
+  if (lecturas.length) linea.from(lecturas, { opacity: 0, y: 8, duration: 0.3, stagger: 0.07, clearProps: "opacity,transform" }, 0.7);
+  if (textos.length) linea.from(textos, { opacity: 0, y: 14, duration: 0.45, stagger: 0.08, clearProps: "opacity,transform" }, 0.2);
+  if (pasos.length) linea.from(pasos, { opacity: 0, y: 16, duration: 0.45, stagger: 0.1, clearProps: "opacity,transform" }, 0.75);
+  return () => linea.kill();
+}

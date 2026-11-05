@@ -2,7 +2,7 @@
 // Con el hash no hace falta ninguna configuración del servidor estático (un
 // refresh en #/plantas/x sigue pidiendo solo index.html). Cada pantalla es un
 // módulo que se importa al visitarla: export function montar(contenedor, ctx).
-import { parsearHash, resolver, mismaPantalla } from "./rutas.js";
+import { parsearHash, resolver, mismaPantalla, decidirAcceso } from "./rutas.js";
 import { h, vaciar, crearAviso, esqueletoSiTarda } from "./ui.js";
 import * as sesion from "./sesion.js";
 import { conTransicion } from "./transiciones.js";
@@ -108,12 +108,10 @@ async function navegar({ forzar = false } = {}) {
 
   const { entrada, params } = resuelta;
 
-  if (entrada.acceso === "anonima" && sesion.haySesion()) {
-    irA("/plantas", { reemplazar: true });
-    return;
-  }
-  if ((entrada.acceso === "sesion" || entrada.acceso === "admin") && !sesion.haySesion()) {
-    irA(`/entrar?volver=${encodeURIComponent(rutaActual())}`, { reemplazar: true });
+  // Quién puede ver qué (rutas.js, decidirAcceso): con sesión la portada lleva al tablero; sin ella, lo privado a entrar.
+  const decision = decidirAcceso(entrada.acceso, { haySesion: sesion.haySesion(), esAdmin: sesion.esAdmin(), rutaPedida: rutaActual() });
+  if (decision.accion === "ir") {
+    irA(decision.ruta, { reemplazar: true });
     return;
   }
 
@@ -126,7 +124,7 @@ async function navegar({ forzar = false } = {}) {
     window.dispatchEvent(new Event("fito:navegacion"));
   };
 
-  if (entrada.acceso === "admin" && !sesion.esAdmin()) {
+  if (decision.accion === "sin-permiso") {
     await reemplazarVista(esta, () => {
       marcarCuerpo();
       contenedor.append(pantallaMensaje("Sin permiso", "Esta sección es solo para administradores."));
