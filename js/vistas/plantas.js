@@ -11,7 +11,8 @@ import { textoHace } from "../tiempo.js";
 import { crearSondeo } from "../sondeo.js";
 import { recordarPlantaActiva, esPlantaActiva, nombrarParaTransicion, quitarNombreDeTransicion } from "../transiciones.js";
 import { leerCache, guardarCache, sonIguales, alVolver } from "../cache.js";
-import { entrada } from "../animaciones.js";
+import { entrada, balancear } from "../animaciones.js";
+import * as sesion from "../sesion.js";
 import { h, vaciar, crearAviso, formatearFecha, chipDeEstadoGlobal, esqueletoSiTarda, ETIQUETAS_PARAMETRO } from "../ui.js";
 import { crearIlustracionPlanta } from "../componentes/ilustracion-planta.js";
 import { esCarnivora } from "../componentes/especie.js";
@@ -124,6 +125,11 @@ function crearTarjeta(planta) {
   return { nodo, completar, actualizarTiempo };
 }
 
+/** «Camila Rojas» -> «Camila». Sin nombre, cadena vacía. */
+function primerNombre(nombre) {
+  return String(nombre ?? "").trim().split(/\s+/)[0] || "";
+}
+
 function mosaico(tipo, etiqueta) {
   const numero = h("strong", { class: "mosaico-numero" }, "0");
   return { nodo: h("div", { class: "mosaico", "data-tipo": tipo }, numero, h("span", { class: "mosaico-etiqueta" }, etiqueta)), numero };
@@ -149,21 +155,58 @@ export async function montar(contenedor, ctx) {
     listaQueHacer,
   );
 
-  contenedor.append(
-    h("div", { class: "encabezado-seccion encabezado-pagina" },
-      h("h2", { "data-titulo": "" }, "Mis plantas"),
-      h("a", { href: "#/plantas/nueva", class: "boton boton-primario", id: "enlace-nueva-planta" }, "Registrar planta"),
+  // Un solo enlace «agregar planta»: vive en el encabezado y, la primera vez (cero plantas), en la bienvenida.
+  const enlaceNueva = h("a", { href: "#/plantas/nueva", class: "boton boton-primario", id: "enlace-nueva-planta" }, "Agregar planta");
+  const tituloPagina = h("h2", { "data-titulo": "" }, "Mis plantas");
+  const encabezado = h("div", { class: "encabezado-seccion encabezado-pagina" }, tituloPagina, enlaceNueva);
+
+  // ---- primera vez (F38): en vez de un tablero vacío, una bienvenida con un solo paso que dar ----
+  const nombre = primerNombre(sesion.usuario() && sesion.usuario().nombre);
+  const ilustracionBienvenida = crearIlustracionPlanta();
+  ilustracionBienvenida.aplicar(ilustracionBienvenida.estadoVisual({ estado: "SALUDABLE", humedadPct: 62, luzPct: 75 }));
+  const tituloBienvenida = h("h2", { class: "bienvenida-titulo", id: "bienvenida-titulo" }, nombre ? `Hola, ${nombre}.` : "Hola.");
+  const accionBienvenida = h("div", { class: "bienvenida-accion" });
+  const bienvenida = h("section", { class: "tarjeta bienvenida", id: "bienvenida", "aria-labelledby": "bienvenida-titulo", hidden: true },
+    h("div", { class: "bienvenida-dibujo", "aria-hidden": "true" }, ilustracionBienvenida.nodo),
+    tituloBienvenida,
+    h("p", { class: "bienvenida-bajada" }, "Empecemos por tu primera planta."),
+    h("ol", { class: "bienvenida-pasos" },
+      h("li", {}, h("span", {}, h("strong", {}, "Dinos qué planta es"), " y ponle un nombre.")),
+      h("li", {}, h("span", {}, h("strong", {}, "Conecta su matera"), " con el código de su pantalla.")),
+      h("li", {}, h("span", {}, h("strong", {}, "Mira cómo está"), " y qué necesita cada día.")),
     ),
-    aviso.elemento,
-    resumen,
-    h("section", { class: "bloque-propias", "aria-label": "Tus plantas" }, propias),
-    queHacer,
-    h("section", { class: "tarjeta" },
-      h("h2", {}, "Compartidas conmigo"),
-      h("p", { class: "texto-suave" }, "Plantas de otras personas que puedes ver en solo lectura."),
-      compartidas,
-    ),
+    accionBienvenida,
+    h("p", { class: "texto-suave bienvenida-nota" }, "¿Aún no tienes matera? Igual puedes agregarla y anotar las mediciones a mano."),
   );
+  const pararBalanceo = balancear(ilustracionBienvenida.refs.grupoHojas);
+
+  const bloquePropias = h("section", { class: "bloque-propias", "aria-label": "Tus plantas" }, propias);
+  const bloqueCompartidas = h("section", { class: "tarjeta", id: "bloque-compartidas" },
+    h("h2", {}, "Compartidas conmigo"),
+    h("p", { class: "texto-suave" }, "Plantas de otras personas que te invitaron a verlas. Puedes mirarlas, no cambiarlas."),
+    compartidas,
+  );
+  contenedor.append(bienvenida, encabezado, aviso.elemento, resumen, bloquePropias, queHacer, bloqueCompartidas);
+
+  /** Con cero plantas propias se ve la bienvenida; con alguna, el tablero. Lo compartido solo aparece si hay algo. */
+  function acomodar(primeraVez, hayCompartidas) {
+    bienvenida.hidden = !primeraVez;
+    encabezado.hidden = primeraVez;
+    bloquePropias.hidden = primeraVez;
+    bloqueCompartidas.hidden = !hayCompartidas;
+    // El título de la pantalla (al que va el foco al llegar) es el de lo que se está viendo.
+    if (primeraVez) {
+      tituloPagina.removeAttribute("data-titulo");
+      tituloBienvenida.setAttribute("data-titulo", "");
+      enlaceNueva.textContent = "Agregar mi primera planta";
+      accionBienvenida.append(enlaceNueva);
+    } else {
+      tituloBienvenida.removeAttribute("data-titulo");
+      tituloPagina.setAttribute("data-titulo", "");
+      enlaceNueva.textContent = "Agregar planta";
+      encabezado.append(enlaceNueva);
+    }
+  }
 
   let tarjetas = [];
   let lecturas = new Map(); // id de planta -> lectura
@@ -235,13 +278,9 @@ export async function montar(contenedor, ctx) {
     vaciar(compartidas);
     tarjetas = mias.map(crearTarjeta);
     for (const [i, planta] of mias.entries()) if (lecturas.has(planta.id)) tarjetas[i].completar(lecturas.get(planta.id));
-    if (mias.length === 0) propias.append(h("p", { class: "texto-vacio" }, "Todavía no registraste ninguna planta."));
-    else propias.append(h("ul", { class: "rejilla-plantas" }, tarjetas.map((t) => t.nodo)));
-    compartidas.append(
-      ajenas.length === 0
-        ? h("p", { class: "texto-vacio" }, "Nadie te ha compartido plantas todavía.")
-        : h("ul", { class: "rejilla" }, ajenas.map(tarjetaDeCompartida)),
-    );
+    acomodar(mias.length === 0, ajenas.length > 0);
+    if (mias.length > 0) propias.append(h("ul", { class: "rejilla-plantas" }, tarjetas.map((t) => t.nodo)));
+    if (ajenas.length > 0) compartidas.append(h("ul", { class: "rejilla" }, ajenas.map(tarjetaDeCompartida)));
     repintarResumen();
     repintarQueHacer();
     entrada(tarjetas.map((t) => t.nodo), { y: 14, escalon: 0.06, duracion: 0.4 });
@@ -295,6 +334,7 @@ export async function montar(contenedor, ctx) {
   // Al recuperar el foco o volver la red: listas y estados al día sin esperar al próximo ciclo.
   const quitarRevalidacion = alVolver(revalidar);
   return () => {
+    pararBalanceo();
     quitarRevalidacion();
     sondeo.detener();
     clearInterval(reloj);

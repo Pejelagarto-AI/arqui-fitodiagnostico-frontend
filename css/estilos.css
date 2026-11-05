@@ -3539,8 +3539,8 @@ body[data-sesion="no"] .pie {
     position: sticky;
     bottom: calc(var(--alto-barra) + env(safe-area-inset-bottom));
     z-index: 4;
-    margin: var(--e1) calc(var(--e2) * -1) calc(var(--e2) * -1);
-    padding: 0.75rem var(--e2) 0.85rem;
+    margin: var(--e1) calc(var(--relleno-tarjeta, var(--e2)) * -1) calc(var(--relleno-tarjeta, var(--e2)) * -1);
+    padding: 0.75rem var(--relleno-tarjeta, var(--e2)) 0.85rem;
     background: var(--superficie);
     border-top: 1px solid var(--borde);
     border-radius: 0 0 var(--radio) var(--radio);
@@ -3728,5 +3728,146 @@ body[data-sesion="no"] .pie {
 
   .resultado-suelto .burbuja .tendencia {
     display: none;
+  }
+}
+
+/* ---------- primera vez (F38): bienvenida en vez de un tablero vacío ---------- */
+
+.bienvenida {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  padding: var(--e3) var(--e2);
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 0, var(--saludable-fondo) 0 9.5rem, transparent 9.6rem),
+    var(--superficie);
+}
+
+.bienvenida[hidden] {
+  display: none;
+}
+
+.bienvenida-dibujo {
+  width: min(48vw, 11rem);
+}
+
+.bienvenida-dibujo .ilustracion-planta {
+  max-width: 100%;
+}
+
+.tarjeta.bienvenida > h2.bienvenida-titulo {
+  margin: 0.4rem 0 0;
+  font-size: clamp(2rem, 8vw, 2.8rem);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.bienvenida-bajada {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--tinta-suave);
+  text-wrap: balance;
+}
+
+.bienvenida-pasos {
+  counter-reset: paso;
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 24rem;
+  margin: var(--e2) 0;
+  padding: 0;
+  text-align: left;
+}
+
+.bienvenida-pasos li {
+  counter-increment: paso;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  line-height: 1.35;
+}
+
+.bienvenida-pasos li::before {
+  content: counter(paso);
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: var(--saludable-fondo);
+  color: var(--saludable);
+  font-weight: 900;
+  font-size: 0.9rem;
+}
+
+.bienvenida-pasos li > span {
+  padding-top: 0.15rem;
+}
+
+.bienvenida-accion {
+  width: 100%;
+  max-width: 24rem;
+}
+
+.bienvenida-accion a.boton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3.5rem;
+  font-size: 1.1rem;
+}
+
+.bienvenida-nota {
+  margin: 0.6rem 0 0;
+  max-width: 24rem;
+  font-size: 0.95rem;
+  text-wrap: pretty;
+}
+
+@media (min-width: 900px) {
+  .bienvenida {
+    padding: var(--e4) var(--e3);
+  }
+}
+
+/* El relleno de la tarjeta, con nombre: la acción fija de un formulario lo usa para llegar a los bordes. */
+.tarjeta {
+  --relleno-tarjeta: var(--e3);
+}
+
+@media (max-width: 600px) {
+  .tarjeta {
+    --relleno-tarjeta: var(--e2);
+  }
+}
+
+/* «Planta nueva» es un paso de un flujo: en teléfono la tarjeta llena la pantalla y el botón queda abajo. */
+@media (max-width: 899px) {
+  body[data-patron="/plantas/nueva"] .contenido {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  body[data-patron="/plantas/nueva"] .contenido > .tarjeta {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    margin-top: 0;
+  }
+
+  body[data-patron="/plantas/nueva"] .tarjeta > form {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    max-width: none;
+  }
+
+  body[data-patron="/plantas/nueva"] .accion-fija {
+    margin-top: auto;
   }
 }
