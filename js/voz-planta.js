@@ -42,3 +42,31 @@ export function textoDeRangoIdeal(rango, especie) {
 function articulo(especie) {
   return /a$/i.test(String(especie).trim()) ? "una" : "un";
 }
+
+const numero = (n) => String(Number(Number(n).toFixed(1)));
+const conMayuscula = (texto) => texto.charAt(0).toUpperCase() + texto.slice(1);
+
+/**
+ * Una recomendación del servidor en lenguaje de persona. El servidor la redacta así:
+ * «Humedad del sustrato 30 % por debajo del rango óptimo 40–70 %: regar moderadamente.». Aquí se parte en
+ * la ACCIÓN, que es lo que importa («Regar moderadamente.»), y el porqué con las palabras del resto de la
+ * app («La tierra está en 30 %; lo ideal es de 40 a 70 %.»). Si el texto no trae esa forma o no se sabe de
+ * qué parámetro es, se deja tal cual como acción y sin detalle: nunca se inventa.
+ */
+export function recomendacionEnPalabras(texto, parametro) {
+  const crudo = String(texto ?? "").trim();
+  const corte = crudo.lastIndexOf(": ");
+  if (!parametro || corte < 0 || corte + 2 >= crudo.length) return { accion: crudo, detalle: "" };
+  const accion = `${conMayuscula(crudo.slice(corte + 2).replace(/\.+$/, ""))}.`;
+  const rango = parametro.rangoOptimo;
+  if (!Array.isArray(rango) || !Number.isFinite(parametro.valor)) return { accion, detalle: "" };
+  const unidad = parametro.unidad;
+  const ideal = `lo ideal es de ${numero(rango[0])} a ${numero(rango[1])} ${unidad}`;
+  const medido = `${numero(parametro.valor)} ${unidad}`;
+  const comoEsta = {
+    humedad: `La tierra está en ${medido}`,
+    luz: `Le llegan ${medido}`,
+    temperatura: `Está a ${medido}`,
+  }[parametro.nombre];
+  return { accion, detalle: comoEsta ? `${comoEsta}; ${ideal}.` : "" };
+}
