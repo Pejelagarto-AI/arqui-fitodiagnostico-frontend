@@ -28,7 +28,8 @@ export async function montar(contenedor, ctx) {
     try {
       const planta = await conCarga(boton, "Registrando…", () => registrarPlanta(apodo.input.value.trim(), especie.select.value));
       invalidarCache();
-      ctx.irA(`/plantas/${planta.id}`);
+      // Recién creada, lo siguiente es darle su matera: el asistente (F36). «Hacerlo después» lleva al detalle.
+      ctx.irA(`/plantas/${planta.id}/vincular`);
     } catch (error) {
       if (!marcarCampoConError(formulario, error)) aviso.mostrar(error);
     }

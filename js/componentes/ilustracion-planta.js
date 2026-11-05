@@ -44,18 +44,21 @@ export function crearIlustracionPlanta({ mini = false } = {}) {
     svg("path", { d: "M216 18v-8M216 78v-8M190 44h-8M250 44h-8M198 26l-6-6M240 68l-6-6M198 62l-6 6M240 20l-6 6", "stroke-width": 3, "stroke-linecap": "round" }),
   );
 
+  const tallo = svg("path", { class: "ilu-tallo", d: "M130 150V70", "stroke-width": 5, "stroke-linecap": "round" });
+  // Todo lo que crece de la matera va en un grupo: la animación de éxito del asistente lo hace nacer de la tierra.
+  const grupoPlanta = svg("g", { class: "ilu-planta" }, tallo, grupoHojas);
+
   const nodo = svg("svg", { class: `ilustracion-planta${mini ? " ilustracion-planta--mini" : ""}`, viewBox: "0 0 260 260", "aria-hidden": "true", focusable: "false", "data-estado": "SIN_DIAGNOSTICO" },
     svg("ellipse", { class: "ilu-sombra", cx: 130, cy: 236, rx: 90, ry: 10 }),
     svg("path", { class: "ilu-matera", d: matera }),
     svg("rect", { class: "ilu-borde", x: 70, y: 140, width: 120, height: 18, rx: 6 }),
     svg("clipPath", { id: idClip }, svg("path", { d: matera })),
     agua,
-    svg("path", { class: "ilu-tallo", d: "M130 150V70", "stroke-width": 5, "stroke-linecap": "round" }),
-    grupoHojas,
+    grupoPlanta,
     sol,
   );
 
-  const refs = { agua, hojas, grupoHojas, sol };
+  const refs = { agua, hojas, grupoHojas, grupoPlanta, sol };
 
   /** Pinta unos valores numéricos (los del cuadro actual de una animación, o los finales). */
   function pintarNumeros({ caida, aguaY, solOpacidad, solEscala }) {

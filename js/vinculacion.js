@@ -109,6 +109,26 @@ export const TITULOS = {
 };
 export const ESPERA_MAXIMA_CONEXION_MS = 30000;
 export const INTERVALO_BUSQUEDA_MS = 2000;
+export const TIEMPO_SIN_HALLAZGO_MS = 25000;
+
+/**
+ * Cuánto se busca antes de mostrar la ayuda «No encontramos tu matera». El parámetro interno `?espera=` del
+ * enlace del asistente solo puede BAJARLO (lo usa la prueba de humo para no esperar 25 s); un valor ausente,
+ * inválido o mayor deja los 25 s.
+ */
+export function esperaSinHallazgoMs(valor) {
+  const n = Number(valor);
+  return Number.isFinite(n) && n >= 200 && n < TIEMPO_SIN_HALLAZGO_MS ? Math.round(n) : TIEMPO_SIN_HALLAZGO_MS;
+}
+
+/** La lista de ayuda del estado «No encontramos tu matera»: icono y frase de persona. */
+export const AYUDAS = [
+  { icono: "corriente", titulo: "¿Está conectada a la corriente?", detalle: "Debe verse la pantalla encendida." },
+  { icono: "pantalla", titulo: "¿Su pantalla muestra un código?", detalle: "Si dice «Conecta tu celular a Fito-…», todavía no tiene Wi-Fi: únete a esa red y dale la tuya." },
+  { icono: "wifi", titulo: "¿Tu celular y la matera están en la misma red Wi-Fi?", detalle: "La matera solo usa redes de 2.4 GHz." },
+  { icono: "reinicio", titulo: "Apágala y préndela", detalle: "Y espera unos 10 segundos." },
+  { icono: "candado", titulo: "¿Ya está vinculada a otra planta?", detalle: "Una matera solo aparece si no tiene dueño." },
+];
 
 export function estadoInicial({ directo = false } = {}) {
   return { paso: directo ? "conectando" : "enciende", encontradas: [], error: null };

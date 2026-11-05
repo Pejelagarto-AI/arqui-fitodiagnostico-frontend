@@ -12,6 +12,9 @@ import {
   transicion,
   anuncioDePaso,
   ERROR_CODIGO,
+  esperaSinHallazgoMs,
+  TIEMPO_SIN_HALLAZGO_MS,
+  AYUDAS,
 } from "../js/vinculacion.js";
 
 test("normalizarCodigo: todas las formas de escribir el código dan fito-YUBUD6", () => {
@@ -116,4 +119,18 @@ test("máquina de pasos: a mano, fallos, reintentos y atrás", () => {
   assert.equal(c.paso, "confirma");
   assert.equal(c.encontradas.length, 1);
   assert.equal(transicion(s, { tipo: "NOSE" }), s);
+});
+
+test("esperaSinHallazgoMs: 25 s por defecto y el parámetro interno solo puede bajarlo", () => {
+  assert.equal(TIEMPO_SIN_HALLAZGO_MS, 25000);
+  assert.equal(esperaSinHallazgoMs(null), 25000);
+  assert.equal(esperaSinHallazgoMs("abc"), 25000);
+  assert.equal(esperaSinHallazgoMs("60000"), 25000);
+  assert.equal(esperaSinHallazgoMs("50"), 25000);
+  assert.equal(esperaSinHallazgoMs("1500"), 1500);
+});
+
+test("la ayuda tiene los cinco puntos, cada uno con icono", () => {
+  assert.equal(AYUDAS.length, 5);
+  assert.ok(AYUDAS.every((a) => a.icono && a.titulo && a.detalle));
 });

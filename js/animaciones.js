@@ -118,3 +118,49 @@ export function balancear(grupo) {
   const tween = globalThis.gsap.to(grupo, { rotation: 1.5, svgOrigin: "130 150", duration: 2.4, yoyo: true, repeat: -1, ease: "sine.inOut" });
   return () => tween.kill();
 }
+
+/**
+ * Radar del paso «Buscando» (F36): tres ondas que se expanden y se apagan, escalonadas, y un barrido que gira.
+ * Son los únicos bucles del asistente y se detienen al devolver la función de limpieza. Con movimiento
+ * reducido (o sin GSAP) no hace nada: el SVG ya tiene las ondas dibujadas quietas.
+ */
+export function radar({ ondas, barrido }) {
+  if (!puedeAnimar()) return () => {};
+  const { gsap } = globalThis;
+  const ondasLista = [...ondas];
+  const lineas = ondasLista.map((onda, i) =>
+    gsap.fromTo(onda, { scale: 0.25, opacity: 0.7, svgOrigin: "130 130" }, { scale: 1, opacity: 0, svgOrigin: "130 130", duration: 2.7, delay: i * 0.9, repeat: -1, ease: "power1.out" }),
+  );
+  const giro = barrido ? gsap.to(barrido, { rotation: 360, svgOrigin: "130 130", duration: 3.2, repeat: -1, ease: "none" }) : null;
+  return () => {
+    lineas.forEach((t) => t.kill());
+    if (giro) giro.kill();
+  };
+}
+
+/** El anillo del paso «Conectando» gira mientras se espera (bucle; se detiene con la función devuelta). */
+export function girar(nodo) {
+  if (!puedeAnimar() || !nodo) return () => {};
+  const tween = globalThis.gsap.to(nodo, { rotation: 360, svgOrigin: "50 50", duration: 1.1, repeat: -1, ease: "none" });
+  return () => tween.kill();
+}
+
+/**
+ * Éxito de la vinculación (F36): el aro aparece con un rebote, la plantica crece desde la matera (el tallo
+ * sube y las hojas se abren una a una) y el chulo se dibuja. Todo con `from`: el estado final ya está en el
+ * DOM, así que con movimiento reducido la pantalla se ve completa y quieta.
+ */
+export function exito({ aro, planta, hojas, chulo, insignia }) {
+  if (!puedeAnimar()) return;
+  const { gsap } = globalThis;
+  const linea = gsap.timeline({ defaults: { ease: "power2.out" } });
+  if (aro) linea.from(aro, { scale: 0.6, opacity: 0, svgOrigin: "130 130", duration: 0.5, ease: "back.out(1.8)", clearProps: "opacity,transform" });
+  if (planta) linea.from(planta, { scaleY: 0, svgOrigin: "130 150", duration: 0.7, ease: "power3.out", clearProps: "transform" }, "-=0.2");
+  const lista = [...(hojas || [])];
+  if (lista.length) linea.from(lista, { scale: 0, opacity: 0, transformOrigin: "50% 100%", duration: 0.4, stagger: 0.12, ease: "back.out(2)", clearProps: "opacity,transform" }, "-=0.3");
+  if (insignia) linea.from(insignia, { scale: 0, svgOrigin: "224 40", duration: 0.45, ease: "back.out(2.4)", clearProps: "transform" }, "-=0.1");
+  if (chulo && typeof chulo.getTotalLength === "function") {
+    const largo = chulo.getTotalLength();
+    if (largo > 0) linea.fromTo(chulo, { strokeDasharray: largo, strokeDashoffset: largo }, { strokeDashoffset: 0, duration: 0.5, ease: "power2.inOut", clearProps: "strokeDasharray,strokeDashoffset" }, "-=0.1");
+  }
+}

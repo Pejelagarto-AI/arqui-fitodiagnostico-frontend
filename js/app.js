@@ -20,6 +20,7 @@ const RUTAS = [
   { patron: "/perfil", acceso: "sesion", vista: () => import("./vistas/perfil.js") },
   { patron: "/plantas", acceso: "sesion", vista: () => import("./vistas/plantas.js") },
   { patron: "/plantas/nueva", acceso: "sesion", vista: () => import("./vistas/planta-nueva.js") },
+  { patron: "/plantas/:id/vincular", acceso: "sesion", vista: () => import("./vistas/vincular-asistente.js") },
   { patron: "/plantas/:id", acceso: "sesion", vista: () => import("./vistas/planta-detalle.js") },
   { patron: "/v/:codigo", acceso: "publica", vista: () => import("./vistas/vinculo-corto.js") },
   { patron: "/vincular", acceso: "sesion", vista: () => import("./vistas/vincular.js") },

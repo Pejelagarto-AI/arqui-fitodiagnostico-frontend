@@ -5,6 +5,7 @@
 import { conTransicion } from "../transiciones.js";
 import { vincularDispositivo, listarDispositivos, desvincularDispositivo } from "../api.js";
 import { textoHace, estadoDeDispositivo } from "../tiempo.js";
+import { codigoVisible, normalizarCodigo } from "../vinculacion.js";
 import { h, svg, vaciar, campo, crearAviso, crearNota, conCarga, limpiarErroresDeFormulario, marcarCampoConError, toastConDeshacer } from "../ui.js";
 
 function iconoDeMatera() {
@@ -27,12 +28,13 @@ export function crearPanelDispositivos(planta, ctx) {
   const serial = campo({
     id: "disp-serial",
     nombre: "serial",
-    etiqueta: "Serial del dispositivo",
-    maxlength: "64",
-    placeholder: "fito-7K2M9Q",
+    etiqueta: "Código de la matera",
+    maxlength: "70",
+    placeholder: "YUBUD6",
     autocomplete: "off",
+    autocapitalize: "characters",
     spellcheck: "false",
-    ayuda: "El serial viene impreso en el dispositivo. Enciéndelo antes o después: se conecta solo cuando lo vincules.",
+    ayuda: "Son 6 letras y números, en la pantalla de la matera o en su sticker. Enciéndela antes o después: se conecta sola cuando la vincules.",
   });
   const boton = h("button", { type: "submit", class: "boton boton-secundario", id: "btn-vincular-dispositivo" }, "Vincular");
   const formulario = h("form", { id: "formulario-dispositivo", novalidate: true }, serial.contenedor, aviso.elemento, nota.elemento, boton);
@@ -42,16 +44,17 @@ export function crearPanelDispositivos(planta, ctx) {
     limpiarErroresDeFormulario(formulario);
     aviso.limpiar();
     nota.limpiar();
-    const valor = serial.input.value.trim();
-    if (!valor) {
-      serial.error("Escribe el serial del dispositivo.");
+    const normal = normalizarCodigo(serial.input.value);
+    if (!normal.ok) {
+      serial.error(normal.error);
+      serial.input.focus();
       return;
     }
     try {
-      const vinculo = await conCarga(boton, "Vinculando…", () => vincularDispositivo(planta.id, valor));
+      const vinculo = await conCarga(boton, "Vinculando…", () => vincularDispositivo(planta.id, normal.serial));
       if (!ctx.vigente()) return;
       formulario.reset();
-      nota.mostrar(`Dispositivo ${vinculo.serial} vinculado. Apenas se conecte lo verás aquí.`);
+      nota.mostrar(`Matera ${codigoVisible(vinculo.serial)} vinculada. Apenas se conecte la verás aquí.`);
       await cargar();
     } catch (error) {
       if (!marcarCampoConError(formulario, error)) aviso.mostrar(error);
@@ -63,7 +66,7 @@ export function crearPanelDispositivos(planta, ctx) {
   function desvincular(dispositivo) {
     ocultos.add(dispositivo.serial);
     conTransicion(repintar);
-    toastConDeshacer(`Dispositivo ${dispositivo.serial} desvinculado.`, {
+    toastConDeshacer(`Matera ${codigoVisible(dispositivo.serial)} desvinculada.`, {
       ejecutar: () => desvincularDispositivo(planta.id, dispositivo.serial),
       alDeshacer: () => {
         ocultos.delete(dispositivo.serial);
@@ -99,7 +102,7 @@ export function crearPanelDispositivos(planta, ctx) {
             h("li", { class: "matera", "data-serial": d.serial, "data-conectada": d.ultimaCredencialEn ? "si" : "no" },
               iconoDeMatera(),
               h("div", { class: "matera-datos" },
-                h("strong", {}, d.serial),
+                h("strong", {}, codigoVisible(d.serial)),
                 h("span", { class: "estado-dispositivo", "data-credencial": d.ultimaCredencialEn || "" }, estadoDeDispositivo(d)),
               ),
               h("button", { type: "button", class: "boton boton-secundario boton-chico", "data-accion": "desvincular-dispositivo", onclick: () => desvincular(d) }, "Desvincular"),
@@ -137,7 +140,10 @@ export function crearPanelDispositivos(planta, ctx) {
     avisoLista.elemento,
     lista,
     h("h3", {}, "Vincular una matera"),
-    formulario,
+    h("p", {}, h("a", { href: `#/plantas/${planta.id}/vincular`, class: "boton boton-primario", id: "enlace-asistente" }, "Vincular una matera")),
+    h("details", { class: "vincular-a-mano" },
+      h("summary", {}, "Prefiero escribir el código a mano"),
+      formulario),
   );
   return { elemento, cargar, refrescar: () => cargar({ silencioso: true }), actualizarTiempos };
 }
