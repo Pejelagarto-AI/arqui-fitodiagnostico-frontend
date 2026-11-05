@@ -97,7 +97,7 @@ export function escenaDeExito({ carnivora = false } = {}) {
   const chulo = svg("path", { class: "asis-chulo", d: "M212 40l8 8 14-17", fill: "none", "stroke-width": 5, "stroke-linecap": "round", "stroke-linejoin": "round" });
   const insignia = svg("g", { class: "asis-insignia" }, svg("circle", { class: "asis-insignia-fondo", cx: 224, cy: 40, r: 22 }), chulo);
   const nodo = ilustracion.nodo;
-  nodo.classList.add("asis-exito-escena");
+  nodo.classList.add("asis-ilustracion", "asis-exito-escena");
   nodo.insertBefore(aro, nodo.firstChild);
   nodo.append(insignia);
   return { nodo, aro, insignia, chulo, planta: ilustracion.refs.grupoPlanta, hojas: ilustracion.refs.hojas, ilustracion };

@@ -2073,7 +2073,8 @@ li,
   font-size: 1.1rem;
 }
 
-.asis-ilustracion {
+.asis-ilustracion,
+.asistente-cuerpo > .asis-ilustracion {
   display: block;
   width: 100%;
   max-width: 15rem;

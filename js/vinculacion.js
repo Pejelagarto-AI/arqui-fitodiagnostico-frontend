@@ -20,7 +20,8 @@ function soloAlfanumerico(texto) {
  * Un código que empieza en FITO («FITO12») se respeta mientras no llegue a 10.
  */
 export function limpiarEntradaDeCodigo(texto) {
-  let limpio = soloAlfanumerico(texto);
+  // «fito-» o «fito » escrito a mano: el prefijo se descarta apenas se completa, antes de contar los 6.
+  let limpio = soloAlfanumerico(String(texto ?? "").replace(/^\s*fito[\s\-_]+/i, ""));
   if (limpio.length >= PREFIJO.length - 1 + LARGO_CODIGO && limpio.startsWith("FITO")) limpio = limpio.slice(4);
   return limpio.slice(0, LARGO_CODIGO);
 }
