@@ -3515,3 +3515,218 @@ body[data-sesion="no"] .pie {
   opacity: 0;
   min-height: 0 !important;
 }
+
+/* ---------- formularios al alcance del pulgar y diagnóstico sin cuenta (F38) ----------
+   El botón principal de un formulario se queda pegado abajo en teléfono: sobre la barra inferior si la hay,
+   sobre el área segura si no. La variable --alto-barra dice cuánto ocupa esa barra en la pantalla actual. */
+
+:root {
+  --alto-barra: 0px;
+}
+
+@media (max-width: 899px) {
+  body[data-sesion="si"] {
+    --alto-barra: 4.1rem;
+  }
+
+  body[data-patron="/plantas/:id/vincular"],
+  body[data-patron="/plantas/nueva"],
+  body[data-patron="/vincular"] {
+    --alto-barra: 0px;
+  }
+
+  .accion-fija {
+    position: sticky;
+    bottom: calc(var(--alto-barra) + env(safe-area-inset-bottom));
+    z-index: 4;
+    margin: var(--e1) calc(var(--e2) * -1) calc(var(--e2) * -1);
+    padding: 0.75rem var(--e2) 0.85rem;
+    background: var(--superficie);
+    border-top: 1px solid var(--borde);
+    border-radius: 0 0 var(--radio) var(--radio);
+  }
+
+  .accion-fija .boton {
+    width: 100%;
+    min-height: 3.25rem;
+    font-size: 1.05rem;
+  }
+}
+
+.entradilla {
+  margin: 0 0 var(--e2);
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-wrap: pretty;
+}
+
+.rango-ideal {
+  margin: 0;
+  font-size: var(--t-chico);
+  font-weight: 700;
+  color: var(--saludable);
+  font-variant-numeric: tabular-nums;
+}
+
+.rango-ideal:empty {
+  display: none;
+}
+
+.ayuda-plegable {
+  margin: 0 0 var(--e2);
+  padding: 0 var(--e2);
+  border-radius: var(--radio-medio);
+  background: var(--crema);
+}
+
+.ayuda-plegable summary {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.ayuda-plegable p {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.resultado-suelto {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+}
+
+.resultado-cabeza {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  align-items: center;
+  gap: var(--e2);
+}
+
+.resultado-ilustracion .ilustracion-planta {
+  max-width: 100%;
+}
+
+.resultado-suelto h2 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.3rem, 5.5vw, 1.7rem);
+  overflow-wrap: anywhere;
+}
+
+.resultado-suelto h2:focus {
+  outline: none;
+}
+
+.resultado-globo {
+  padding: 0.6rem 0.9rem;
+  border-radius: 5px 18px 18px 18px;
+  background: var(--fondo);
+  border-left: 5px solid var(--borde-control);
+}
+
+.resultado-suelto[data-estado="SALUDABLE"] .resultado-globo {
+  border-left-color: var(--saludable);
+}
+
+.resultado-suelto[data-estado="EN_RIESGO"] .resultado-globo {
+  border-left-color: var(--riesgo);
+}
+
+.resultado-suelto[data-estado="CRITICO"] .resultado-globo {
+  border-left-color: var(--critico);
+}
+
+.resultado-frase {
+  margin: 0;
+  font-weight: 800;
+  font-size: 1.05rem;
+  line-height: 1.3;
+}
+
+.resultado-invitacion {
+  display: grid;
+  gap: 0.75rem;
+  padding: var(--e2);
+  border-radius: var(--radio-medio);
+  background: var(--saludable-fondo);
+}
+
+.resultado-invitacion p {
+  margin: 0;
+}
+
+.resultado-invitacion a.boton,
+.resultado-suelto > .boton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3.25rem;
+}
+
+.resultado-suelto #zona-resultado .burbujas {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.resultado-suelto #zona-resultado .que-hacer {
+  margin-top: var(--e1);
+}
+
+/* En el resultado del diagnóstico sin cuenta la tarjeta es angosta en cualquier pantalla: los parámetros van
+   siempre como renglones compactos (los mismos del teléfono). */
+@media (min-width: 700px) {
+  .resultado-suelto .burbujas {
+    gap: 0.6rem;
+  }
+
+  .resultado-suelto .burbuja {
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+    column-gap: 0.75rem;
+    align-items: center;
+    padding: 0.85rem 1rem;
+  }
+
+  .resultado-suelto .burbuja-icono {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin: 0;
+  }
+
+  .resultado-suelto .burbuja h3 {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .resultado-suelto .burbuja .chip {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+    margin-top: 0.1rem;
+  }
+
+  .resultado-suelto .burbuja .num {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    font-size: 1.9rem;
+    white-space: nowrap;
+  }
+
+  .resultado-suelto .burbuja .pista,
+  .resultado-suelto .burbuja .pista-ley,
+  .resultado-suelto .burbuja .tendencia {
+    grid-column: 1 / -1;
+  }
+
+  .resultado-suelto .burbuja .pista {
+    height: 12px;
+    margin-top: 0.65rem;
+  }
+
+  .resultado-suelto .burbuja .tendencia {
+    display: none;
+  }
+}

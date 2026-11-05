@@ -87,7 +87,7 @@ export const ETIQUETAS_ESTADO_GLOBAL = {
 export const ETIQUETAS_ESTADO_PARAMETRO = { BAJO: "Bajo", OPTIMO: "Óptimo", ALTO: "Alto" };
 
 export const ETIQUETAS_PARAMETRO = {
-  humedad: "Humedad del sustrato",
+  humedad: "Humedad de la tierra",
   luz: "Luz",
   temperatura: "Temperatura",
 };

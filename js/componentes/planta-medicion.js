@@ -8,7 +8,7 @@ export function crearPanelMedicion(planta, ctx, { alRegistrar, rangos }) {
   const aviso = crearAviso();
   const nota = crearNota();
   const medicion = camposDeMedicion("med");
-  if (rangos) medicion.mostrarRangos(rangos);
+  if (rangos) medicion.mostrarRangos(rangos, planta.especie);
   const boton = h("button", { type: "submit", class: "boton boton-primario", id: "btn-registrar-medicion" }, "Registrar medición");
   const formulario = h("form", { id: "formulario-medicion", novalidate: true }, medicion.nodos, aviso.elemento, nota.elemento, boton);
 
