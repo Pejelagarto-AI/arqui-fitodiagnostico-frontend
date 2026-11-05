@@ -219,7 +219,7 @@ export async function montar(contenedor, ctx) {
   }
 
   function ayudaSinHallazgo(limpiezas) {
-    const triste = crearIlustracionPlanta();
+    const triste = crearIlustracionPlanta({ carnivora });
     triste.nodo.classList.add("asis-ilustracion", "asis-triste");
     triste.aplicar(triste.estadoVisual({ estado: "CRITICO", humedadPct: 25, luzPct: 30 }));
     limpiezas.push(balancear(triste.refs.grupoHojas));

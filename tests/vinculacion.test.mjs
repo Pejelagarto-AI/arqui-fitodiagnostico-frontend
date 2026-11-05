@@ -53,6 +53,8 @@ test("limpiarEntradaDeCodigo: mayúsculas, sin separadores, pegar el serial ente
   assert.equal(limpiarEntradaDeCodigo("FITO-YUBUD6extra"), "YUBUD6");
   assert.equal(limpiarEntradaDeCodigo("yubud6789"), "YUBUD6");
   assert.equal(limpiarEntradaDeCodigo("fito1"), "FITO1");
+  assert.equal(limpiarEntradaDeCodigo("fito-Q7"), "Q7"); // tecleado letra por letra
+  assert.equal(limpiarEntradaDeCodigo("FITO YUB"), "YUB");
   assert.equal(limpiarEntradaDeCodigo(null), "");
 });
 

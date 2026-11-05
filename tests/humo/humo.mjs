@@ -788,7 +788,7 @@ async function ejecutar() {
       const texto = await ultimoCorreoPara(ana.correo, "Restablece"); // con asunto: a Ana también le llegan correos de aviso
       const enlace = texto.match(/https?:\/\/\S+restablecer\?token=\S+/)[0];
       assert.match(enlace, /#\/restablecer\?token=/, "el enlace del backend debe ser de hash (FITO_FRONT_URL termina en #)");
-      await pAna.goto(enlace);
+      await pAna.goto(enElFront(enlace));
       await pAna.fill("#restablecer-nueva", "ana-clave-final-1");
       await pAna.fill("#restablecer-repetida", "ana-clave-final-1");
       await pAna.click("#btn-restablecer");
@@ -798,7 +798,7 @@ async function ejecutar() {
       await pAna.click("#btn-entrar");
       await esperarHash(pAna, /^#\/plantas$/);
       // El mismo enlace ya no sirve: 410 visible y se ofrece pedir otro.
-      await pAna.goto(enlace);
+      await pAna.goto(enElFront(enlace));
       await pAna.reload();
       await pAna.fill("#restablecer-nueva", "ana-clave-otra-1");
       await pAna.fill("#restablecer-repetida", "ana-clave-otra-1");

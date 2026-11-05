@@ -7,6 +7,7 @@
 import { obtenerPlanta, obtenerEspecies, renunciarAPlanta } from "../api.js";
 import { h, enlaceDeVolver, crearAviso, conCarga, confirmar, toast, ETIQUETAS_ESTADO_GLOBAL } from "../ui.js";
 import { crearIlustracionPlanta } from "../componentes/ilustracion-planta.js";
+import { esCarnivora } from "../componentes/especie.js";
 import { nivelesDeDiagnostico } from "../componentes/escala.js";
 import { crearPanelVigente } from "../componentes/planta-vigente.js";
 import { crearPanelHistorial } from "../componentes/planta-historial.js";
@@ -99,7 +100,7 @@ export async function montar(contenedor, ctx) {
   }
 
   // La ilustración reacciona al diagnóstico vigente: agua = humedad, sol = luz, hojas = estado.
-  const ilustracion = crearIlustracionPlanta();
+  const ilustracion = crearIlustracionPlanta({ carnivora: esCarnivora(planta.especie) });
   cabecera.querySelector("#ilustracion-planta").append(ilustracion.nodo);
   // Elemento compartido con la tarjeta del tablero (F28): al volver, esa tarjeta lleva el mismo nombre de transición.
   recordarPlantaActiva(id);
@@ -112,7 +113,10 @@ export async function montar(contenedor, ctx) {
       estadoNodo.textContent = estado ? ETIQUETAS_ESTADO_GLOBAL[estado] || estado : "Sin diagnóstico";
     };
     // Al abrir la pantalla el agua sube y las hojas se acomodan; al llegar una lectura distinta rebota la píldora.
-    if (cambio) cambiarEstado(estadoNodo, aplicar);
+    if (cambio) {
+      cambiarEstado(estadoNodo, aplicar);
+      ilustracion.morder(); // la carnívora muerde cuando llega una lectura nueva
+    }
     else aplicar();
     ilustracion.aplicar(ilustracion.estadoVisual({ estado, ...nivelesDeDiagnostico(diagnostico) }), { animar: primeraVez || cambio });
     primeraVez = false;
@@ -186,7 +190,7 @@ export async function montar(contenedor, ctx) {
     ...disponibles.map((p) => paneles[p.clave]),
   );
 
-  const limpiezas = [balancear(ilustracion.refs.grupoHojas)];
+  const limpiezas = [balancear(ilustracion.refs.grupoHojas), ilustracion.masticar()];
   entrada([cabecera, vigente.elemento, historial.elemento], { escalon: 0.1 });
 
   // ---- paneles según el rol ----
@@ -216,9 +220,15 @@ export async function montar(contenedor, ctx) {
     compartir = crearPanelCompartir(planta, ctx);
     const edicion = await crearPanelEdicion(planta, ctx, {
       alEditar: (editada) => {
+        const cambiaElDibujo = esCarnivora(planta.especie) !== esCarnivora(editada.especie);
         planta = editada;
         nombreNodo.textContent = editada.apodo;
         especieNodo.textContent = editada.especie;
+        // Otra clase de planta, otro dibujo: se vuelve a armar la pantalla.
+        if (cambiaElDibujo) {
+          invalidarCache();
+          recargarVista();
+        }
       },
     });
     if (!ctx.vigente()) return;
