@@ -21,6 +21,7 @@ const RUTAS = [
   { patron: "/plantas", acceso: "sesion", vista: () => import("./vistas/plantas.js") },
   { patron: "/plantas/nueva", acceso: "sesion", vista: () => import("./vistas/planta-nueva.js") },
   { patron: "/plantas/:id", acceso: "sesion", vista: () => import("./vistas/planta-detalle.js") },
+  { patron: "/v/:codigo", acceso: "publica", vista: () => import("./vistas/vinculo-corto.js") },
   { patron: "/vincular", acceso: "sesion", vista: () => import("./vistas/vincular.js") },
   { patron: "/solicitudes", acceso: "sesion", vista: () => import("./vistas/solicitudes.js") },
   { patron: "/admin", acceso: "admin", vista: () => import("./vistas/admin-inicio.js") },

@@ -74,6 +74,7 @@ El administrador registra los dispositivos en `#/admin/dispositivos` (F19): al r
 | `#/perfil` | sesión | datos, contraseña, eliminar cuenta |
 | `#/plantas`, `#/plantas/nueva`, `#/plantas/{id}` | sesión | mis plantas y compartidas; registrar; detalle (estado por sondeo, historial, dispositivos por serial, compartir, editar) |
 | `#/vincular?serial=` | sesión | vincular una matera a una planta propia; es el destino del QR del sticker (F34) |
+| `#/v/:codigo` | pública | enlace corto del QR de la pantalla de la matera: redirige a `#/vincular?serial=fito-<CODIGO>` (F35) |
 | `#/solicitudes` | sesión | pedir una especie y ver mis solicitudes |
 | `#/admin`, `#/admin/usuarios`, `#/admin/usuarios/{id}`, `#/admin/especies`, `#/admin/solicitudes`, `#/admin/dispositivos` | admin | administración; dispositivos de fábrica (serial y secreto) |
 

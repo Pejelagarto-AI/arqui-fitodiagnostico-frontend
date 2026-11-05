@@ -44,3 +44,14 @@ export function resolver(tabla, ruta) {
   }
   return null;
 }
+
+/**
+ * Enlace corto del QR de la matera (F35): "#/v/7k2m9q" -> "/vincular?serial=fito-7K2M9Q".
+ * El prefijo "fito-" va implícito para que el QR quepa en una pantalla de 128x64. Devuelve null si el
+ * código no es de 4 a 12 letras o dígitos.
+ */
+export function destinoDeEnlaceCorto(codigo) {
+  const limpio = String(codigo ?? "").trim();
+  if (!/^[A-Za-z0-9]{4,12}$/.test(limpio)) return null;
+  return `/vincular?serial=fito-${limpio.toUpperCase()}`;
+}
