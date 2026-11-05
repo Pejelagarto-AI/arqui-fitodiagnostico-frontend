@@ -38,6 +38,7 @@ export function montar(contenedor, ctx) {
   contenedor.append(
     h("section", { class: "tarjeta tarjeta--angosta" },
       h("h2", { "data-titulo": "" }, "Iniciar sesión"),
+      h("p", { class: "texto-suave entradilla" }, "Entra para ver cómo están tus plantas."),
       nota.elemento,
       formulario,
       h("p", { class: "enlaces-secundarios" },

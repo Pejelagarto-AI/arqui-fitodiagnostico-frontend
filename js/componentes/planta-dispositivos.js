@@ -94,10 +94,12 @@ export function crearPanelDispositivos(planta, ctx) {
 
   function pintar(todos) {
     const dispositivos = todos.filter((d) => !ocultos.has(d.serial));
+    enlaceAsistente.textContent = dispositivos.length === 0 ? "Vincular una matera" : "Vincular otra matera";
+    enlaceAsistente.className = `boton ${dispositivos.length === 0 ? "boton-primario" : "boton-secundario"}`;
     vaciar(lista);
     lista.append(
       dispositivos.length === 0
-        ? h("p", { class: "texto-vacio" }, "Ninguna matera vinculada todavía.")
+        ? h("p", { class: "texto-vacio" }, "Esta planta todavía no tiene matera. Vincula una y sus lecturas llegarán solas.")
         : h("ul", { class: "lista-limpia" }, dispositivos.map((d) =>
             h("li", { class: "matera", "data-serial": d.serial, "data-conectada": d.ultimaCredencialEn ? "si" : "no" },
               iconoDeMatera(),
@@ -134,13 +136,14 @@ export function crearPanelDispositivos(planta, ctx) {
     }
   }
 
+  // Un solo botón hacia el asistente; dice «otra» cuando la planta ya tiene una.
+  const enlaceAsistente = h("a", { href: `#/plantas/${planta.id}/vincular`, class: "boton boton-primario", id: "enlace-asistente" }, "Vincular una matera");
   const elemento = h("section", { class: "tarjeta", "aria-labelledby": "titulo-dispositivos" },
     h("h2", { id: "titulo-dispositivos" }, "Tu matera"),
-    h("p", { class: "texto-suave" }, "Lo que mide la matera llega solo al historial con origen «Dispositivo»."),
+    h("p", { class: "texto-suave" }, "Lo que mide tu matera llega solo: lo verás en «Hoy» y en «Historial»."),
     avisoLista.elemento,
     lista,
-    h("h3", {}, "Vincular una matera"),
-    h("p", {}, h("a", { href: `#/plantas/${planta.id}/vincular`, class: "boton boton-primario", id: "enlace-asistente" }, "Vincular una matera")),
+    h("p", { class: "matera-accion" }, enlaceAsistente),
     h("details", { class: "vincular-a-mano" },
       h("summary", {}, "Prefiero escribir el código a mano"),
       formulario),

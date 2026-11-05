@@ -34,6 +34,7 @@ export function montar(contenedor, ctx) {
   contenedor.append(
     h("section", { class: "tarjeta tarjeta--angosta" },
       h("h2", { "data-titulo": "" }, "Crear cuenta"),
+      h("p", { class: "texto-suave entradilla" }, "Con tu cuenta guardas tus plantas y su historial, y te avisamos cuando necesiten algo."),
       formulario,
       h("p", { class: "enlaces-secundarios" }, "¿Ya tienes cuenta? ", h("a", { href: "#/entrar" }, "Inicia sesión")),
     ),

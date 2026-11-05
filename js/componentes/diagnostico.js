@@ -77,7 +77,7 @@ function burbujaDeParametro(parametro, { esqueleto = false } = {}) {
   const pista = h("div", {
     class: "pista",
     role: "img",
-    "aria-label": `${etiqueta}: ${parametro.valor} ${parametro.unidad}, óptimo de ${min} a ${max} ${parametro.unidad}`,
+    "aria-label": `${etiqueta}: ${parametro.valor} ${parametro.unidad}; lo ideal es de ${min} a ${max} ${parametro.unidad}`,
   }, banda, relleno);
 
   const valorReal = h("span", { class: "num-valor" }, String(parametro.valor));
@@ -94,7 +94,7 @@ function burbujaDeParametro(parametro, { esqueleto = false } = {}) {
     pista,
     h("div", { class: "pista-ley" },
       h("span", {}, numeroLegible(escala[0])),
-      h("span", {}, `óptimo ${numeroLegible(min)}–${numeroLegible(max)}`),
+      h("span", {}, `ideal ${numeroLegible(min)}–${numeroLegible(max)}`),
       h("span", {}, numeroLegible(escala[1])),
     ),
     ranura,

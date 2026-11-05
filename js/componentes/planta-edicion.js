@@ -52,7 +52,7 @@ export async function crearPanelEdicion(planta, ctx, { alEditar }) {
   const botonBorrar = h("button", { type: "button", class: "boton boton-peligro", id: "btn-eliminar-planta" }, "Eliminar planta");
   botonBorrar.addEventListener("click", async () => {
     avisoBorrar.limpiar();
-    const acepta = await confirmar(`Se eliminará «${vigente.apodo}» con todo su historial. Quienes la ven por invitación perderán el acceso. No se puede deshacer.`, { aceptar: "Eliminar planta", peligro: true });
+    const acepta = await confirmar(`Se borrará «${vigente.apodo}» con todo su historial. Las personas a quienes se la compartiste dejarán de verla. No se puede deshacer.`, { aceptar: "Eliminar planta", peligro: true });
     if (!acepta) return;
     try {
       await conCarga(botonBorrar, "Eliminando…", () => eliminarPlanta(planta.id));

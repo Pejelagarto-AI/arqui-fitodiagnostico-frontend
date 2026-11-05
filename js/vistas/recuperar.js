@@ -19,7 +19,7 @@ export function montar(contenedor) {
     nota.limpiar();
     try {
       const respuesta = await conCarga(boton, "Enviando…", () => solicitarRecuperacion(correo.input.value.trim()));
-      nota.mostrar((respuesta && respuesta.mensaje) || "Si el correo está registrado, te enviamos un enlace.");
+      nota.mostrar((respuesta && respuesta.mensaje) || "Si ese correo tiene cuenta, te enviamos un enlace. Revisa también el correo no deseado.");
     } catch (error) {
       if (!marcarCampoConError(formulario, error)) aviso.mostrar(error);
     }

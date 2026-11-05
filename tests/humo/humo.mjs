@@ -290,7 +290,7 @@ async function ejecutar() {
     await pAna.reload(); // recargar conserva la pestaña: sigue en «Historial»
     await pAna.locator("#info-pagina").waitFor();
     assert.equal(await pAna.locator("#pestana-historial").getAttribute("aria-selected"), "true");
-    assert.match(await pAna.locator("#info-pagina").innerText(), /Página 1 de 2 · 12 registros/);
+    assert.match(await pAna.locator("#info-pagina").innerText(), /Página 1 de 2 · 12 lecturas/);
     assert.equal(await pAna.locator("#tabla-historial tbody tr").count(), 10);
     await pAna.click("#btn-pagina-siguiente");
     await pAna.waitForFunction(() => /Página 2 de 2/.test(document.querySelector("#info-pagina")?.textContent || ""));
@@ -413,7 +413,7 @@ async function ejecutar() {
     }, antes, { timeout: 15000 });
     assert.match(await pBeto.locator("#diagnostico-vigente .estado-global").innerText(), /Crítico|En riesgo/);
     assert.equal(await pBeto.evaluate(() => window.__sinRecarga), "sigo aqui", "la página se recargó");
-    await pBeto.waitForFunction(() => /13 registros/.test(document.querySelector("#info-pagina")?.textContent || ""));
+    await pBeto.waitForFunction(() => /13 lecturas/.test(document.querySelector("#info-pagina")?.textContent || ""));
   });
   await paso("sondeo: si la API falla el indicador lo dice sin toasts y, al volver, recupera lo que pasó mientras tanto", async () => {
     await pBeto.evaluate(() => { window.__sinRecarga = "sigo aqui"; });

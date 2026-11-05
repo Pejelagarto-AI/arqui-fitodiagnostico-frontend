@@ -18,13 +18,13 @@ export function montar(contenedor, ctx) {
   contenedor.append(tarjeta);
 
   if (!token) {
-    aviso.mostrar("El enlace está incompleto: falta el token de la invitación.");
+    aviso.mostrar("El enlace de la invitación está incompleto. Pídele a quien te invitó que te lo envíe otra vez.");
     tarjeta.append(aviso.elemento, h("p", {}, h("a", { href: "#/" }, "Ir al inicio")));
     return;
   }
 
   tarjeta.append(
-    h("p", {}, "Te compartieron una planta. Al aceptar podrás ver su diagnóstico y su historial en solo lectura, y recibirás avisos de cambios."),
+    h("p", {}, "Te compartieron una planta. Al aceptar podrás ver cómo está y su historial, y te avisaremos si algo cambia. No podrás modificarla."),
     aviso.elemento,
   );
 

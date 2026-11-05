@@ -3,6 +3,7 @@
 // (textContent / nodos de texto), nunca con innerHTML.
 
 import { retrasar, TIEMPO_DESHACER_MS } from "./deshacer.js";
+import { mensajeParaPersona } from "./mensajes.js";
 
 /** Crea un elemento: h("button", { class: "boton", onclick: fn }, "Texto", otroNodo). */
 export function h(etiqueta, atributos = {}, ...hijos) {
@@ -136,7 +137,8 @@ export function crearAviso() {
   return {
     elemento,
     mostrar(error) {
-      texto.textContent = typeof error === "string" ? error : error.mensaje || error.message || String(error);
+      // En lenguaje de persona: sin «API» ni «backend», con mayúscula inicial y qué hacer (js/mensajes.js).
+      texto.textContent = mensajeParaPersona(error);
       elemento.hidden = false;
     },
     limpiar() {

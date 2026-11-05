@@ -62,7 +62,7 @@ export async function montar(contenedor, ctx) {
   if (plantas.length === 0) {
     contenedor.append(...cabecera, h("section", { class: "tarjeta tarjeta--angosta" }, titulo2, grande,
       h("p", {}, "Todavía no tienes plantas a las que vincular esta matera."),
-      h("a", { href: "#/plantas/nueva", class: "boton boton-primario", id: "enlace-registrar-para-vincular" }, "Registrar una planta")));
+      h("a", { href: "#/plantas/nueva", class: "boton boton-primario", id: "enlace-registrar-para-vincular" }, "Agregar una planta")));
     return;
   }
 

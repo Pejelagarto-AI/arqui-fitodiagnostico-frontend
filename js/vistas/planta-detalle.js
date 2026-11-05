@@ -59,7 +59,7 @@ export async function montar(contenedor, ctx) {
   // ---- encabezado: nombre, estado global (lo primero que se ve) e indicador del sondeo ----
   const nombreNodo = h("span", { id: "planta-nombre" }, planta.apodo);
   const especieNodo = h("span", { id: "planta-especie-texto" }, planta.especie);
-  const estadoNodo = h("p", { class: "estado-planta", id: "estado-planta", "data-estado": "SIN_DIAGNOSTICO" }, "Sin diagnóstico");
+  const estadoNodo = h("p", { class: "estado-planta", id: "estado-planta", "data-estado": "SIN_DIAGNOSTICO" }, "Sin lecturas");
   const estadoVivo = h("span", { class: "indicador-conexion", id: "indicador-planta", "data-estado": "conectando" });
   const textoVivo = h("span", { id: "texto-actualizado" }, "actualizando…");
   estadoVivo.append(h("span", { class: "punto-conexion", "aria-hidden": "true" }), textoVivo);
@@ -70,7 +70,7 @@ export async function montar(contenedor, ctx) {
     h("div", { class: "cabecera-planta-texto" },
       h("h2", { "data-titulo": "" }, nombreNodo),
       h("p", { class: "cabecera-planta-especie" }, especieNodo),
-      planta.esDueno ? null : h("span", { class: "chip chip--riesgo", id: "etiqueta-compartida" }, "Compartida contigo · solo lectura"),
+      planta.esDueno ? null : h("span", { class: "chip chip--riesgo", id: "etiqueta-compartida" }, "Te la compartieron · solo puedes verla"),
       estadoNodo,
       estadoVivo,
       avisoCabecera.elemento,
@@ -111,7 +111,7 @@ export async function montar(contenedor, ctx) {
     const estado = diagnostico ? diagnostico.estado : null;
     const aplicar = () => {
       estadoNodo.dataset.estado = estado || "SIN_DIAGNOSTICO";
-      estadoNodo.textContent = estado ? ETIQUETAS_ESTADO_GLOBAL[estado] || estado : "Sin diagnóstico";
+      estadoNodo.textContent = estado ? ETIQUETAS_ESTADO_GLOBAL[estado] || estado : "Sin lecturas";
     };
     // Al abrir la pantalla el agua sube y las hojas se acomodan; al llegar una lectura distinta rebota la píldora.
     if (cambio) {
@@ -123,7 +123,7 @@ export async function montar(contenedor, ctx) {
     primeraVez = false;
   };
 
-  const vigente = crearPanelVigente(id, ctx, { alCambiarEstado: ponerEstado });
+  const vigente = crearPanelVigente(id, ctx, { alCambiarEstado: ponerEstado, esDueno: planta.esDueno });
   // El sondeo ya trae la página del historial: de ahí salen las minigráficas (solo la primera, la más reciente).
   const historial = crearPanelHistorial(id, ctx, { alRecibir: (respuesta) => { if (respuesta.pagina === 0) vigente.ponerSerie(respuesta.contenido); } });
 
@@ -255,7 +255,7 @@ export async function montar(contenedor, ctx) {
         avisoRenuncia.mostrar(error);
       }
     });
-    paneles.mas.append(h("section", { class: "tarjeta" }, h("h2", {}, "Acceso"), h("p", { class: "texto-suave" }, "Ves esta planta porque su dueño te invitó. No puedes modificarla."), avisoRenuncia.elemento, botonRenunciar));
+    paneles.mas.append(h("section", { class: "tarjeta" }, h("h2", {}, "Acceso"), h("p", { class: "texto-suave" }, "Ves esta planta porque te invitaron. Puedes mirarla, no cambiarla."), avisoRenuncia.elemento, botonRenunciar));
   }
 
   // ---- datos y sondeo (R6) ----
@@ -265,9 +265,9 @@ export async function montar(contenedor, ctx) {
   let estadoSondeo = "activo";
   const pintarIndicador = () => {
     estadoVivo.dataset.estado = ESTADO_DEL_INDICADOR[estadoSondeo] || "conectando";
-    if (estadoSondeo === "error") textoVivo.textContent = "sin conexión con el servidor, reintentando…";
-    else if (estadoSondeo === "detenido") textoVivo.textContent = "actualización detenida";
-    else if (estadoSondeo === "pausado") textoVivo.textContent = "en pausa (pestaña oculta)";
+    if (estadoSondeo === "error") textoVivo.textContent = "sin conexión, reintentando…";
+    else if (estadoSondeo === "detenido") textoVivo.textContent = "dejó de actualizarse";
+    else if (estadoSondeo === "pausado") textoVivo.textContent = "en pausa";
     else textoVivo.textContent = textoActualizado(sondeo.ultimoExito());
   };
 

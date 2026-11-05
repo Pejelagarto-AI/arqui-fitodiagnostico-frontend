@@ -59,7 +59,7 @@ export async function montar(contenedor, ctx) {
   const botonBorrar = h("button", { type: "button", class: "boton boton-peligro", id: "btn-eliminar-cuenta" }, "Eliminar mi cuenta");
   botonBorrar.addEventListener("click", async () => {
     avisoBorrar.limpiar();
-    const acepta = await confirmar("Se eliminará tu cuenta, tus plantas, su historial y tus invitaciones. Los invitados perderán el acceso. No se puede deshacer.", { aceptar: "Eliminar para siempre", peligro: true });
+    const acepta = await confirmar("Se borrará tu cuenta con tus plantas y su historial. Las personas a quienes les compartiste plantas dejarán de verlas. No se puede deshacer.", { aceptar: "Eliminar para siempre", peligro: true });
     if (!acepta) return;
     try {
       await conCarga(botonBorrar, "Eliminando…", () => eliminarCuenta());
@@ -74,7 +74,7 @@ export async function montar(contenedor, ctx) {
   contenedor.append(
     h("section", { class: "tarjeta" },
       h("h2", { "data-titulo": "" }, "Mi perfil"),
-      h("p", { class: "texto-suave" }, "Roles: ", cuenta.roles.map((rol) => (rol === "ADMINISTRADOR" ? "Administrador" : "Cliente")).join(", ")),
+      cuenta.roles.includes("ADMINISTRADOR") ? h("p", { class: "texto-suave" }, "Tu cuenta es de administración.") : null,
       formDatos,
     ),
     h("section", { class: "tarjeta" }, h("h2", {}, "Cambiar contraseña"), formClave),

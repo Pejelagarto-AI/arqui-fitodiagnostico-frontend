@@ -349,7 +349,7 @@ export async function montar(contenedor, ctx) {
     const { nodo, arco } = anilloDeEspera();
     const parar = girar(arco);
     const texto = h("p", { class: "asistente-estado", id: "asistente-conectando-texto" }, `Conectando con tu matera ${codigoVisible(serialObjetivo)}…`);
-    const detalle = h("p", { class: "texto-suave" }, "Está pidiendo su acceso al servidor. Dura unos segundos.");
+    const detalle = h("p", { class: "texto-suave" }, "Tu matera se está presentando. Tarda unos segundos.");
     const acciones = h("div", { class: "asistente-botones", hidden: true });
     let cancelado = false;
     let temporizador = null;

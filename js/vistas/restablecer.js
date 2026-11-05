@@ -9,7 +9,7 @@ export function montar(contenedor, ctx) {
   const token = ctx.query.get("token");
   if (!token) {
     const aviso = crearAviso();
-    aviso.mostrar("El enlace está incompleto: falta el token. Pide uno nuevo.");
+    aviso.mostrar("El enlace está incompleto. Pide uno nuevo.");
     contenedor.append(
       h("section", { class: "tarjeta tarjeta--angosta" }, h("h2", { "data-titulo": "" }, "Nueva contraseña"), aviso.elemento,
         h("p", {}, h("a", { href: "#/recuperar" }, "Pedir un enlace nuevo"))),

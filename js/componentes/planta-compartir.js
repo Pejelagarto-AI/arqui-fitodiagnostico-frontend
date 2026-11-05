@@ -13,7 +13,7 @@ export function crearPanelCompartir(planta, ctx) {
   let ultimas = { pendientes: [], invitados: [] }; // última respuesta del servidor
   const ocultas = new Set(); // invitaciones «revocadas» a la espera del plazo de Deshacer
 
-  const correo = campo({ id: "inv-correo-destino", nombre: "correo", etiqueta: "Correo del invitado (opcional)", tipo: "email", requerido: false, maxlength: "254", ayuda: "Si lo pones, el backend también le envía el enlace por correo. Sin correo, tú repartes el enlace." });
+  const correo = campo({ id: "inv-correo-destino", nombre: "correo", etiqueta: "Correo de la persona (opcional)", tipo: "email", requerido: false, maxlength: "254", ayuda: "Si lo escribes, le enviamos el enlace por correo. Si no, tú se lo pasas." });
   const boton = h("button", { type: "submit", class: "boton boton-primario", id: "btn-generar-enlace" }, "Generar enlace de invitación");
   const formulario = h("form", { id: "formulario-compartir", novalidate: true }, correo.contenedor, avisoGenerar.elemento, boton);
 
@@ -43,7 +43,7 @@ export function crearPanelCompartir(planta, ctx) {
       if (copiado) nota.mostrar("Enlace copiado.");
       else {
         campoEnlace.select();
-        nota.mostrar("No se pudo copiar solo: el enlace quedó seleccionado, cópialo con Ctrl+C.");
+        nota.mostrar("No se pudo copiar solo. El enlace quedó seleccionado: cópialo tú.");
       }
     });
     resultado.append(
@@ -87,7 +87,7 @@ export function crearPanelCompartir(planta, ctx) {
     if (!(await confirmar(`¿Quitarle el acceso a ${invitado.nombre}? Se le avisará.`, { aceptar: "Quitar acceso", peligro: true }))) return;
     try {
       await revocarInvitado(planta.id, invitado.id);
-      toast("Acceso revocado.");
+      toast("Ya no ve tu planta.");
       await cargarListas();
     } catch (error) {
       await cargarListas();
@@ -102,7 +102,7 @@ export function crearPanelCompartir(planta, ctx) {
     const inv = ultimas.invitados;
     pendientes.append(
       vigentes.length === 0
-        ? h("p", { class: "texto-vacio" }, "No hay invitaciones pendientes.")
+        ? h("p", { class: "texto-vacio" }, "No hay invitaciones sin aceptar.")
         : h("ul", { class: "lista-limpia" }, vigentes.map((i) =>
             h("li", { class: "fila fila--separada" },
               h("span", {}, `Creada ${formatearFecha(i.creadaEn)} · vence ${formatearFecha(i.expiraEn)}`, i.correoDestino ? ` · para ${i.correoDestino}` : ""),
@@ -111,7 +111,7 @@ export function crearPanelCompartir(planta, ctx) {
     );
     invitados.append(
       inv.length === 0
-        ? h("p", { class: "texto-vacio" }, "Nadie más ve esta planta.")
+        ? h("p", { class: "texto-vacio" }, "Solo tú ves esta planta.")
         : h("ul", { class: "lista-limpia" }, inv.map((i) =>
             h("li", { class: "fila fila--separada" },
               h("span", {}, h("strong", {}, i.nombre), ` · ${i.correo} · desde ${formatearFecha(i.otorgadoEn)}`),
@@ -134,13 +134,13 @@ export function crearPanelCompartir(planta, ctx) {
 
   const elemento = h("section", { class: "tarjeta", "aria-labelledby": "titulo-compartir" },
     h("h2", { id: "titulo-compartir" }, "Compartir"),
-    h("p", { class: "texto-suave" }, "Quien acepte el enlace verá la planta en solo lectura."),
+    h("p", { class: "texto-suave" }, "Quien acepte el enlace podrá ver cómo está la planta, pero no cambiar nada."),
     formulario,
     resultado,
     avisoListas.elemento,
-    h("h3", {}, "Invitaciones pendientes"),
+    h("h3", {}, "Invitaciones sin aceptar"),
     pendientes,
-    h("h3", {}, "Personas con acceso"),
+    h("h3", {}, "Quiénes la ven"),
     invitados,
   );
   return { elemento, cargar: cargarListas };
