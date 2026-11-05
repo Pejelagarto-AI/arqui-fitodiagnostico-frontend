@@ -8,9 +8,9 @@ export function crearPanelMedicion(planta, ctx, { alRegistrar, rangos }) {
   const aviso = crearAviso();
   const nota = crearNota();
   const medicion = camposDeMedicion("med");
-  if (rangos) medicion.mostrarRangos(rangos);
-  const boton = h("button", { type: "submit", class: "boton boton-primario", id: "btn-registrar-medicion" }, "Registrar medición");
-  const formulario = h("form", { id: "formulario-medicion", novalidate: true }, medicion.nodos, aviso.elemento, nota.elemento, boton);
+  if (rangos) medicion.mostrarRangos(rangos, planta.especie);
+  const boton = h("button", { type: "submit", class: "boton boton-primario", id: "btn-registrar-medicion" }, "Guardar medición");
+  const formulario = h("form", { id: "formulario-medicion", novalidate: true }, medicion.nodos, aviso.elemento, nota.elemento, h("div", { class: "accion-fija" }, boton));
 
   formulario.addEventListener("submit", async (evento) => {
     evento.preventDefault();
@@ -18,10 +18,10 @@ export function crearPanelMedicion(planta, ctx, { alRegistrar, rangos }) {
     aviso.limpiar();
     nota.limpiar();
     try {
-      const registro = await conCarga(boton, "Registrando…", () => registrarMedicion(planta.id, medicion.valores()));
+      const registro = await conCarga(boton, "Guardando…", () => registrarMedicion(planta.id, medicion.valores()));
       if (!ctx.vigente()) return;
       medicion.limpiar();
-      nota.mostrar("Medición registrada.");
+      nota.mostrar("Medición guardada.");
       alRegistrar(registro);
     } catch (error) {
       if (!marcarCampoConError(formulario, error)) aviso.mostrar(error);
@@ -30,7 +30,7 @@ export function crearPanelMedicion(planta, ctx, { alRegistrar, rangos }) {
 
   return h("section", { class: "tarjeta", "aria-labelledby": "titulo-medicion" },
     h("h2", { id: "titulo-medicion" }, "Medir a mano"),
-    h("p", { class: "texto-suave" }, "Si no tienes matera o quieres comprobar algo, escribe lo que mediste y se agrega al historial."),
+    h("p", { class: "texto-suave" }, "Si no tienes matera o quieres comprobar algo, escribe lo que mediste. Queda en el historial."),
     formulario,
   );
 }

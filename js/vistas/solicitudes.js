@@ -8,7 +8,7 @@ function itemDeSolicitud(s) {
   return h("li", { class: "solicitud-item" },
     h("div", { class: "fila" }, h("strong", {}, s.nombre), chipDeSolicitud(s.estado)),
     s.justificacion ? h("p", { class: "texto-suave" }, s.justificacion) : null,
-    s.respuesta ? h("p", {}, h("em", {}, "Respuesta del administrador: "), s.respuesta) : null,
+    s.respuesta ? h("p", {}, h("em", {}, "Respuesta: "), s.respuesta) : null,
     h("p", { class: "texto-suave" }, `Enviada ${formatearFecha(s.creadaEn)}`, s.resueltaEn ? ` · resuelta ${formatearFecha(s.resueltaEn)}` : ""),
   );
 }
@@ -19,9 +19,9 @@ export async function montar(contenedor, ctx) {
   const avisoLista = crearAviso();
   const lista = h("div", { id: "lista-solicitudes" });
 
-  const nombre = campo({ id: "solicitud-nombre", nombre: "nombre", etiqueta: "Nombre de la especie", maxlength: "120" });
-  const justificacion = campo({ id: "solicitud-justificacion", nombre: "justificacion", etiqueta: "Justificación (opcional)", tipo: "textarea", requerido: false, maxlength: "1000", ayuda: "Por qué la necesitas o dónde encontrar sus rangos ideales." });
-  const boton = h("button", { type: "submit", class: "boton boton-primario", id: "btn-enviar-solicitud" }, "Enviar solicitud");
+  const nombre = campo({ id: "solicitud-nombre", nombre: "nombre", etiqueta: "¿Qué planta te falta?", maxlength: "120" });
+  const justificacion = campo({ id: "solicitud-justificacion", nombre: "justificacion", etiqueta: "Cuéntanos más (opcional)", tipo: "textarea", requerido: false, maxlength: "1000", ayuda: "Para qué la quieres o dónde podemos ver sus cuidados." });
+  const boton = h("button", { type: "submit", class: "boton boton-primario", id: "btn-enviar-solicitud" }, "Pedir esta planta");
   const formulario = h("form", { id: "formulario-solicitud", novalidate: true }, nombre.contenedor, justificacion.contenedor, avisoForm.elemento, notaForm.elemento, boton);
 
   async function cargar() {
@@ -32,7 +32,7 @@ export async function montar(contenedor, ctx) {
       vaciar(lista);
       lista.append(
         solicitudes.length === 0
-          ? h("p", { class: "texto-vacio" }, "Todavía no has enviado solicitudes.")
+          ? h("p", { class: "texto-vacio" }, "Todavía no has pedido ninguna. Si tu planta no está en la lista, pídela arriba.")
           : h("ul", { class: "lista-limpia" }, solicitudes.map(itemDeSolicitud)),
       );
     } catch (error) {
@@ -48,7 +48,7 @@ export async function montar(contenedor, ctx) {
     try {
       await conCarga(boton, "Enviando…", () => enviarSolicitudDeEspecie(nombre.input.value.trim(), justificacion.input.value.trim()));
       formulario.reset();
-      notaForm.mostrar("Solicitud enviada. Te avisaremos cuando la resuelvan.");
+      notaForm.mostrar("Listo, la pedimos. Te avisaremos cuando esté.");
       await cargar();
     } catch (error) {
       if (!marcarCampoConError(formulario, error)) avisoForm.mostrar(error);
@@ -56,8 +56,8 @@ export async function montar(contenedor, ctx) {
   });
 
   contenedor.append(
-    h("section", { class: "tarjeta" }, h("h2", { "data-titulo": "" }, "Solicitar una especie"), formulario),
-    h("section", { class: "tarjeta" }, h("h2", {}, "Mis solicitudes"), avisoLista.elemento, lista),
+    h("section", { class: "tarjeta" }, h("h2", { "data-titulo": "" }, "¿No está tu planta?"), formulario),
+    h("section", { class: "tarjeta" }, h("h2", {}, "Lo que has pedido"), avisoLista.elemento, lista),
   );
   await cargar();
 

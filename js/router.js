@@ -2,7 +2,7 @@
 // Con el hash no hace falta ninguna configuración del servidor estático (un
 // refresh en #/plantas/x sigue pidiendo solo index.html). Cada pantalla es un
 // módulo que se importa al visitarla: export function montar(contenedor, ctx).
-import { parsearHash, resolver } from "./rutas.js";
+import { parsearHash, resolver, mismaPantalla, decidirAcceso } from "./rutas.js";
 import { h, vaciar, crearAviso, esqueletoSiTarda } from "./ui.js";
 import * as sesion from "./sesion.js";
 import { conTransicion } from "./transiciones.js";
@@ -10,6 +10,9 @@ import { conTransicion } from "./transiciones.js";
 let tabla = [];
 let contenedor = null;
 let limpiezaActual = null;
+// Pantalla montada y, si la ofrece, su manera de cambiar de cara sin desmontarse (pestañas, F37).
+let montadaActual = null;
+let alCambiarRutaActual = null;
 let numeroDeNavegacion = 0;
 let marcadorActual = null;
 let esPrimera = true;
@@ -64,10 +67,25 @@ function crearMarcadorDeCarga() {
   return marcador;
 }
 
-async function navegar() {
+async function navegar({ forzar = false } = {}) {
+  const { ruta, query } = parsearHash(window.location.hash);
+  const resuelta = resolver(tabla, ruta);
+
+  // Pestañas (F37): la ruta nueva es otra cara de la pantalla que ya está (misma planta, otra pestaña). No se
+  // desmonta nada: la pantalla cambia de pestaña y su sondeo y sus datos siguen vivos. No cuenta como navegación
+  // (ctx.vigente() sigue siendo cierto para ella).
+  if (!forzar && alCambiarRutaActual && sesion.haySesion() && mismaPantalla(montadaActual, resuelta)) {
+    montadaActual = { entrada: resuelta.entrada, params: resuelta.params };
+    document.body.dataset.patron = resuelta.entrada.patron;
+    alCambiarRutaActual({ entrada: resuelta.entrada, params: resuelta.params, query });
+    return;
+  }
+
   const esta = ++numeroDeNavegacion;
   if (marcadorActual) marcadorActual.quitar();
   marcadorActual = null;
+  montadaActual = null;
+  alCambiarRutaActual = null;
   if (limpiezaActual) {
     try {
       limpiezaActual();
@@ -77,13 +95,11 @@ async function navegar() {
     limpiezaActual = null;
   }
 
-  const { ruta, query } = parsearHash(window.location.hash);
-  const resuelta = resolver(tabla, ruta);
-
   if (!resuelta) {
     await reemplazarVista(esta, () => {
       delete document.body.dataset.acceso;
       delete document.body.dataset.patron;
+      delete document.body.dataset.familia;
       contenedor.append(pantallaMensaje("Página no encontrada", `No existe la pantalla «${ruta}».`));
       anunciar("Página no encontrada");
     });
@@ -92,12 +108,10 @@ async function navegar() {
 
   const { entrada, params } = resuelta;
 
-  if (entrada.acceso === "anonima" && sesion.haySesion()) {
-    irA("/plantas", { reemplazar: true });
-    return;
-  }
-  if ((entrada.acceso === "sesion" || entrada.acceso === "admin") && !sesion.haySesion()) {
-    irA(`/entrar?volver=${encodeURIComponent(rutaActual())}`, { reemplazar: true });
+  // Quién puede ver qué (rutas.js, decidirAcceso): con sesión la portada lleva al tablero; sin ella, lo privado a entrar.
+  const decision = decidirAcceso(entrada.acceso, { haySesion: sesion.haySesion(), esAdmin: sesion.esAdmin(), rutaPedida: rutaActual() });
+  if (decision.accion === "ir") {
+    irA(decision.ruta, { reemplazar: true });
     return;
   }
 
@@ -105,9 +119,12 @@ async function navegar() {
   const marcarCuerpo = () => {
     document.body.dataset.acceso = entrada.acceso;
     document.body.dataset.patron = entrada.patron;
+    document.body.dataset.familia = entrada.familia || "";
+    // Para quien pinta la navegación (app.js): hay navegaciones que no disparan hashchange (irA con reemplazar).
+    window.dispatchEvent(new Event("fito:navegacion"));
   };
 
-  if (entrada.acceso === "admin" && !sesion.esAdmin()) {
+  if (decision.accion === "sin-permiso") {
     await reemplazarVista(esta, () => {
       marcarCuerpo();
       contenedor.append(pantallaMensaje("Sin permiso", "Esta sección es solo para administradores."));
@@ -139,18 +156,24 @@ async function navegar() {
     const contexto = {
       params,
       query,
+      entrada, // la fila de la tabla de rutas: trae, por ejemplo, la pestaña pedida (F37)
       irA,
       // Las pantallas lo consultan tras cada await: si el usuario ya navegó a otra, no pintan.
       vigente: () => esta === numeroDeNavegacion,
     };
 
     try {
-      const limpieza = await modulo.montar(contenedor, contexto);
+      // Una pantalla devuelve su limpieza (una función) o { limpiar, alCambiarRuta } si sabe cambiar de cara
+      // sin desmontarse (las pestañas del detalle de planta).
+      const devuelto = await modulo.montar(contenedor, contexto);
+      const limpieza = typeof devuelto === "function" ? devuelto : devuelto && devuelto.limpiar;
       marcador.quitar();
       if (esta !== numeroDeNavegacion) {
         if (typeof limpieza === "function") limpieza();
-      } else if (typeof limpieza === "function") {
-        limpiezaActual = limpieza;
+      } else {
+        if (typeof limpieza === "function") limpiezaActual = limpieza;
+        montadaActual = { entrada, params };
+        alCambiarRutaActual = devuelto && typeof devuelto.alCambiarRuta === "function" ? devuelto.alCambiarRuta : null;
       }
     } catch (error) {
       if (esta !== numeroDeNavegacion) return;
@@ -205,11 +228,11 @@ export function iniciarRouter(rutas, nodoContenedor) {
   tabla = rutas;
   contenedor = nodoContenedor;
   for (const tipo of ["pointerover", "focusin", "touchstart"]) document.addEventListener(tipo, precargarDestino, { passive: true });
-  window.addEventListener("hashchange", navegar);
+  window.addEventListener("hashchange", () => navegar());
   navegar();
 }
 
 /** Vuelve a pintar la pantalla actual (p. ej. tras cambiar de usuario). */
 export function recargarVista() {
-  navegar();
+  navegar({ forzar: true }); // de verdad: desmonta y vuelve a montar, aunque la ruta sea la misma pestaña
 }

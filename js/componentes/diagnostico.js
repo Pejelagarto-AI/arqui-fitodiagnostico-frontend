@@ -12,6 +12,7 @@ import {
 import { escalaDe, porcentaje, numeroLegible, serieDeParametro, recomendacionesPorParametro } from "./escala.js";
 import { crearMinigrafica } from "./minigrafica.js";
 import { dibujarLinea } from "../animaciones.js";
+import { recomendacionEnPalabras } from "../voz-planta.js";
 
 const FLECHAS = { BAJO: "↓", ALTO: "↑", OPTIMO: "" };
 
@@ -76,7 +77,7 @@ function burbujaDeParametro(parametro, { esqueleto = false } = {}) {
   const pista = h("div", {
     class: "pista",
     role: "img",
-    "aria-label": `${etiqueta}: ${parametro.valor} ${parametro.unidad}, óptimo de ${min} a ${max} ${parametro.unidad}`,
+    "aria-label": `${etiqueta}: ${parametro.valor} ${parametro.unidad}; lo ideal es de ${min} a ${max} ${parametro.unidad}`,
   }, banda, relleno);
 
   const valorReal = h("span", { class: "num-valor" }, String(parametro.valor));
@@ -93,7 +94,7 @@ function burbujaDeParametro(parametro, { esqueleto = false } = {}) {
     pista,
     h("div", { class: "pista-ley" },
       h("span", {}, numeroLegible(escala[0])),
-      h("span", {}, `óptimo ${numeroLegible(min)}–${numeroLegible(max)}`),
+      h("span", {}, `ideal ${numeroLegible(min)}–${numeroLegible(max)}`),
       h("span", {}, numeroLegible(escala[1])),
     ),
     ranura,
@@ -108,11 +109,14 @@ function listaDeRecomendaciones(diagnostico) {
   }
   const iconos = new Map(diagnostico.parametros.map((p) => [p.nombre, p]));
   return h("ul", { class: "recom" },
-    recomendacionesPorParametro(diagnostico.parametros, recomendaciones).map(({ texto, parametro }) =>
-      h("li", { "data-parametro": parametro || null, "data-estado": parametro ? iconos.get(parametro).estado : null },
+    recomendacionesPorParametro(diagnostico.parametros, recomendaciones).map(({ texto, parametro }) => {
+      // Primero qué hacer; el porqué, con las palabras de la app, después (js/voz-planta.js).
+      const { accion, detalle } = recomendacionEnPalabras(texto, parametro ? iconos.get(parametro) : null);
+      return h("li", { "data-parametro": parametro || null, "data-estado": parametro ? iconos.get(parametro).estado : null },
         parametro ? h("span", { class: "recom-icono" }, iconoDeParametro(parametro)) : null,
-        h("span", {}, texto),
-      )),
+        h("span", { class: "recom-texto" }, h("strong", { class: "recom-accion" }, accion), detalle ? h("span", { class: "recom-detalle" }, ` ${detalle}`) : null),
+      );
+    }),
   );
 }
 

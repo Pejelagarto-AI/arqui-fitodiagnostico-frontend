@@ -4,7 +4,7 @@ import { obtenerHistorial } from "../api.js";
 import { h, vaciar, crearAviso, formatearFechaRelativa, chipDeEstadoGlobal, esqueletoSiTarda } from "../ui.js";
 
 const TAMANO = 10;
-const ORIGENES = { MANUAL: "Manual", DISPOSITIVO: "Dispositivo" };
+const ORIGENES = { MANUAL: "a mano", DISPOSITIVO: "matera" };
 
 function valorDeParametro(parametros, nombre) {
   const p = parametros.find((x) => x.nombre === nombre);
@@ -20,7 +20,7 @@ export function crearPanelHistorial(plantaId, ctx, { alRecibir = () => {} } = {}
   const esqueleto = h("div", { class: "historial-esqueleto", "aria-hidden": "true" }, [1, 2, 3].map(() => h("div", { class: "hist-fila-esqueleto" }, h("span", {}, "Cargando"), h("span", {}, "Cargando el historial"))));
   const cancelarEsqueleto = esqueletoSiTarda(esqueleto);
   const cuerpo = h("div", { id: "historial", "aria-busy": "true" }, h("p", { class: "solo-lector" }, "Cargando historial…"), esqueleto);
-  const elemento = h("section", { class: "tarjeta", "aria-labelledby": "titulo-historial" }, h("h2", { id: "titulo-historial" }, "Historial"), h("p", { class: "texto-suave" }, "Cada lectura, la más reciente primero."), aviso.elemento, cuerpo);
+  const elemento = h("section", { class: "tarjeta", "aria-labelledby": "titulo-historial" }, h("h2", { id: "titulo-historial" }, "Historial"), h("p", { class: "texto-suave" }, "Cada lectura de tu planta, la más reciente primero."), aviso.elemento, cuerpo);
 
   function pintar(respuesta) {
     cancelarEsqueleto();
@@ -30,7 +30,7 @@ export function crearPanelHistorial(plantaId, ctx, { alRecibir = () => {} } = {}
     firmaPintada = firma;
     vaciar(cuerpo);
     if (respuesta.total === 0) {
-      cuerpo.append(h("p", { class: "texto-vacio" }, "Todavía no hay mediciones en el historial."));
+      cuerpo.append(h("p", { class: "texto-vacio" }, "Aún no hay lecturas. Irán apareciendo aquí a medida que lleguen."));
       return;
     }
     // Una lista con forma de tabla: sigue siendo <table id="tabla-historial"> (una fila por registro) pero
@@ -46,15 +46,19 @@ export function crearPanelHistorial(plantaId, ctx, { alRecibir = () => {} } = {}
     );
     const anterior = h("button", { type: "button", class: "boton boton-secundario boton-chico", id: "btn-pagina-anterior", disabled: respuesta.pagina === 0, onclick: () => cargar(respuesta.pagina - 1) }, "Anterior");
     const siguiente = h("button", { type: "button", class: "boton boton-secundario boton-chico", id: "btn-pagina-siguiente", disabled: respuesta.pagina + 1 >= respuesta.totalDePaginas, onclick: () => cargar(respuesta.pagina + 1) }, "Siguiente");
+    const unaSolaPagina = respuesta.totalDePaginas <= 1;
+    anterior.hidden = unaSolaPagina;
+    siguiente.hidden = unaSolaPagina;
     cuerpo.append(
       h("div", { class: "historial-lista" },
         h("table", { class: "tabla-historial", id: "tabla-historial", role: "table", "aria-label": "Historial de lecturas" },
-          h("thead", { class: "solo-lector" }, h("tr", { role: "row" }, ["Estado", "Cuándo y origen", "Humedad, luz y temperatura"].map((t) => h("th", { scope: "col", role: "columnheader" }, t)))),
+          h("thead", { class: "solo-lector" }, h("tr", { role: "row" }, ["Estado", "Cuándo y quién la midió", "Humedad, luz y temperatura"].map((t) => h("th", { scope: "col", role: "columnheader" }, t)))),
           h("tbody", {}, filas),
         ),
       ),
       h("div", { class: "paginacion" }, anterior,
-        h("span", { id: "info-pagina" }, `Página ${respuesta.pagina + 1} de ${respuesta.totalDePaginas} · ${respuesta.total} registro${respuesta.total === 1 ? "" : "s"}`),
+        // Con una sola página no hay nada que pasar: solo se dice cuántas lecturas hay.
+        h("span", { id: "info-pagina" }, `${unaSolaPagina ? "" : `Página ${respuesta.pagina + 1} de ${respuesta.totalDePaginas} · `}${respuesta.total} lectura${respuesta.total === 1 ? "" : "s"}`),
         siguiente),
     );
   }

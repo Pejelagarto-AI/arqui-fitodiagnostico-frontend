@@ -1,6 +1,7 @@
 // RF-A4..A6: ver y editar los datos de la cuenta, cambiar la contraseña y eliminar la cuenta.
 import { obtenerCuenta, actualizarCuenta, cambiarContrasena, eliminarCuenta } from "../api.js";
 import * as sesion from "../sesion.js";
+import { olvidarRecorridos } from "../componentes/recorrido.js";
 import { h, campo, crearAviso, crearNota, conCarga, confirmar, limpiarErroresDeFormulario, marcarCampoConError, toast } from "../ui.js";
 
 export const titulo = "Mi perfil";
@@ -58,7 +59,7 @@ export async function montar(contenedor, ctx) {
   const botonBorrar = h("button", { type: "button", class: "boton boton-peligro", id: "btn-eliminar-cuenta" }, "Eliminar mi cuenta");
   botonBorrar.addEventListener("click", async () => {
     avisoBorrar.limpiar();
-    const acepta = await confirmar("Se eliminará tu cuenta, tus plantas, su historial y tus invitaciones. Los invitados perderán el acceso. No se puede deshacer.", { aceptar: "Eliminar para siempre", peligro: true });
+    const acepta = await confirmar("Se borrará tu cuenta con tus plantas y su historial. Las personas a quienes les compartiste plantas dejarán de verlas. No se puede deshacer.", { aceptar: "Eliminar para siempre", peligro: true });
     if (!acepta) return;
     try {
       await conCarga(botonBorrar, "Eliminando…", () => eliminarCuenta());
@@ -73,10 +74,22 @@ export async function montar(contenedor, ctx) {
   contenedor.append(
     h("section", { class: "tarjeta" },
       h("h2", { "data-titulo": "" }, "Mi perfil"),
-      h("p", { class: "texto-suave" }, "Roles: ", cuenta.roles.map((rol) => (rol === "ADMINISTRADOR" ? "Administrador" : "Cliente")).join(", ")),
+      cuenta.roles.includes("ADMINISTRADOR") ? h("p", { class: "texto-suave" }, "Tu cuenta es de administración.") : null,
       formDatos,
     ),
     h("section", { class: "tarjeta" }, h("h2", {}, "Cambiar contraseña"), formClave),
+    // El recorrido guiado se puede repetir (F39): se olvida que ya se vio y vuelve a salir en el tablero y en una planta.
+    h("section", { class: "tarjeta" },
+      h("h2", {}, "Ayuda"),
+      h("p", { class: "texto-suave" }, "¿Quieres que te mostremos otra vez dónde está cada cosa?"),
+      h("button", { type: "button", class: "boton boton-secundario", id: "btn-ver-recorrido", onclick: () => { olvidarRecorridos(); toast("Listo. Verás el recorrido al abrir tus plantas."); ctx.irA("/plantas"); } }, "Ver el recorrido otra vez"),
+    ),
+    // En teléfono el menú de arriba no existe (F37): cerrar sesión vive aquí. En escritorio sigue en la cabecera.
+    h("section", { class: "tarjeta solo-movil" },
+      h("h2", {}, "Sesión"),
+      h("p", { class: "texto-suave" }, `Entraste como ${cuenta.correo}.`),
+      h("button", { type: "button", class: "boton boton-secundario", id: "btn-cerrar-sesion-perfil", onclick: () => { sesion.cerrar(); toast("Sesión cerrada."); ctx.irA("/"); } }, "Cerrar sesión"),
+    ),
     h("section", { class: "tarjeta zona-peligro" }, h("h2", {}, "Eliminar cuenta"), avisoBorrar.elemento, botonBorrar),
   );
 }

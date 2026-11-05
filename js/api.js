@@ -158,6 +158,9 @@ export const vincularDispositivo = (plantaId, serial) =>
   pedir("POST", `/plantas/${seg(plantaId)}/dispositivos`, { cuerpo: { serial } });
 // [{ serial, reclamadoEn, ultimaCredencialEn? }]
 export const listarDispositivos = (plantaId) => pedir("GET", `/plantas/${seg(plantaId)}/dispositivos`);
+// Asistente de vinculación (F36): materas sin dueño que acaban de hablar con el servidor desde la misma red que
+// este celular. [{ serialEnmascarado: "fito-YU····", vistoHaceSegundos }]; nunca trae el serial completo.
+export const buscarDispositivosCercanos = () => pedir("GET", "/dispositivos/cercanos", { sinCache: true });
 export const desvincularDispositivo = (plantaId, serial) =>
   pedir("DELETE", `/plantas/${seg(plantaId)}/dispositivos/${seg(serial)}`);
 

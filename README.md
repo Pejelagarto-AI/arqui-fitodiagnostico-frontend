@@ -41,9 +41,15 @@ http://localhost:5500/?api=http://localhost:9090/api/v1#/plantas
 ### Pruebas
 
 ```bash
-node --test tests/*.test.mjs                                # unitarias (codec STOMP, rutas, sondeo, tiempos, escalas del diagnóstico y fechas relativas), sin dependencias
+node --test tests/*.test.mjs                                # 114 unitarias de la lógica pura (rutas, pestañas, sondeo, tablero, recorrido, lectura de QR, voz de la planta...), sin dependencias
 cd tests/humo && npm install && node humo.mjs               # humo de punta a punta: backend + front levantados, Chrome headless
 ```
+
+El recorrido guiado de la primera vez (F39) tapa la pantalla: para probar a mano sin él, abre `http://localhost:5500/?tour=no#/plantas` o pon `localStorage["fito.tour"] = "no"`. El humo lo apaga así en todos sus contextos menos en el paso que lo recorre.
+
+## En el teléfono
+
+Hasta 899 px de ancho la app se navega como una app (F37): barra inferior de pestañas, detalle de planta en pestañas y el botón principal de cada formulario pegado abajo. Para leer el QR de la matera sin salir de la app (F40), la cámara en vivo exige contexto seguro: sirve el front por HTTPS (un proxy delante que mande `/api/*` y `/ws*` al backend; la página usa entonces la API de su mismo origen) o usa `localhost`. Por HTTP desde el celular queda la foto del QR, que también se lee dentro de la app.
 
 ## Sin red (demo offline)
 
@@ -59,7 +65,7 @@ El detalle de una planta se actualiza solo: cada **5 s** (`INTERVALO_SONDEO_MS` 
 
 ## Vincular un dispositivo (reclamo por serial)
 
-El humano no copia ninguna credencial. Cada dispositivo sale de fábrica con un **serial** impreso (`fito-7K2M9Q`) y un secreto guardado adentro. En el detalle de una planta propia, la sección **Dispositivos** pide el serial y llama a `POST /plantas/{id}/dispositivos` con `{serial}`. El dispositivo, por su cuenta, pide un reto, responde con un HMAC de su secreto y recibe su token. La lista de la sección dice «esperando que se conecte» o «conectado hace Xs» (se refresca con el sondeo de 5 s) y permite desvincular. Los diagnósticos que envíe aparecen en el historial con origen «Dispositivo». Detalle en F18 de [`docs/IMPLEMENTACION-CORTE2.md`](docs/IMPLEMENTACION-CORTE2.md).
+El humano no copia ninguna credencial. Cada dispositivo sale de fábrica con un **serial** impreso (`fito-7K2M9Q`) y un secreto guardado adentro. En el detalle de una planta propia, el asistente de vinculación (F36) o, a mano, la sección **Dispositivos** pide el código de 6 letras y números (el prefijo `fito-` lo pone el front) y llama a `POST /plantas/{id}/dispositivos` con `{serial}`. El dispositivo, por su cuenta, pide un reto, responde con un HMAC de su secreto y recibe su token. La lista de la sección dice «esperando que se conecte» o «conectado hace Xs» (se refresca con el sondeo de 5 s) y permite desvincular. Los diagnósticos que envíe aparecen en el historial con origen «Dispositivo». Detalle en F18 de [`docs/IMPLEMENTACION-CORTE2.md`](docs/IMPLEMENTACION-CORTE2.md).
 
 El administrador registra los dispositivos en `#/admin/dispositivos` (F19): al registrar, el serial y el secreto se muestran **una sola vez** con botón de copiar y el comando listo del simulador, más el **QR del sticker** (`qrcode-generator` vendorizado, SVG propio) con botón de imprimir: quien lo escanee llega a `#/vincular?serial=...` (F34). Requiere el backend de la fase 3.
 
@@ -67,13 +73,17 @@ El administrador registra los dispositivos en `#/admin/dispositivos` (F19): al r
 
 | Ruta | Acceso | Pantalla |
 |---|---|---|
-| `#/` | pública | diagnóstico suelto (RF-F6, el del corte 1) |
+| `#/` | sin sesión | portada: qué es el producto y por dónde empezar (F38); con sesión lleva al tablero |
+| `#/diagnostico` | pública | diagnóstico sin cuenta (RF-F6): escribes lo que mediste y la planta te dice cómo está |
 | `#/entrar`, `#/registro`, `#/recuperar` | sin sesión | iniciar sesión, crear cuenta, pedir enlace de recuperación |
 | `#/restablecer?token=` | pública | elegir contraseña nueva (enlace del correo) |
 | `#/invitacion?token=` | pública | aceptar invitación, con sesión o registrándose (enlace del correo) |
 | `#/perfil` | sesión | datos, contraseña, eliminar cuenta |
-| `#/plantas`, `#/plantas/nueva`, `#/plantas/{id}` | sesión | mis plantas y compartidas; registrar; detalle (estado por sondeo, historial, dispositivos por serial, compartir, editar) |
+| `#/plantas`, `#/plantas/nueva` | sesión | tablero (o la bienvenida si no hay plantas) con filtros por estado y «Qué hacer hoy»; planta nueva |
+| `#/plantas/{id}`, `/historial`, `/matera`, `/mas` | sesión | detalle en pestañas con la activa en la URL (F37): Hoy, Historial, Matera y Más (medir a mano, compartir, ajustes) |
+| `#/plantas/:id/vincular` | sesión | asistente de vinculación de cinco pasos: busca la matera cercana, se confirma con el código de 6 caracteres o el QR y termina en «Conexión exitosa» (F36) |
 | `#/vincular?serial=` | sesión | vincular una matera a una planta propia; es el destino del QR del sticker (F34) |
+| `#/v/:codigo` | pública | enlace corto del QR de la pantalla de la matera: redirige a `#/vincular?serial=fito-<CODIGO>` (F35); si vienes del asistente vincula directo a esa planta |
 | `#/solicitudes` | sesión | pedir una especie y ver mis solicitudes |
 | `#/admin`, `#/admin/usuarios`, `#/admin/usuarios/{id}`, `#/admin/especies`, `#/admin/solicitudes`, `#/admin/dispositivos` | admin | administración; dispositivos de fábrica (serial y secreto) |
 
@@ -101,7 +111,12 @@ El administrador registra los dispositivos en `#/admin/dispositivos` (F19): al r
 | `js/animaciones.js` | envoltura de GSAP: entrada, barras, números, líneas, ilustración; no hace nada con reduced-motion |
 | `js/componentes/ilustracion-planta.js`, `minigrafica.js`, `escala.js` | planta en matera SVG reactiva, minigráfica de tendencia y cálculos puros (F21) |
 | `js/cache.js`, `js/deshacer.js`, `js/transiciones.js` | caché en memoria para stale-while-revalidate, petición retrasada tras «Deshacer», View Transitions (F25, F26, F28); puros salvo las transiciones, con pruebas |
-| `tests/` | pruebas unitarias y script de humo |
+| `js/pestanas.js`, `js/tablero.js` | pestañas del detalle y filtros del tablero (F37); puros, con pruebas |
+| `js/vistas/portada.js`, `js/portada-guion.js`, `js/voz-planta.js`, `js/mensajes.js` | portada, lo que «dice» la planta y los errores en lenguaje de persona (F38); los tres últimos puros |
+| `js/tour.js`, `js/componentes/recorrido.js` | recorrido guiado de la primera vez (F39): lógica pura y capa con foco y globo |
+| `js/qr-lectura.js`, `js/componentes/lector-qr.js`, `js/vendor/jsQR.js` | lector de QR dentro de la app (F40): cámara en vivo o foto; jsQR 1.4.0 vendorizado, cargado bajo demanda |
+| `js/url-api.js` | URL de la API por defecto: mismo host puerto 8080 por HTTP, mismo origen por HTTPS (F35, F40) |
+| `tests/` | pruebas unitarias y script de humo (`tests/humo/qr-png.mjs` arma los QR de prueba) |
 
 Decisiones y límites: [`docs/IMPLEMENTACION-CORTE2.md`](docs/IMPLEMENTACION-CORTE2.md).
 

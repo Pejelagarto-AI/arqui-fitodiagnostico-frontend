@@ -4,10 +4,11 @@ import { obtenerDiagnosticoVigente } from "../api.js";
 import { h, vaciar, crearAviso, formatearFechaRelativa, esqueletoSiTarda } from "../ui.js";
 import { entrada, llenarBarra, contar } from "../animaciones.js";
 import { crearVistaDeDiagnostico, DIAGNOSTICO_DE_ESQUELETO } from "./diagnostico.js";
+import { fraseDePlanta } from "../voz-planta.js";
 
-const ORIGENES = { MANUAL: "medición manual", DISPOSITIVO: "dispositivo" };
+const ORIGENES = { MANUAL: "anotada a mano", DISPOSITIVO: "la midió la matera" };
 
-export function crearPanelVigente(plantaId, ctx, { alCambiarEstado = () => {} } = {}) {
+export function crearPanelVigente(plantaId, ctx, { alCambiarEstado = () => {}, esDueno = true } = {}) {
   // Identidad de lo pintado: el sondeo vuelve a pedir lo mismo cada pocos segundos
   // y no hay por qué repintar (ni parpadear) si no cambió nada.
   let pintado = null;
@@ -40,8 +41,11 @@ export function crearPanelVigente(plantaId, ctx, { alCambiarEstado = () => {} } 
     if (!respuesta.hayDiagnostico) {
       cuerpo.append(
         h("div", { class: "sin-diagnostico", id: "sin-diagnostico" },
-          h("p", {}, h("strong", {}, "Sin diagnóstico todavía.")),
-          h("p", { class: "texto-suave" }, respuesta.mensaje || "Registra una medición para obtener el primero."),
+          h("p", {}, h("strong", {}, "Todavía no hay lecturas.")),
+          // Qué hacer, según quién mira: el dueño puede esperar a su matera o anotar una lectura; el invitado solo espera.
+          h("p", { class: "texto-suave" }, esDueno
+            ? "Cuando tu matera mande la primera, aquí verás cómo está tu planta. Si no tienes matera, anota una a mano en «Más»."
+            : "Cuando llegue la primera, aquí verás cómo está la planta."),
         ),
       );
       return;
@@ -49,7 +53,9 @@ export function crearPanelVigente(plantaId, ctx, { alCambiarEstado = () => {} } 
     const registro = respuesta.diagnostico;
     vista = crearVistaDeDiagnostico(registro.diagnostico, { serie, resumen: true });
     const contenido = h("div", {},
-      h("p", { class: "texto-suave", id: "meta-vigente" }, `Registrado ${formatearFechaRelativa(registro.registradoEn)} · ${ORIGENES[registro.origen] || registro.origen}`),
+      // La planta «dice» cómo está (la promesa de la portada), y debajo, de cuándo es la lectura.
+      h("p", { class: "voz-hoy", id: "voz-planta", "data-estado": registro.diagnostico.estado }, fraseDePlanta(registro.diagnostico)),
+      h("p", { class: "texto-suave", id: "meta-vigente" }, `Lectura de ${formatearFechaRelativa(registro.registradoEn)} · ${ORIGENES[registro.origen] || registro.origen}`),
       vista.nodo,
     );
     cuerpo.append(contenido);

@@ -2,6 +2,9 @@
 // Con sesión se elige la planta propia y se reclama el serial (el mismo POST que el formulario del detalle).
 import { listarPlantas, vincularDispositivo } from "../api.js";
 import { invalidarCache } from "../cache.js";
+import { leerPlantaRecordada } from "./vincular-asistente.js";
+import { codigoVisible, normalizarCodigo } from "../vinculacion.js";
+import { crearLectorQr } from "../componentes/lector-qr.js";
 import { h, enlaceDeVolver, campoSelect, crearAviso, conCarga, marcarCampoConError, limpiarErroresDeFormulario } from "../ui.js";
 
 export const titulo = "Vincular matera";
@@ -11,8 +14,31 @@ export async function montar(contenedor, ctx) {
   const aviso = crearAviso();
 
   if (!serial) {
-    aviso.mostrar("El enlace no trae el serial del dispositivo. Escanea de nuevo el QR del sticker.");
-    contenedor.append(h("section", { class: "tarjeta tarjeta--angosta" }, h("h2", { "data-titulo": "" }, "Vincular matera"), aviso.elemento, h("p", {}, h("a", { href: "#/plantas" }, "Ir a mis plantas"))));
+    // Sin código en el enlace: se puede leer el QR de la matera aquí mismo (F40) y seguir con el código leído.
+    const lector = crearLectorQr({
+      alLeer: (leido) => {
+        setTimeout(() => ctx.irA(`/vincular?serial=${encodeURIComponent(leido.serial)}`, { reemplazar: true }), 0);
+        return true;
+      },
+    });
+    contenedor.append(
+      enlaceDeVolver("/plantas", "Mis plantas"),
+      h("section", { class: "tarjeta tarjeta--angosta" },
+        h("h2", { "data-titulo": "" }, "Vincular matera"),
+        h("p", {}, "Lee el cuadro blanco y negro (el QR) de la pantalla de tu matera."),
+        lector.nodo,
+        h("p", { class: "texto-suave" }, "¿No puedes leerlo? Abre tu planta, ve a «Matera» y escribe el código."),
+      ),
+    );
+    return () => lector.destruir();
+  }
+
+  // Si el usuario venía del asistente (planta recordada en sessionStorage), el QR vincula directo a esa planta y
+  // salta al paso «Conectando» del asistente, sin preguntar cuál (F36).
+  const recordada = leerPlantaRecordada();
+  const normal = normalizarCodigo(serial);
+  if (recordada && normal.ok) {
+    ctx.irA(`/plantas/${recordada}/vincular?serial=${encodeURIComponent(normal.serial)}`, { reemplazar: true });
     return;
   }
 
@@ -31,12 +57,12 @@ export async function montar(contenedor, ctx) {
     enlaceDeVolver("/plantas", "Mis plantas"),
   ];
   const titulo2 = h("h2", { "data-titulo": "" }, "Vincular matera");
-  const grande = h("p", { class: "serial-grande", id: "vincular-serial" }, serial);
+  const grande = h("p", { class: "serial-grande", id: "vincular-serial", "data-serial": serial }, codigoVisible(serial));
 
   if (plantas.length === 0) {
     contenedor.append(...cabecera, h("section", { class: "tarjeta tarjeta--angosta" }, titulo2, grande,
       h("p", {}, "Todavía no tienes plantas a las que vincular esta matera."),
-      h("a", { href: "#/plantas/nueva", class: "boton boton-primario", id: "enlace-registrar-para-vincular" }, "Registrar una planta")));
+      h("a", { href: "#/plantas/nueva", class: "boton boton-primario", id: "enlace-registrar-para-vincular" }, "Agregar una planta")));
     return;
   }
 
@@ -59,7 +85,7 @@ export async function montar(contenedor, ctx) {
       return;
     }
     try {
-      await conCarga(boton, "Vinculando…", () => vincularDispositivo(planta.select.value, serial));
+      await conCarga(boton, "Vinculando…", () => vincularDispositivo(planta.select.value, normal.ok ? normal.serial : serial));
       invalidarCache();
       ctx.irA(`/plantas/${planta.select.value}`); // ahí aparece «esperando que se conecte»
     } catch (error) {
@@ -69,5 +95,5 @@ export async function montar(contenedor, ctx) {
   });
 
   contenedor.append(...cabecera, h("section", { class: "tarjeta tarjeta--angosta" }, titulo2,
-    h("p", { class: "texto-suave" }, "Vas a vincular la matera con este serial:"), grande, formulario));
+    h("p", { class: "texto-suave" }, "Vas a vincular la matera con este código:"), grande, formulario));
 }

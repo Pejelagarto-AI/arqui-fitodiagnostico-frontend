@@ -26,6 +26,8 @@
   --hoja-critica: #a8794a;
   --agua: #4c86c8;
   --sol: #f5c542;
+  --boca: #b3261e;
+  --boca-seca: #7d4a43;
 
   --saludable: #1f6e38;
   --saludable-fondo: #dff3e3;
@@ -84,6 +86,8 @@
     --hoja-riesgo: #c9bd5a;
     --hoja-critica: #c08a5a;
     --agua: #5b9be0;
+    --boca: #d4574d;
+    --boca-seca: #8a5a52;
 
     --saludable: #86d99a;
     --saludable-fondo: #1f3a28;
@@ -926,7 +930,7 @@ a.boton-secundario {
 }
 
 /* En el detalle de planta manda el indicador del sondeo. */
-body[data-patron="/plantas/:id"] .indicador-conexion--global {
+body[data-familia="planta"] .indicador-conexion--global {
   display: none;
 }
 
@@ -942,14 +946,12 @@ body[data-patron="/plantas/:id"] .indicador-conexion--global {
 }
 
 .cabecera-planta::before {
+  /* El círculo decorativo se pinta DENTRO de la tarjeta (inset: 0 + degradado). Antes era una caja de 260 px
+     corrida 60 px a la derecha y 80 px abajo: la tarjeta medía 424 px por dentro en un teléfono de 390 (F37). */
   content: "";
   position: absolute;
-  right: -60px;
-  bottom: -80px;
-  width: 260px;
-  height: 260px;
-  border-radius: 50%;
-  background: var(--saludable-fondo);
+  inset: 0;
+  background: radial-gradient(circle at calc(100% - 70px) calc(100% - 50px), var(--saludable-fondo) 0 129px, transparent 130px);
   opacity: 0.6;
   pointer-events: none;
 }
@@ -1420,6 +1422,52 @@ body[data-patron="/plantas/:id"] .indicador-conexion--global {
 
 .ilu-sol path {
   stroke: var(--sol);
+}
+
+/* planta carnívora: cabeza de trampa con ojos y dientes (contraste medido en claro y oscuro) */
+.ilu-cabeza {
+  fill: var(--hoja);
+  stroke: var(--hoja-oscura);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.ilu-boca-interior {
+  fill: var(--boca);
+}
+
+.ilu-diente {
+  fill: #fffdf5;
+  stroke: var(--hoja-oscura);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.ilu-ojo {
+  fill: #ffffff;
+  stroke: var(--hoja-oscura);
+  stroke-width: 2;
+}
+
+.ilu-pupila {
+  fill: #1b251e;
+}
+
+.ilustracion-planta[data-estado="EN_RIESGO"] .ilu-cabeza {
+  fill: var(--hoja-riesgo);
+}
+
+.ilustracion-planta[data-estado="CRITICO"] .ilu-cabeza {
+  fill: var(--hoja-critica);
+}
+
+.ilustracion-planta[data-estado="CRITICO"] .ilu-boca-interior {
+  fill: var(--boca-seca);
+}
+
+.ilustracion-planta[data-estado="SIN_DIAGNOSTICO"] .ilu-cabeza {
+  fill: var(--tinta-suave);
+  opacity: 0.55;
 }
 
 .ilustracion-planta--mini {
@@ -2000,6 +2048,430 @@ li,
   }
 }
 
+/* ---------- asistente de vinculación (F36) ---------- */
+
+.asistente {
+  text-align: center;
+  padding-bottom: max(var(--e3), env(safe-area-inset-bottom));
+}
+
+.asistente-titulo {
+  margin-bottom: 0;
+}
+
+.asistente-planta {
+  margin: 0.15rem 0 var(--e2);
+}
+
+.asistente-puntos {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0 0 0.35rem;
+  padding: 0;
+}
+
+.asistente-puntos li {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  background: var(--borde);
+  border: 1.5px solid var(--borde-control);
+  transition: width 0.25s ease, background-color 0.25s ease;
+}
+
+.asistente-puntos li[data-estado="hecho"] {
+  background: var(--acento);
+  border-color: var(--acento);
+}
+
+.asistente-puntos li[data-estado="activo"] {
+  width: 1.8rem;
+  background: var(--acento);
+  border-color: var(--acento);
+}
+
+.asistente-etiqueta {
+  margin: 0 0 var(--e1);
+  font-size: var(--t-chico);
+  font-weight: 700;
+  color: var(--tinta-suave);
+}
+
+.asistente-cuerpo {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--e2);
+}
+
+.asistente-cuerpo > * {
+  margin: 0;
+}
+
+.asistente-paso-titulo {
+  margin: 0;
+  font-size: var(--t-titulo-tarjeta);
+  outline: none;
+}
+
+.asistente-estado {
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+.asis-ilustracion,
+.asistente-cuerpo > .asis-ilustracion {
+  display: block;
+  width: 100%;
+  max-width: 15rem;
+  height: auto;
+  margin: 0 auto;
+}
+
+.asis-ilustracion--chica {
+  max-width: 12rem;
+}
+
+.asis-pantalla {
+  fill: #101614;
+  stroke: var(--borde-control);
+  stroke-width: 2;
+}
+
+.asis-qr-modulo,
+.asis-codigo-linea {
+  fill: #eef3ea;
+}
+
+.asis-wifi path {
+  stroke: var(--acento);
+}
+
+.asis-wifi-punto {
+  fill: var(--acento);
+}
+
+/* radar */
+.asis-anillo-fijo {
+  fill: none;
+  stroke: var(--acento);
+  stroke-width: 1.5;
+  opacity: 0.28;
+}
+
+.asis-onda {
+  fill: var(--acento);
+  opacity: 0.12;
+}
+
+.asis-barrido-sector {
+  fill: var(--acento);
+  opacity: 0.28;
+}
+
+.asis-barrido-linea {
+  stroke: var(--acento);
+}
+
+.asis-radar-centro {
+  fill: var(--superficie);
+  stroke: var(--acento);
+  stroke-width: 2.5;
+}
+
+.asis-radar-matera {
+  fill: var(--tierra);
+}
+
+.asis-radar-hoja {
+  stroke: var(--hoja-oscura);
+  fill: none;
+}
+
+.asis-triste {
+  max-width: 11rem;
+}
+
+/* QR */
+.asis-celular-cuerpo {
+  fill: var(--superficie);
+  stroke: var(--tinta);
+  stroke-width: 3;
+}
+
+.asis-celular-pantalla {
+  fill: var(--fondo);
+}
+
+.asis-visor {
+  stroke: var(--acento);
+}
+
+.asis-haz {
+  stroke: var(--acento);
+}
+
+/* espera */
+.asis-espera {
+  max-width: 9rem;
+}
+
+.asis-espera-pista {
+  stroke: var(--borde);
+}
+
+.asis-espera-arco {
+  stroke: var(--acento);
+}
+
+/* éxito */
+.asis-exito-aro {
+  fill: var(--saludable-fondo);
+  stroke: var(--saludable);
+  stroke-width: 3;
+}
+
+.asis-exito-escena .ilu-sol {
+  display: none;
+}
+
+.asis-insignia-fondo {
+  fill: var(--saludable);
+}
+
+.asis-chulo {
+  stroke: #ffffff;
+}
+
+/* botones, opciones y casillas */
+.asistente-accion {
+  width: 100%;
+  min-height: 3rem;
+}
+
+.asistente-botones {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.asistente-botones[hidden] {
+  display: none;
+}
+
+.asistente-opciones {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  padding: 0.3rem;
+  background: var(--fondo);
+  border-radius: 999px;
+}
+
+.asistente-opcion {
+  font: inherit;
+  font-weight: 700;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.5rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--tinta);
+  cursor: pointer;
+}
+
+.asistente-opcion[aria-selected="true"] {
+  background: var(--acento);
+  color: var(--boton-texto);
+}
+
+.asistente-panel[hidden] {
+  display: none;
+}
+
+.asistente-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+}
+
+.asistente-panel > * {
+  margin: 0;
+}
+
+.asistente-codigo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  text-align: left;
+}
+
+.asistente-etiqueta-campo {
+  text-align: center;
+}
+
+.asistente-codigo .rango-optimo,
+.asistente-codigo .error-campo {
+  text-align: center;
+}
+
+.casillas {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.casilla {
+  display: grid;
+  place-items: center;
+  height: 3.6rem;
+  font-size: 1.7rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  background: var(--superficie);
+  color: var(--tinta);
+  border: 2px solid var(--borde-control);
+  border-radius: var(--radio-medio);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.casilla[data-llena="si"] {
+  border-color: var(--acento);
+}
+
+.casilla[data-activa="si"] {
+  border-color: var(--foco);
+  box-shadow: 0 0 0 3px var(--foco);
+}
+
+/* El campo real cubre las seis casillas: recibe el toque, el pegado y el teclado; su texto no se ve. */
+.casillas-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  font-size: 1.7rem; /* >= 16 px: Safari de iPhone no hace zoom al enfocar */
+  opacity: 0.01;
+}
+
+.casillas-input::selection {
+  background: transparent;
+}
+
+.casillas-input:focus-visible {
+  outline: none;
+}
+
+.casillas-input[aria-invalid="true"] ~ .casilla,
+.casillas:has(.casillas-input[aria-invalid="true"]) .casilla {
+  border-color: var(--critico);
+}
+
+.asistente-enmascarado {
+  margin: 0;
+  letter-spacing: 0.12em;
+}
+
+.asistente-ayuda-wifi {
+  text-align: left;
+  background: var(--crema);
+  border-radius: var(--radio-medio);
+  padding: 0.6rem 0.9rem;
+}
+
+.asistente-ayuda-wifi summary {
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 2.5rem;
+  display: flex;
+  align-items: center;
+}
+
+.asistente-ayuda-wifi ol {
+  margin: 0.4rem 0 0.2rem;
+  padding-left: 1.2rem;
+}
+
+.asistente-ayuda {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  text-align: left;
+}
+
+.asistente-ayuda-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.65rem 0.8rem;
+  background: var(--crema);
+  border-radius: var(--radio-medio);
+  overflow-wrap: anywhere;
+}
+
+.asis-ayuda-icono {
+  flex: none;
+  width: 1.6rem;
+  height: 1.6rem;
+  margin-top: 0.1rem;
+  color: var(--tierra-oscura);
+}
+
+.asistente-pie {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: var(--e2);
+  padding-top: var(--e1);
+  border-top: 1px solid var(--borde);
+}
+
+.asistente-enlace {
+  font: inherit;
+  font-weight: 700;
+  min-height: 2.75rem;
+  padding: 0.3rem 0.5rem;
+  border: 0;
+  background: transparent;
+  color: var(--acento-texto);
+  text-decoration: underline;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.vincular-a-mano {
+  margin-top: var(--e1);
+}
+
+.vincular-a-mano summary {
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 2.5rem;
+  display: flex;
+  align-items: center;
+}
+
+@media (min-width: 600px) {
+  .asistente-botones {
+    flex-direction: row-reverse;
+  }
+
+  .asistente-botones .asistente-accion {
+    width: auto;
+    flex: 1;
+  }
+}
+
 /* ---------- sticker con QR y vincular desde el QR (F34) ---------- */
 
 .serial-grande {
@@ -2064,4 +2536,1775 @@ li,
   .qr {
     width: 4cm;
   }
+}
+
+/* ---------- nada se sale del ancho del teléfono (F37) ----------
+   Cinturón de seguridad además de corregir a los culpables: la página nunca se desplaza de lado. `clip` no crea
+   un contenedor de scroll (lo fijo y lo pegajoso siguen funcionando); `hidden` queda de respaldo para Safari < 16.
+   text-size-adjust evita que iOS infle el texto por su cuenta, y los campos en 16 px evitan el zoom automático
+   de Safari al enfocarlos (ese zoom deja la página más ancha que la pantalla hasta que el usuario la pellizca). */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html,
+body {
+  max-width: 100%;
+}
+
+/* Solo en html: en body, `hidden` lo volvería un contenedor de scroll y rompería lo pegajoso (las pestañas). */
+html {
+  overflow-x: hidden;
+}
+
+@supports (overflow-x: clip) {
+  html,
+  body {
+    overflow-x: clip;
+  }
+}
+
+body {
+  overflow-wrap: break-word;
+}
+
+.contenido,
+.contenido > *,
+.tarjeta {
+  min-width: 0;
+}
+
+svg,
+img {
+  max-width: 100%;
+}
+
+input,
+select,
+textarea {
+  max-width: 100%;
+  font-size: max(1rem, 16px);
+}
+
+.banner-error,
+.banner-error p,
+.toast {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+/* ---------- detalle de planta en pestañas (F37) ----------
+   Cabecera compacta (planta a la izquierda, nombre y estado a la derecha), barra de pestañas pegajosa y un
+   panel a la vez. Antes eran seis tarjetas apiladas: 4992 px, casi seis pantallas de iPhone. */
+
+.tarjeta.cabecera-planta {
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: var(--e2);
+  padding: var(--e2);
+}
+
+.tarjeta.cabecera-planta:has(.cabecera-planta-ilustracion:empty) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cabecera-planta::before {
+  background: radial-gradient(circle at calc(100% - 24px) calc(100% - 6px), var(--saludable-fondo) 0 84px, transparent 85px);
+}
+
+.cabecera-planta .ilustracion-planta {
+  max-width: 100%;
+}
+
+.tarjeta.cabecera-planta h2[data-titulo] {
+  font-size: clamp(1.35rem, 6vw, 1.75rem);
+}
+
+.cabecera-planta-especie {
+  margin: 0 0 0.45rem;
+  font-size: 0.95rem;
+}
+
+.cabecera-planta .estado-planta {
+  margin: 0 0.4rem 0.3rem 0;
+  padding: 0.25rem 0.8rem;
+  font-size: 1rem;
+}
+
+.cabecera-planta .indicador-conexion {
+  font-size: var(--t-chico);
+}
+
+.pestanas {
+  position: sticky;
+  top: max(0.5rem, env(safe-area-inset-top));
+  z-index: 5;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 0.2rem;
+  padding: 0.25rem;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(36, 49, 39, 0.08);
+}
+
+.pestana {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  color: var(--tinta-suave);
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pestana:hover {
+  color: var(--tinta);
+}
+
+.pestana[aria-selected="true"] {
+  background: var(--acento);
+  color: var(--boton-texto);
+}
+
+@media (pointer: coarse) {
+  .pestana {
+    min-height: 3rem;
+  }
+}
+
+.panel-pestana {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  min-width: 0;
+}
+
+/* Secciones plegables de «Más». El <summary> hace de título; el de la tarjeta de adentro sobra a la vista
+   (sigue en el DOM: es el nombre accesible de la sección). */
+.plegable {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+}
+
+.plegable > summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--e2);
+  min-height: 4rem;
+  padding: 0.7rem var(--e2) 0.7rem 1.25rem;
+  border-radius: var(--radio);
+  cursor: pointer;
+  list-style: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.plegable > summary::-webkit-details-marker {
+  display: none;
+}
+
+.plegable > summary::after {
+  content: "";
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  width: 0.6rem;
+  height: 0.6rem;
+  margin-right: 0.4rem;
+  border-right: 2.5px solid var(--tinta-suave);
+  border-bottom: 2.5px solid var(--tinta-suave);
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+.plegable[open] > summary::after {
+  transform: rotate(-135deg);
+}
+
+.plegable-titulo {
+  grid-column: 1;
+  font-size: var(--t-titulo-tarjeta);
+  font-weight: 800;
+}
+
+.plegable-pista {
+  grid-column: 1;
+  color: var(--tinta-suave);
+  font-size: var(--t-chico);
+  font-weight: 600;
+}
+
+.plegable > .tarjeta {
+  border: 0;
+  border-radius: 0 0 var(--radio) var(--radio);
+  box-shadow: none;
+  background: transparent;
+  padding-top: 0;
+}
+
+.plegable > .tarjeta > h2:first-child {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plegable > summary::after {
+    transition: none;
+  }
+}
+
+/* En teléfono cada parámetro es un renglón compacto: icono, nombre y estado a la izquierda, el número a la
+   derecha, y debajo la barra con su banda óptima y la minigráfica. Tres caben en una pantalla. */
+@media (max-width: 699px) {
+  .burbujas {
+    gap: 0.6rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .burbuja {
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+    column-gap: 0.75rem;
+    align-items: center;
+    padding: 0.85rem 1rem;
+  }
+
+  .burbuja-icono {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin: 0;
+  }
+
+  .burbuja h3 {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .burbuja .chip {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+    margin-top: 0.1rem;
+  }
+
+  .burbuja .num {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    font-size: 1.9rem;
+    white-space: nowrap;
+  }
+
+  .burbuja .pista,
+  .burbuja .pista-ley,
+  .burbuja .tendencia {
+    grid-column: 1 / -1;
+  }
+
+  .burbuja .pista {
+    height: 12px;
+    margin-top: 0.65rem;
+  }
+
+  .burbuja .tendencia {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.3rem;
+    min-height: 0;
+  }
+
+  .burbuja .tendencia:empty {
+    display: none;
+  }
+
+  .burbuja .minigrafica {
+    height: 30px;
+  }
+
+  .bloque-vigente {
+    gap: 0.6rem;
+  }
+
+  .bloque-vigente .que-hacer {
+    padding: var(--e2);
+  }
+
+  .diagnostico > .estado-global--resumen {
+    margin-bottom: 0.6rem;
+  }
+}
+
+@media (min-width: 760px) {
+  .tarjeta.cabecera-planta,
+  .tarjeta.cabecera-planta:has(.cabecera-planta-ilustracion:not(:empty)) {
+    grid-template-columns: 9rem minmax(0, 1fr);
+    gap: var(--e3);
+    padding: var(--e3);
+  }
+
+  .pestanas {
+    align-self: flex-start;
+    grid-auto-columns: minmax(7.5rem, 1fr);
+  }
+}
+
+/* ---------- navegación como app en teléfono (F37) ----------
+   Hasta 899 px la navegación principal es una barra inferior de pestañas con iconos, fija, al alcance del
+   pulgar y sobre el área segura. El menú de texto de la cabecera (que se partía en tres renglones y ocupaba
+   220 px, la cuarta parte de la pantalla) queda solo para escritorio. La cabecera en teléfono es la marca. */
+
+.barra-inferior,
+.solo-movil {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .navegacion {
+    display: none;
+  }
+
+  .solo-movil {
+    display: block;
+  }
+
+  .cabecera {
+    padding-top: max(0.6rem, env(safe-area-inset-top));
+    padding-bottom: 0.35rem;
+  }
+
+  .marca h1 {
+    font-size: 1.15rem;
+  }
+
+  .marca svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .barra-inferior {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 25;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 0.15rem;
+    padding: 0.3rem max(0.4rem, env(safe-area-inset-right)) max(0.3rem, env(safe-area-inset-bottom)) max(0.4rem, env(safe-area-inset-left));
+    background: var(--superficie);
+    border-top: 1px solid var(--borde);
+    box-shadow: 0 -4px 16px rgba(36, 49, 39, 0.07);
+  }
+
+  .barra-pestana {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem;
+    min-height: 3.25rem;
+    min-width: 0;
+    color: var(--tinta-suave);
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-decoration: none;
+    border-radius: var(--radio-medio);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .barra-icono {
+    display: grid;
+    place-items: center;
+    width: 3.5rem;
+    height: 1.75rem;
+    border-radius: 999px;
+  }
+
+  .barra-icono svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .barra-texto {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .barra-pestana[aria-current="page"] {
+    color: var(--saludable);
+  }
+
+  .barra-pestana[aria-current="page"] .barra-icono {
+    background: var(--saludable-fondo);
+  }
+
+  /* Lo último de cada pantalla queda por encima de la barra, y los avisos también. */
+  .contenido {
+    padding-bottom: calc(5.25rem + env(safe-area-inset-bottom));
+  }
+
+  .zona-toasts {
+    left: max(0.75rem, env(safe-area-inset-left));
+    right: max(0.75rem, env(safe-area-inset-right));
+    bottom: calc(4.5rem + env(safe-area-inset-bottom));
+    max-width: none;
+  }
+
+  /* Dentro de una planta, de «planta nueva» y del asistente la cabecera es la flecha de volver: la marca sobra. */
+  body[data-familia="planta"] .cabecera,
+  body[data-patron="/plantas/nueva"] .cabecera,
+  body[data-patron="/plantas/:id/vincular"] .cabecera,
+  body[data-patron="/vincular"] .cabecera {
+    display: none;
+  }
+
+  body[data-familia="planta"] .contenido,
+  body[data-patron="/plantas/nueva"] .contenido,
+  body[data-patron="/plantas/:id/vincular"] .contenido,
+  body[data-patron="/vincular"] .contenido {
+    padding-top: max(0.4rem, env(safe-area-inset-top));
+  }
+
+  /* Los flujos de un paso por pantalla (asistente de vinculación, planta nueva) van a pantalla completa: sin barra. */
+  body[data-patron="/plantas/:id/vincular"] .barra-inferior,
+  body[data-patron="/plantas/nueva"] .barra-inferior,
+  body[data-patron="/vincular"] .barra-inferior {
+    display: none;
+  }
+
+  body[data-patron="/plantas/:id/vincular"] .contenido,
+  body[data-patron="/plantas/nueva"] .contenido,
+  body[data-patron="/vincular"] .contenido {
+    padding-bottom: max(var(--e3), env(safe-area-inset-bottom));
+  }
+
+  .pie {
+    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
+  }
+}
+
+@media print {
+  .barra-inferior {
+    display: none;
+  }
+}
+
+/* ---------- portada (F38) ----------
+   Lo primero que ve quien llega sin sesión: la planta en su matera, viva, y una promesa en una frase.
+   En teléfono cabe en un pantallazo (escena, titular, bajada y acciones); «Así funciona» queda justo debajo.
+   A partir de 900 px son dos columnas: el mensaje a la izquierda y la escena a la derecha. */
+
+body[data-sesion="no"] .contenido {
+  padding-bottom: max(var(--e3), env(safe-area-inset-bottom));
+}
+
+body[data-sesion="no"] .pie {
+  padding-bottom: max(var(--e2), env(safe-area-inset-bottom));
+}
+
+.portada {
+  display: grid;
+  gap: var(--e3);
+}
+
+.portada-heroe {
+  display: grid;
+  gap: var(--e2);
+  min-width: 0;
+}
+
+.portada-escena {
+  position: relative;
+  min-width: 0;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 82% 16%, var(--luz-fondo) 0 22%, transparent 23%),
+    var(--saludable-fondo);
+  overflow: hidden;
+}
+
+.portada-escena-vivo {
+  display: grid;
+  justify-items: center;
+  padding: 3.4rem var(--e2) 0.9rem;
+}
+
+.portada-planta {
+  width: min(52vw, 12.5rem);
+}
+
+.portada-planta .ilustracion-planta {
+  max-width: 100%;
+}
+
+/* El sol de la ilustración sobra: el de la escena es el círculo del fondo. */
+.portada-escena .ilu-sombra {
+  fill: var(--superficie);
+  opacity: 0.7;
+}
+
+.portada-globo {
+  position: absolute;
+  top: 0.85rem;
+  left: 0.85rem;
+  max-width: min(15rem, calc(100% - 4.5rem));
+  padding: 0.5rem 0.85rem;
+  border-radius: 18px 18px 18px 5px;
+  background: var(--superficie);
+  color: var(--tinta);
+  box-shadow: 0 6px 18px rgba(36, 49, 39, 0.12);
+  border-left: 5px solid var(--saludable);
+}
+
+.portada-globo[data-estado="EN_RIESGO"] {
+  border-left-color: var(--riesgo);
+}
+
+.portada-globo[data-estado="CRITICO"] {
+  border-left-color: var(--critico);
+}
+
+.portada-frase {
+  margin: 0;
+  font-weight: 800;
+  font-size: 0.98rem;
+  line-height: 1.25;
+}
+
+.portada-lecturas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.2rem;
+}
+
+.portada-lectura {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.65rem 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: var(--superficie);
+  color: var(--tinta);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--sombra);
+}
+
+.portada-lectura svg {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+}
+
+.portada-lectura[data-sensor="agua"] svg {
+  color: var(--humedad-tinta);
+}
+
+.portada-lectura[data-sensor="luz"] svg {
+  color: var(--luz-tinta);
+}
+
+.portada-lectura[data-sensor="temperatura"] svg {
+  color: var(--temperatura-tinta);
+}
+
+.portada-lectura[data-alerta] {
+  background: var(--riesgo-fondo);
+  color: var(--riesgo);
+}
+
+.portada-lectura[data-alerta] svg {
+  color: inherit;
+}
+
+.portada-pausa {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--tinta-suave);
+  cursor: pointer;
+}
+
+.portada-pausa svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.portada-pausa .pausa-barras {
+  stroke: currentColor;
+}
+
+.portada-pausa .pausa-triangulo {
+  fill: currentColor;
+  display: none;
+}
+
+.portada-pausa[aria-pressed="true"] .pausa-barras {
+  display: none;
+}
+
+.portada-pausa[aria-pressed="true"] .pausa-triangulo {
+  display: block;
+}
+
+.portada-mensaje {
+  min-width: 0;
+}
+
+.portada-titulo {
+  margin: 0;
+  font-size: clamp(2rem, 8.6vw, 3.4rem);
+  font-weight: 900;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.portada-bajada {
+  margin: 0.55rem 0 0;
+  color: var(--tinta-suave);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.portada-acciones {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: var(--e2);
+}
+
+.portada-acciones a.boton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3.25rem;
+  font-size: 1.05rem;
+}
+
+.portada-probar {
+  margin: 0.75rem 0 0;
+  text-align: center;
+  color: var(--tinta-suave);
+  font-weight: 600;
+}
+
+.portada-probar a {
+  display: inline-block;
+  padding: 0.45rem 0.2rem;
+  font-weight: 800;
+}
+
+.portada-subtitulo {
+  margin: 0 0 var(--e1);
+  font-size: var(--t-titulo-tarjeta);
+  font-weight: 800;
+}
+
+.portada-pasos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.portada-paso {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.85rem 1rem;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+}
+
+.portada-paso-dibujo {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 18px;
+  background: var(--fondo);
+}
+
+.paso-icono {
+  width: 2.6rem;
+  height: 2.6rem;
+}
+
+.portada-paso h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.portada-paso-numero {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--saludable-fondo);
+  color: var(--saludable);
+  font-size: 0.85rem;
+  font-weight: 900;
+}
+
+.portada-paso p {
+  margin: 0.15rem 0 0;
+  color: var(--tinta-suave);
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.pi-matera { fill: var(--tierra); }
+.pi-borde { fill: var(--tierra-oscura); }
+.pi-tallo { stroke: var(--hoja-oscura); }
+.pi-hoja { fill: var(--hoja); }
+.pi-onda { stroke: var(--acento); }
+.pi-punto { fill: var(--acento); }
+.pi-pista { fill: var(--borde); }
+.pi-agua { fill: var(--agua); }
+.pi-sol { fill: var(--sol); }
+.pi-calor { fill: var(--critico); }
+.pi-chulo { stroke: #ffffff; }
+
+@media (min-width: 900px) {
+  .portada {
+    gap: var(--e4);
+    padding-top: var(--e3);
+  }
+
+  .portada-heroe {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    align-items: center;
+    gap: var(--e4);
+  }
+
+  .portada-mensaje {
+    order: -1;
+  }
+
+  .portada-escena-vivo {
+    padding: 4.5rem var(--e3) var(--e3);
+  }
+
+  .portada-planta {
+    width: min(26vw, 20rem);
+  }
+
+  .portada-globo {
+    top: 1.4rem;
+    left: 1.4rem;
+    max-width: 18rem;
+    padding: 0.7rem 1.1rem;
+  }
+
+  .portada-frase {
+    font-size: 1.15rem;
+  }
+
+  .portada-lectura {
+    font-size: 0.95rem;
+    padding: 0.35rem 0.85rem 0.35rem 0.65rem;
+  }
+
+  .portada-bajada {
+    font-size: 1.2rem;
+    max-width: 30rem;
+  }
+
+  .portada-acciones {
+    grid-template-columns: repeat(2, max-content);
+    gap: 0.75rem;
+    margin-top: var(--e3);
+  }
+
+  .portada-acciones a.boton {
+    padding-inline: 2rem;
+  }
+
+  .portada-probar {
+    text-align: left;
+  }
+
+  .portada-pasos {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--e2);
+  }
+
+  .portada-paso {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    padding: var(--e3);
+  }
+}
+
+/* ---------- lector de QR dentro de la app (F40) ----------
+   El video de la cámara vive dentro de la tarjeta del asistente, en un recuadro con una mira. Sin cámara en
+   vivo queda el botón de la foto. Nada de esto necesita abrir la cámara del teléfono por fuera. */
+
+.lector {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  text-align: center;
+}
+
+.lector-reposo {
+  width: 100%;
+}
+
+.lector-reposo[hidden] {
+  display: none;
+}
+
+.lector-visor {
+  position: relative;
+  width: min(100%, 19rem);
+  aspect-ratio: 1;
+  border-radius: 24px;
+  overflow: hidden;
+  background: #101510;
+  box-shadow: 0 0 0 4px var(--saludable-fondo);
+}
+
+.lector-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lector-mira {
+  position: absolute;
+  inset: 9%;
+  width: 82%;
+  height: 82%;
+  max-width: none;
+  pointer-events: none;
+}
+
+.lector-mira-esquina {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
+.lector-mira-linea {
+  fill: none;
+  stroke: #7ed08c;
+  stroke-width: 2;
+  stroke-linecap: round;
+  opacity: 0.95;
+}
+
+.lector-cerrar {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(16, 21, 16, 0.72);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.lector-cerrar svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.lector-cerrar:focus-visible {
+  outline-color: #ffffff;
+}
+
+.lector-estado {
+  margin: 0;
+  min-height: 1.4em;
+  font-weight: 700;
+  color: var(--tinta-suave);
+  text-wrap: balance;
+}
+
+.lector-estado:empty {
+  display: none;
+}
+
+.lector-estado[data-tipo="error"] {
+  color: var(--critico);
+}
+
+.lector-acciones {
+  display: grid;
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.lector-acciones[hidden] {
+  display: none;
+}
+
+.lector-accion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  width: 100%;
+  min-height: 3.25rem;
+}
+
+.lector-icono {
+  width: 1.4rem;
+  height: 1.4rem;
+  flex: none;
+}
+
+/* Oculto a la vista, pero presente: el botón «Tomar foto del QR» lo abre. */
+.lector-archivo {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  opacity: 0;
+  min-height: 0 !important;
+}
+
+/* ---------- formularios al alcance del pulgar y diagnóstico sin cuenta (F38) ----------
+   El botón principal de un formulario se queda pegado abajo en teléfono: sobre la barra inferior si la hay,
+   sobre el área segura si no. La variable --alto-barra dice cuánto ocupa esa barra en la pantalla actual. */
+
+:root {
+  --alto-barra: 0px;
+}
+
+@media (max-width: 899px) {
+  body[data-sesion="si"] {
+    --alto-barra: 4.1rem;
+  }
+
+  body[data-patron="/plantas/:id/vincular"],
+  body[data-patron="/plantas/nueva"],
+  body[data-patron="/vincular"] {
+    --alto-barra: 0px;
+  }
+
+  .accion-fija {
+    position: sticky;
+    bottom: calc(var(--alto-barra) + env(safe-area-inset-bottom));
+    z-index: 4;
+    margin: var(--e1) calc(var(--relleno-tarjeta, var(--e2)) * -1) calc(var(--relleno-tarjeta, var(--e2)) * -1);
+    padding: 0.75rem var(--relleno-tarjeta, var(--e2)) 0.85rem;
+    background: var(--superficie);
+    border-top: 1px solid var(--borde);
+    border-radius: 0 0 var(--radio) var(--radio);
+  }
+
+  .accion-fija .boton {
+    width: 100%;
+    min-height: 3.25rem;
+    font-size: 1.05rem;
+  }
+}
+
+.entradilla {
+  margin: 0 0 var(--e2);
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-wrap: pretty;
+}
+
+.rango-ideal {
+  margin: 0;
+  font-size: var(--t-chico);
+  font-weight: 700;
+  color: var(--saludable);
+  font-variant-numeric: tabular-nums;
+}
+
+.rango-ideal:empty {
+  display: none;
+}
+
+.ayuda-plegable {
+  margin: 0 0 var(--e2);
+  padding: 0 var(--e2);
+  border-radius: var(--radio-medio);
+  background: var(--crema);
+}
+
+.ayuda-plegable summary {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.ayuda-plegable p {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.resultado-suelto {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+}
+
+.resultado-cabeza {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  align-items: center;
+  gap: var(--e2);
+}
+
+.resultado-ilustracion .ilustracion-planta {
+  max-width: 100%;
+}
+
+.resultado-suelto h2 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.3rem, 5.5vw, 1.7rem);
+  overflow-wrap: anywhere;
+}
+
+.resultado-suelto h2:focus {
+  outline: none;
+}
+
+.resultado-globo {
+  padding: 0.6rem 0.9rem;
+  border-radius: 5px 18px 18px 18px;
+  background: var(--fondo);
+  border-left: 5px solid var(--borde-control);
+}
+
+.resultado-suelto[data-estado="SALUDABLE"] .resultado-globo {
+  border-left-color: var(--saludable);
+}
+
+.resultado-suelto[data-estado="EN_RIESGO"] .resultado-globo {
+  border-left-color: var(--riesgo);
+}
+
+.resultado-suelto[data-estado="CRITICO"] .resultado-globo {
+  border-left-color: var(--critico);
+}
+
+.resultado-frase {
+  margin: 0;
+  font-weight: 800;
+  font-size: 1.05rem;
+  line-height: 1.3;
+}
+
+.resultado-invitacion {
+  display: grid;
+  gap: 0.75rem;
+  padding: var(--e2);
+  border-radius: var(--radio-medio);
+  background: var(--saludable-fondo);
+}
+
+.resultado-invitacion p {
+  margin: 0;
+}
+
+.resultado-invitacion a.boton,
+.resultado-suelto > .boton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3.25rem;
+}
+
+.resultado-suelto #zona-resultado .burbujas {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.resultado-suelto #zona-resultado .que-hacer {
+  margin-top: var(--e1);
+}
+
+/* En el resultado del diagnóstico sin cuenta la tarjeta es angosta en cualquier pantalla: los parámetros van
+   siempre como renglones compactos (los mismos del teléfono). */
+@media (min-width: 700px) {
+  .resultado-suelto .burbujas {
+    gap: 0.6rem;
+  }
+
+  .resultado-suelto .burbuja {
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+    column-gap: 0.75rem;
+    align-items: center;
+    padding: 0.85rem 1rem;
+  }
+
+  .resultado-suelto .burbuja-icono {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin: 0;
+  }
+
+  .resultado-suelto .burbuja h3 {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .resultado-suelto .burbuja .chip {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+    margin-top: 0.1rem;
+  }
+
+  .resultado-suelto .burbuja .num {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    font-size: 1.9rem;
+    white-space: nowrap;
+  }
+
+  .resultado-suelto .burbuja .pista,
+  .resultado-suelto .burbuja .pista-ley,
+  .resultado-suelto .burbuja .tendencia {
+    grid-column: 1 / -1;
+  }
+
+  .resultado-suelto .burbuja .pista {
+    height: 12px;
+    margin-top: 0.65rem;
+  }
+
+  .resultado-suelto .burbuja .tendencia {
+    display: none;
+  }
+}
+
+/* ---------- primera vez (F38): bienvenida en vez de un tablero vacío ---------- */
+
+.bienvenida {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  padding: var(--e3) var(--e2);
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 0, var(--saludable-fondo) 0 9.5rem, transparent 9.6rem),
+    var(--superficie);
+}
+
+.bienvenida[hidden] {
+  display: none;
+}
+
+.bienvenida-dibujo {
+  width: min(48vw, 11rem);
+}
+
+.bienvenida-dibujo .ilustracion-planta {
+  max-width: 100%;
+}
+
+.tarjeta.bienvenida > h2.bienvenida-titulo {
+  margin: 0.4rem 0 0;
+  font-size: clamp(2rem, 8vw, 2.8rem);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.bienvenida-bajada {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--tinta-suave);
+  text-wrap: balance;
+}
+
+.bienvenida-pasos {
+  counter-reset: paso;
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 24rem;
+  margin: var(--e2) 0;
+  padding: 0;
+  text-align: left;
+}
+
+.bienvenida-pasos li {
+  counter-increment: paso;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  line-height: 1.35;
+}
+
+.bienvenida-pasos li::before {
+  content: counter(paso);
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: var(--saludable-fondo);
+  color: var(--saludable);
+  font-weight: 900;
+  font-size: 0.9rem;
+}
+
+.bienvenida-pasos li > span {
+  padding-top: 0.15rem;
+}
+
+.bienvenida-accion {
+  width: 100%;
+  max-width: 24rem;
+}
+
+.bienvenida-accion a.boton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3.5rem;
+  font-size: 1.1rem;
+}
+
+.bienvenida-nota {
+  margin: 0.6rem 0 0;
+  max-width: 24rem;
+  font-size: 0.95rem;
+  text-wrap: pretty;
+}
+
+@media (min-width: 900px) {
+  .bienvenida {
+    padding: var(--e4) var(--e3);
+  }
+}
+
+/* El relleno de la tarjeta, con nombre: la acción fija de un formulario lo usa para llegar a los bordes. */
+.tarjeta {
+  --relleno-tarjeta: var(--e3);
+}
+
+@media (max-width: 600px) {
+  .tarjeta {
+    --relleno-tarjeta: var(--e2);
+  }
+}
+
+/* «Planta nueva» es un paso de un flujo: en teléfono la tarjeta llena la pantalla y el botón queda abajo. */
+@media (max-width: 899px) {
+  body[data-patron="/plantas/nueva"] .contenido {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  body[data-patron="/plantas/nueva"] .contenido > .tarjeta {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    margin-top: 0;
+  }
+
+  body[data-patron="/plantas/nueva"] .tarjeta > form {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    max-width: none;
+  }
+
+  body[data-patron="/plantas/nueva"] .accion-fija {
+    margin-top: auto;
+  }
+}
+
+/* ---------- tablero compacto (F37) ----------
+   El resumen es una fila de filtros (un toque deja solo las plantas de ese estado), cada planta es un renglón
+   y «Qué hacer hoy» se pliega a los tres primeros. Con cinco plantas eran 2,9 pantallas de iPhone. */
+
+.resumen {
+  display: flex;
+  grid-template-columns: none;
+  gap: 0.5rem;
+  margin: 0 calc(var(--e2) * -1);
+  padding: 0.15rem var(--e2) 0.35rem;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.resumen::-webkit-scrollbar {
+  display: none;
+}
+
+.mosaico {
+  flex: none;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  padding: 0.35rem 0.95rem;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  font: inherit;
+  color: var(--tinta);
+  cursor: pointer;
+  scroll-snap-align: start;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mosaico[data-tipo="total"],
+.mosaico[data-tipo="SIN"] {
+  border-color: var(--borde);
+}
+
+.mosaico-numero {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.mosaico-etiqueta {
+  font-size: 0.9rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.mosaico[aria-pressed="true"] {
+  border-color: currentColor;
+  box-shadow: 0 2px 8px rgba(36, 49, 39, 0.1);
+}
+
+.mosaico[data-tipo="total"][aria-pressed="true"],
+.mosaico[data-tipo="SIN"][aria-pressed="true"] {
+  border-color: var(--tinta);
+}
+
+.mosaico[data-tipo="SALUDABLE"] {
+  color: var(--saludable);
+}
+
+.mosaico[data-tipo="EN_RIESGO"] {
+  color: var(--riesgo);
+}
+
+.mosaico[data-tipo="CRITICO"] {
+  color: var(--critico);
+}
+
+.mosaico:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+@media (pointer: coarse) {
+  .mosaico {
+    min-height: 3rem;
+  }
+}
+
+.rejilla-plantas {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+  gap: 0.6rem;
+}
+
+.tarjeta-planta-item[hidden] {
+  display: none;
+}
+
+.tarjeta-planta {
+  display: grid;
+  grid-template-columns: 3.75rem minmax(0, 1fr) auto;
+  grid-template-areas:
+    "dibujo nombres estado"
+    "dibujo valores valores"
+    "dibujo cuando cuando";
+  align-items: center;
+  column-gap: 0.75rem;
+  row-gap: 0.2rem;
+  padding: 0.7rem 0.9rem 0.7rem 0.7rem;
+  border-top: 1px solid var(--borde);
+  border-left: 5px solid var(--borde-control);
+}
+
+.tarjeta-planta[data-estado="SALUDABLE"],
+.tarjeta-planta[data-estado="EN_RIESGO"],
+.tarjeta-planta[data-estado="CRITICO"],
+.tarjeta-planta[data-estado="SIN_DIAGNOSTICO"] {
+  border-top: 1px solid var(--borde);
+}
+
+.tarjeta-planta[data-estado="SALUDABLE"] {
+  border-left-color: var(--saludable);
+}
+
+.tarjeta-planta[data-estado="EN_RIESGO"] {
+  border-left-color: var(--riesgo);
+}
+
+.tarjeta-planta[data-estado="CRITICO"] {
+  border-left-color: var(--critico);
+}
+
+.tarjeta-planta-ilustracion {
+  grid-area: dibujo;
+  width: 3.75rem;
+  align-self: center;
+}
+
+.tarjeta-planta-nombres {
+  grid-area: nombres;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.5rem;
+  row-gap: 0;
+}
+
+.tarjeta-planta-nombres strong {
+  font-size: 1.1rem;
+  line-height: 1.25;
+}
+
+.tarjeta-planta-nombres .texto-suave {
+  font-size: var(--t-chico);
+}
+
+.tarjeta-planta-estado {
+  grid-area: estado;
+  align-self: start;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.tarjeta-planta-estado:empty {
+  display: none;
+}
+
+.tarjeta-planta-valores {
+  grid-area: valores;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.9rem;
+}
+
+.tarjeta-planta-valor {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+.tarjeta-planta-valor svg {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+}
+
+.tarjeta-planta-valor strong {
+  font-size: 0.92rem;
+}
+
+.tarjeta-planta-cuando {
+  grid-area: cuando;
+  font-size: 0.8rem;
+}
+
+.chip--compartida {
+  align-self: flex-start;
+  background: var(--borde);
+  color: var(--tinta);
+}
+
+.que-hacer-tablero {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.que-hacer-tablero h2 {
+  margin: 0;
+}
+
+.que-hacer-tablero .boton {
+  align-self: flex-start;
+}
+
+.recom li[hidden] {
+  display: none;
+}
+
+.recom-texto {
+  min-width: 0;
+  font-weight: 600;
+}
+
+.recom-accion {
+  font-weight: 800;
+}
+
+.recom-detalle {
+  color: var(--tinta-suave);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .resumen {
+    margin: 0 -0.75rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .recom li {
+    padding: 0.6rem 0.75rem;
+  }
+}
+
+/* ---------- recorrido guiado (F39) ----------
+   Una capa sobre toda la pantalla; el foco es una caja transparente cuya sombra gigante oscurece el resto
+   (así el elemento real se ve tal cual, sin copiarlo); el globo va debajo o encima, nunca sobre el foco. */
+
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.tour-foco {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 18px;
+  box-shadow: 0 0 0 200vmax rgba(8, 14, 10, 0.66), 0 0 0 3px rgba(255, 255, 255, 0.92) inset;
+  pointer-events: none;
+}
+
+.tour-globo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: min(21.5rem, calc(100vw - 16px));
+  padding: 1rem 1.1rem 0.8rem;
+  border-radius: 20px;
+  background: var(--superficie);
+  color: var(--tinta);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
+}
+
+.tour-flecha {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  background: var(--superficie);
+  transform: rotate(45deg);
+}
+
+.tour-globo[data-lado="abajo"] .tour-flecha {
+  top: -7px;
+}
+
+.tour-globo[data-lado="arriba"] .tour-flecha {
+  bottom: -7px;
+}
+
+.tour-titulo {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.tour-texto {
+  margin: 0;
+  color: var(--tinta-suave);
+  font-weight: 600;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.tour-progreso {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+}
+
+.tour-puntos {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tour-puntos li {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--borde-control);
+  opacity: 0.45;
+}
+
+.tour-puntos li[data-activo] {
+  width: 1.2rem;
+  background: var(--acento);
+  opacity: 1;
+}
+
+.tour-cuenta {
+  font-size: var(--t-chico);
+  font-weight: 700;
+  color: var(--tinta-suave);
+  font-variant-numeric: tabular-nums;
+}
+
+.tour-pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.tour-botones {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.tour-omitir {
+  min-height: 2.75rem;
+  padding: 0 0.5rem 0 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 800;
+  color: var(--tinta-suave);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.tour-omitir:hover {
+  color: var(--tinta);
+}
+
+@media (pointer: coarse) {
+  .tour-omitir {
+    min-height: 3rem;
+  }
+}
+
+@media print {
+  .tour {
+    display: none;
+  }
+}
+
+/* ---------- la voz de la planta en «Hoy» (F38) ---------- */
+
+.voz-hoy {
+  align-self: flex-start;
+  margin: 0 0 0.5rem;
+  padding: 0.55rem 0.95rem;
+  border-radius: 5px 18px 18px 18px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-left: 5px solid var(--acento);
+  font-weight: 800;
+  font-size: 1.05rem;
+  line-height: 1.3;
+  display: inline-block;
+}
+
+#meta-vigente {
+  margin: 0 0 0.4rem;
+  font-size: var(--t-chico);
+}
+
+.matera-accion {
+  margin: var(--e2) 0 var(--e1);
+}
+
+.matera-accion a.boton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+}
+
+.paginacion [hidden] + #info-pagina {
+  margin-inline: auto;
+}
+
+.voz-hoy[data-estado="SALUDABLE"] {
+  border-left-color: var(--saludable);
+}
+
+.voz-hoy[data-estado="EN_RIESGO"] {
+  border-left-color: var(--riesgo);
+}
+
+.voz-hoy[data-estado="CRITICO"] {
+  border-left-color: var(--critico);
 }
