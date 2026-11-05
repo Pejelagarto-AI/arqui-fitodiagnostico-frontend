@@ -77,6 +77,12 @@ export async function montar(contenedor, ctx) {
       formDatos,
     ),
     h("section", { class: "tarjeta" }, h("h2", {}, "Cambiar contraseña"), formClave),
+    // En teléfono el menú de arriba no existe (F37): cerrar sesión vive aquí. En escritorio sigue en la cabecera.
+    h("section", { class: "tarjeta solo-movil" },
+      h("h2", {}, "Sesión"),
+      h("p", { class: "texto-suave" }, `Entraste como ${cuenta.correo}.`),
+      h("button", { type: "button", class: "boton boton-secundario", id: "btn-cerrar-sesion-perfil", onclick: () => { sesion.cerrar(); toast("Sesión cerrada."); ctx.irA("/"); } }, "Cerrar sesión"),
+    ),
     h("section", { class: "tarjeta zona-peligro" }, h("h2", {}, "Eliminar cuenta"), avisoBorrar.elemento, botonBorrar),
   );
 }

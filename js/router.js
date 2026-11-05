@@ -122,6 +122,8 @@ async function navegar({ forzar = false } = {}) {
     document.body.dataset.acceso = entrada.acceso;
     document.body.dataset.patron = entrada.patron;
     document.body.dataset.familia = entrada.familia || "";
+    // Para quien pinta la navegación (app.js): hay navegaciones que no disparan hashchange (irA con reemplazar).
+    window.dispatchEvent(new Event("fito:navegacion"));
   };
 
   if (entrada.acceso === "admin" && !sesion.esAdmin()) {

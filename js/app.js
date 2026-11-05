@@ -4,7 +4,7 @@
 import { alVencerLaSesion } from "./api.js";
 import * as sesion from "./sesion.js";
 import * as envivo from "./envivo.js";
-import { h, vaciar, toast } from "./ui.js";
+import { h, svg, vaciar, toast } from "./ui.js";
 import { iniciarRouter, irA, rutaActual } from "./router.js";
 import { invalidarCache } from "./cache.js";
 import { patronesDePestanas } from "./pestanas.js";
@@ -46,12 +46,62 @@ const ETIQUETAS_CONEXION = {
 };
 
 const navegacion = document.getElementById("navegacion");
+const barraInferior = document.getElementById("barra-inferior");
 const vista = document.getElementById("vista");
 
-function enlaceDeMenu(ruta, texto) {
+/** ¿La ruta `ruta` del menú es la sección donde está el usuario? «/» solo en la portada; el resto, por prefijo. */
+function estaActiva(ruta) {
   const actual = window.location.hash.slice(1).split("?")[0] || "/";
-  const activo = ruta === "/" ? actual === "/" : actual === ruta || actual.startsWith(`${ruta}/`);
-  return h("a", { href: `#${ruta}`, "aria-current": activo ? "page" : null }, texto);
+  // Vincular una matera (#/vincular, #/v/...) es parte de «Plantas».
+  if (ruta === "/plantas" && (actual === "/vincular" || actual.startsWith("/v/"))) return true;
+  return ruta === "/" ? actual === "/" : actual === ruta || actual.startsWith(`${ruta}/`);
+}
+
+function enlaceDeMenu(ruta, texto) {
+  return h("a", { href: `#${ruta}`, "data-ruta": ruta, "aria-current": estaActiva(ruta) ? "page" : null }, texto);
+}
+
+// ---- barra inferior (teléfono, F37): iconos SVG propios, de trazo, construidos con createElementNS ----
+const TRAZOS = {
+  plantas: ["M12 21v-9", "M12 13c-4.2 0-7-2.8-7-7 4.2 0 7 2.8 7 7Z", "M12 16c0-3.9 2.6-6.5 6.5-6.5 0 3.9-2.6 6.5-6.5 6.5Z"],
+  diagnostico: ["M3 12h4l2.5-6 4 12 2.5-6H21"],
+  especies: ["M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z", "M12 8v8", "M8 12h8"],
+  perfil: ["M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z", "M4.5 20.5c1-3.5 4-5.5 7.5-5.5s6.5 2 7.5 5.5"],
+  admin: ["M12 3l7 3v5.5c0 4.3-2.9 7.8-7 9.5-4.1-1.7-7-5.2-7-9.5V6l7-3Z", "M9 12l2 2 4-4"],
+  entrar: ["M10 17l5-5-5-5", "M15 12H3", "M14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14"],
+  registro: ["M10 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z", "M3 20.5c.9-3.5 3.6-5.5 7-5.5 1.5 0 2.9.4 4 1.1", "M18 14v6", "M15 17h6"],
+};
+
+function icono(nombre) {
+  return svg("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true", focusable: "false" },
+    TRAZOS[nombre].map((d) => svg("path", { d })));
+}
+
+function pestanaDeBarra(ruta, texto, nombreIcono) {
+  return h("a", { href: `#${ruta}`, class: "barra-pestana", "data-ruta": ruta, "aria-current": estaActiva(ruta) ? "page" : null },
+    h("span", { class: "barra-icono" }, icono(nombreIcono)), h("span", { class: "barra-texto" }, texto));
+}
+
+function pintarBarraInferior(usuario) {
+  vaciar(barraInferior);
+  const pestanas = usuario
+    ? [
+        pestanaDeBarra("/plantas", "Plantas", "plantas"),
+        pestanaDeBarra("/", "Diagnóstico", "diagnostico"),
+        pestanaDeBarra("/solicitudes", "Especies", "especies"),
+        sesion.esAdmin() ? pestanaDeBarra("/admin", "Admin", "admin") : null,
+        pestanaDeBarra("/perfil", "Perfil", "perfil"),
+      ]
+    : [pestanaDeBarra("/", "Diagnóstico", "diagnostico"), pestanaDeBarra("/entrar", "Entrar", "entrar"), pestanaDeBarra("/registro", "Crear cuenta", "registro")];
+  barraInferior.append(...pestanas.filter(Boolean));
+}
+
+/** Tras cada navegación: solo se mueve aria-current (en el menú de arriba y en la barra de abajo), sin repintar. */
+function marcarActivos() {
+  for (const enlace of document.querySelectorAll("#navegacion a[data-ruta], #barra-inferior a[data-ruta]")) {
+    if (estaActiva(enlace.dataset.ruta)) enlace.setAttribute("aria-current", "page");
+    else enlace.removeAttribute("aria-current");
+  }
 }
 
 function indicadorDeConexion() {
@@ -78,12 +128,13 @@ function pintarMenu() {
   const derecha = usuario
     ? [
         indicadorDeConexion(),
-        h("a", { href: "#/perfil", class: "nombre-usuario", "aria-current": window.location.hash.startsWith("#/perfil") ? "page" : null }, usuario.nombre),
+        h("a", { href: "#/perfil", class: "nombre-usuario", "data-ruta": "/perfil", "aria-current": estaActiva("/perfil") ? "page" : null }, usuario.nombre),
         h("button", { type: "button", class: "boton boton-secundario boton-chico", id: "btn-cerrar-sesion", onclick: cerrarSesion }, "Cerrar sesión"),
       ]
     : [enlaceDeMenu("/entrar", "Iniciar sesión"), enlaceDeMenu("/registro", "Crear cuenta")];
 
   navegacion.append(h("div", { class: "menu-enlaces" }, enlaces), h("div", { class: "menu-sesion" }, derecha));
+  pintarBarraInferior(usuario);
 }
 
 function cerrarSesion() {
@@ -118,6 +169,7 @@ sesion.alCambiar(() => {
   pintarMenu();
 });
 window.addEventListener("hashchange", pintarMenu);
+window.addEventListener("fito:navegacion", marcarActivos);
 
 // 401 con un token que creíamos vigente: caducó (o la cuenta ya no existe).
 alVencerLaSesion(() => {

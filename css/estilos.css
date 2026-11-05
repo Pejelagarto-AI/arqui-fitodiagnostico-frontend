@@ -2796,7 +2796,8 @@ textarea {
 }
 
 @media (min-width: 760px) {
-  .tarjeta.cabecera-planta {
+  .tarjeta.cabecera-planta,
+  .tarjeta.cabecera-planta:has(.cabecera-planta-ilustracion:not(:empty)) {
     grid-template-columns: 9rem minmax(0, 1fr);
     gap: var(--e3);
     padding: var(--e3);
@@ -2805,5 +2806,149 @@ textarea {
   .pestanas {
     align-self: flex-start;
     grid-auto-columns: minmax(7.5rem, 1fr);
+  }
+}
+
+/* ---------- navegación como app en teléfono (F37) ----------
+   Hasta 899 px la navegación principal es una barra inferior de pestañas con iconos, fija, al alcance del
+   pulgar y sobre el área segura. El menú de texto de la cabecera (que se partía en tres renglones y ocupaba
+   220 px, la cuarta parte de la pantalla) queda solo para escritorio. La cabecera en teléfono es la marca. */
+
+.barra-inferior,
+.solo-movil {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .navegacion {
+    display: none;
+  }
+
+  .solo-movil {
+    display: block;
+  }
+
+  .cabecera {
+    padding-top: max(0.6rem, env(safe-area-inset-top));
+    padding-bottom: 0.35rem;
+  }
+
+  .marca h1 {
+    font-size: 1.15rem;
+  }
+
+  .marca svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .barra-inferior {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 25;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 0.15rem;
+    padding: 0.3rem max(0.4rem, env(safe-area-inset-right)) max(0.3rem, env(safe-area-inset-bottom)) max(0.4rem, env(safe-area-inset-left));
+    background: var(--superficie);
+    border-top: 1px solid var(--borde);
+    box-shadow: 0 -4px 16px rgba(36, 49, 39, 0.07);
+  }
+
+  .barra-pestana {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem;
+    min-height: 3.25rem;
+    min-width: 0;
+    color: var(--tinta-suave);
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-decoration: none;
+    border-radius: var(--radio-medio);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .barra-icono {
+    display: grid;
+    place-items: center;
+    width: 3.5rem;
+    height: 1.75rem;
+    border-radius: 999px;
+  }
+
+  .barra-icono svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .barra-texto {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .barra-pestana[aria-current="page"] {
+    color: var(--saludable);
+  }
+
+  .barra-pestana[aria-current="page"] .barra-icono {
+    background: var(--saludable-fondo);
+  }
+
+  /* Lo último de cada pantalla queda por encima de la barra, y los avisos también. */
+  .contenido {
+    padding-bottom: calc(5.25rem + env(safe-area-inset-bottom));
+  }
+
+  .zona-toasts {
+    left: max(0.75rem, env(safe-area-inset-left));
+    right: max(0.75rem, env(safe-area-inset-right));
+    bottom: calc(4.5rem + env(safe-area-inset-bottom));
+    max-width: none;
+  }
+
+  /* Dentro de una planta, de «planta nueva» y del asistente la cabecera es la flecha de volver: la marca sobra. */
+  body[data-familia="planta"] .cabecera,
+  body[data-patron="/plantas/nueva"] .cabecera,
+  body[data-patron="/plantas/:id/vincular"] .cabecera,
+  body[data-patron="/vincular"] .cabecera {
+    display: none;
+  }
+
+  body[data-familia="planta"] .contenido,
+  body[data-patron="/plantas/nueva"] .contenido,
+  body[data-patron="/plantas/:id/vincular"] .contenido,
+  body[data-patron="/vincular"] .contenido {
+    padding-top: max(0.4rem, env(safe-area-inset-top));
+  }
+
+  /* Los flujos de un paso por pantalla (asistente de vinculación, planta nueva) van a pantalla completa: sin barra. */
+  body[data-patron="/plantas/:id/vincular"] .barra-inferior,
+  body[data-patron="/plantas/nueva"] .barra-inferior,
+  body[data-patron="/vincular"] .barra-inferior {
+    display: none;
+  }
+
+  body[data-patron="/plantas/:id/vincular"] .contenido,
+  body[data-patron="/plantas/nueva"] .contenido,
+  body[data-patron="/vincular"] .contenido {
+    padding-bottom: max(var(--e3), env(safe-area-inset-bottom));
+  }
+
+  .pie {
+    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
+  }
+}
+
+@media print {
+  .barra-inferior {
+    display: none;
   }
 }
