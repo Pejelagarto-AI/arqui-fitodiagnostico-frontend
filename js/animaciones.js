@@ -286,3 +286,44 @@ export function animarMascota(mascota, { msPorCuadro = 50 } = {}) {
   gsap.ticker.add(cuadro);
   return detener;
 }
+
+/**
+ * Carrusel de especies (F42): lleva la pista horizontal a `x` (scrollLeft) con GSAP. Se anima un objeto y se copia
+ * a scrollLeft (no se anima el estilo), y mientras dura se apaga el scroll-snap con la clase `carrusel-pista--libre`,
+ * porque con snap obligatorio el navegador volvería a imantar cada cuadro. Interrumpible. Sin movimiento, salta.
+ * `alTerminar` se llama siempre (también al saltar).
+ */
+const deslizamientos = new WeakMap();
+export function deslizarPista(pista, x, { alTerminar = () => {} } = {}) {
+  const previo = deslizamientos.get(pista);
+  if (previo) previo.kill();
+  if (!puedeAnimar() || Math.abs(pista.scrollLeft - x) < 1) {
+    pista.scrollLeft = x;
+    alTerminar();
+    return;
+  }
+  const proxy = { x: pista.scrollLeft };
+  pista.classList.add("carrusel-pista--libre");
+  const fin = () => {
+    pista.classList.remove("carrusel-pista--libre");
+    deslizamientos.delete(pista);
+    alTerminar();
+  };
+  const tween = globalThis.gsap.to(proxy, {
+    x,
+    duration: 0.45,
+    ease: "power2.out",
+    onUpdate: () => { pista.scrollLeft = proxy.x; },
+    onComplete: fin,
+    onInterrupt: () => pista.classList.remove("carrusel-pista--libre"),
+  });
+  deslizamientos.set(pista, tween);
+}
+
+/** La tarjeta elegida crece un poco y las demás bajan; con rebote corto. Sin movimiento lo hace el CSS. */
+export function resaltarTarjeta(contenidos, indice) {
+  if (!puedeAnimar()) return;
+  [...contenidos].forEach((nodo, i) => {
+    globalThis.gsap.to(nodo, { scale: i === indice ? 1.06 : 0.94, opacity: i === indice ? 1 : 0.78, duration: 0.35, ease: i === indice ? "back.out(2)" : "power2.out", overwrite: "auto" });
+  });
+}
