@@ -220,6 +220,7 @@ export async function montar(contenedor, ctx) {
     });
     compartir = crearPanelCompartir(planta, ctx);
     const edicion = await crearPanelEdicion(planta, ctx, {
+      registrarLimpieza: (limpiar) => limpiezas.push(limpiar),
       alEditar: (editada) => {
         const cambiaElDibujo = esCarnivora(planta.especie) !== esCarnivora(editada.especie);
         planta = editada;

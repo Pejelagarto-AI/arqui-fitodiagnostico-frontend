@@ -164,10 +164,7 @@ export function crearCarruselEspecies({ id, nombre = "especie", etiqueta, ayuda 
   // El foco que llega al select (la etiqueta, marcarCampoConError) se pasa a la tarjeta elegida, o a la primera.
   select.addEventListener("focus", () => {
     const destino = tarjetas[elegido >= 0 ? elegido : 0];
-    if (destino) {
-      destino.focus({ preventScroll: true });
-      destino.scrollIntoView({ block: "nearest", inline: "nearest" });
-    }
+    if (destino) destino.focus();
   });
   // aria-invalid del select (lo pone la validación) se refleja en el radiogroup, que es lo que oye el lector.
   new MutationObserver(() => {
