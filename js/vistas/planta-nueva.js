@@ -2,7 +2,9 @@
 // (GET /especies); si el backend igual rechaza una descontinuada, responde 409.
 import { obtenerEspecies, registrarPlanta } from "../api.js";
 import { invalidarCache } from "../cache.js";
-import { h, campo, campoSelect, enlaceDeVolver, crearAviso, conCarga, limpiarErroresDeFormulario, marcarCampoConError } from "../ui.js";
+import { h, campo, enlaceDeVolver, crearAviso, conCarga, limpiarErroresDeFormulario, marcarCampoConError } from "../ui.js";
+import { crearCarruselEspecies } from "../componentes/carrusel-especies.js";
+import { opcionesDeEspecies } from "../componentes/carrusel-estado.js";
 
 export const titulo = "Tu planta nueva";
 
@@ -12,14 +14,15 @@ export async function montar(contenedor, ctx) {
   if (!ctx.vigente()) return;
 
   const apodo = campo({ id: "planta-apodo", nombre: "apodo", etiqueta: "¿Cómo la llamas?", maxlength: "60", ayuda: "Un nombre para reconocerla: «la del balcón», «Lola»…" });
-  const especie = campoSelect({
+  // F42: la especie se elige en el carrusel (desliza, toca o usa las flechas); el <select> oculto lleva el valor.
+  const especie = crearCarruselEspecies({
     id: "planta-especie",
     nombre: "especie",
     etiqueta: "¿Qué planta es?",
-    opciones: [{ valor: "", texto: "Elige tu planta" }, ...especies.map((e) => ({ valor: e.nombre, texto: e.nombre }))],
+    ayuda: "Desliza para verlas. De esto dependen sus valores ideales de agua, luz y temperatura.",
   });
+  especie.poner(opcionesDeEspecies(especies));
   const boton = h("button", { type: "submit", class: "boton boton-primario", id: "btn-registrar-planta" }, "Guardar y seguir");
-  especie.contenedor.insertBefore(h("p", { class: "rango-optimo" }, "De esto dependen sus valores ideales de agua, luz y temperatura."), especie.contenedor.lastElementChild);
 
   const formulario = h("form", { id: "formulario-planta", novalidate: true }, apodo.contenedor, especie.contenedor, aviso.elemento,
     h("p", { class: "texto-suave" }, "Después te ayudamos a conectar su matera."),
@@ -47,4 +50,5 @@ export async function montar(contenedor, ctx) {
       formulario,
     ),
   );
+  return () => especie.limpiar();
 }

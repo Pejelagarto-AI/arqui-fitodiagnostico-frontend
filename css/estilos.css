@@ -28,6 +28,16 @@
   --sol: #f5c542;
   --boca: #b3261e;
   --boca-seca: #7d4a43;
+  /* mascotas (F41): los mismos en los dos temas, la planta es la misma */
+  --disco: #e8b866;
+  --disco-borde: #b07a35;
+  --petalo: #f5c542;
+  --petalo-b: #f0ad2c;
+  --flor: #e8608c;
+  --sucu-a: #5f9e86;
+  --sucu-b: #7fb89c;
+  --sucu-c: #a3d1b6;
+  --cara-tinta: #1b251e;
 
   --saludable: #1f6e38;
   --saludable-fondo: #dff3e3;
@@ -1472,6 +1482,100 @@ body[data-familia="planta"] .indicador-conexion--global {
 
 .ilustracion-planta--mini {
   max-width: 120px;
+}
+
+/* ---------- mascotas por familia (F41): coordenadas del sprite de la OLED, 48x64 ---------- */
+
+.mascota {
+  display: block;
+  width: 100%;
+  max-width: 160px;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+.masc-petalo {
+  fill: var(--petalo);
+}
+
+.masc-petalo--b {
+  fill: var(--petalo-b);
+}
+
+.masc-disco {
+  fill: var(--disco);
+}
+
+.masc-disco-borde {
+  fill: none;
+  stroke: var(--disco-borde);
+  stroke-width: 0.8;
+}
+
+.masc-cuerpo {
+  fill: var(--hoja);
+}
+
+.masc-costilla,
+.masc-raquis {
+  fill: none;
+  stroke: var(--hoja-oscura);
+  stroke-width: 1;
+  stroke-linecap: round;
+}
+
+.masc-flor-petalo {
+  fill: var(--flor);
+}
+
+.masc-flor-centro {
+  fill: var(--petalo);
+}
+
+.masc-sucu--a {
+  fill: var(--sucu-a);
+}
+
+.masc-sucu--b {
+  fill: var(--sucu-b);
+}
+
+.masc-sucu--c,
+.masc-sucu--corazon {
+  fill: var(--sucu-c);
+}
+
+.masc-ojo {
+  fill: var(--cara-tinta);
+}
+
+.masc-brillo {
+  fill: #ffffff;
+}
+
+.masc-boca,
+.masc-ceja {
+  fill: none;
+  stroke: var(--cara-tinta);
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.masc-lagrima {
+  fill: var(--agua);
+}
+
+.mascota[data-estado="EN_RIESGO"] :is(.masc-cuerpo, .ilu-hoja, .masc-sucu, .ilu-cabeza) {
+  fill: var(--hoja-riesgo);
+}
+
+.mascota[data-estado="CRITICO"] :is(.masc-cuerpo, .ilu-hoja, .masc-sucu, .ilu-cabeza) {
+  fill: var(--hoja-critica);
+}
+
+.mascota[data-estado="CRITICO"] .ilu-boca-interior {
+  fill: var(--boca-seca);
 }
 
 /* ---------- historial como lista (tabla con forma de renglones) ---------- */
@@ -4307,4 +4411,177 @@ body[data-sesion="no"] .pie {
 
 .voz-hoy[data-estado="CRITICO"] {
   border-left-color: var(--critico);
+}
+
+/* ---------- carrusel de especies (F42) ----------
+   Hasta 899 px cada tarjeta ocupa casi todo el ancho; desde 900 px se ven tres. Los anchos van en unidades del
+   contenedor (cqi) para que el relleno lateral deje centrar la primera y la última tarjeta. */
+
+.carrusel {
+  position: relative;
+  container-type: inline-size;
+  --ancho-tarjeta: 78cqi;
+  --hueco: 0.75rem;
+}
+
+@media (min-width: 900px) {
+  .carrusel {
+    --ancho-tarjeta: calc((100cqi - 2 * var(--hueco)) / 3);
+  }
+}
+
+.carrusel-pista {
+  display: flex;
+  gap: var(--hueco);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  padding: 0.75rem calc(50cqi - var(--ancho-tarjeta) / 2) 1rem;
+  scrollbar-width: none;
+  border-radius: var(--radio-medio);
+  touch-action: pan-x pan-y;
+}
+
+.carrusel-pista::-webkit-scrollbar {
+  display: none;
+}
+
+.carrusel-pista--libre {
+  scroll-snap-type: none;
+}
+
+.carrusel-pista--arrastrando {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.carrusel-pista[aria-invalid="true"] .carrusel-tarjeta {
+  border-color: var(--critico);
+}
+
+.carrusel-tarjeta {
+  flex: 0 0 var(--ancho-tarjeta);
+  scroll-snap-align: center;
+  border: 2px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+  padding: var(--e1) var(--e1) var(--e2);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.carrusel-tarjeta[aria-checked="true"] {
+  border-color: var(--acento);
+  background: var(--saludable-fondo);
+}
+
+.carrusel-tarjeta:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+.carrusel-contenido {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+/* Estado final sin GSAP (movimiento reducido): la elegida un poco más grande, las demás atenuadas. */
+.carrusel-pista:has([aria-checked="true"]) .carrusel-tarjeta[aria-checked="false"] .carrusel-contenido {
+  transform: scale(0.94);
+  opacity: 0.78;
+}
+
+.carrusel-tarjeta[aria-checked="true"] .carrusel-contenido {
+  transform: scale(1.06);
+}
+
+.carrusel-dibujo {
+  width: min(100%, 150px);
+}
+
+.carrusel-dibujo .mascota {
+  max-width: none;
+  aspect-ratio: 48 / 64;
+}
+
+.carrusel-nombre {
+  font-weight: 800;
+  font-size: var(--t-titulo-tarjeta);
+}
+
+.carrusel-nombre::first-letter {
+  text-transform: uppercase;
+}
+
+.carrusel-rangos {
+  font-size: var(--t-chico);
+  color: var(--tinta-suave);
+  line-height: 1.35;
+}
+
+.carrusel-marca {
+  font-size: var(--t-chico);
+  font-weight: 700;
+  color: var(--riesgo);
+}
+
+.carrusel-flecha {
+  position: absolute;
+  top: 40%;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--borde-control);
+  border-radius: 50%;
+  background: var(--superficie);
+  color: var(--tinta);
+  cursor: pointer;
+  box-shadow: var(--sombra);
+}
+
+.carrusel-flecha svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.carrusel-flecha--anterior {
+  left: 0.25rem;
+}
+
+.carrusel-flecha--siguiente {
+  right: 0.25rem;
+}
+
+.carrusel-flecha:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.carrusel-flecha:hover:not(:disabled) {
+  background: var(--borde);
+}
+
+.carrusel-nota:empty {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .carrusel-flecha {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carrusel-tarjeta {
+    transition: none;
+  }
+}
+
+.campo-carrusel {
+  position: relative;
 }

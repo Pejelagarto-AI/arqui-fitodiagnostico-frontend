@@ -7,6 +7,8 @@ import { obtenerEspecies, diagnosticar } from "../api.js";
 import * as sesion from "../sesion.js";
 import { h, vaciar, crearAviso, limpiarErroresDeFormulario, marcarCampoConError, conCarga } from "../ui.js";
 import { camposDeMedicion } from "../componentes/medicion.js";
+import { crearCarruselEspecies } from "../componentes/carrusel-especies.js";
+import { opcionesDeEspecies } from "../componentes/carrusel-estado.js";
 import { crearVistaDeDiagnostico } from "../componentes/diagnostico.js";
 import { crearIlustracionPlanta } from "../componentes/ilustracion-planta.js";
 import { esCarnivora } from "../componentes/especie.js";
@@ -23,8 +25,14 @@ export async function montar(contenedor, ctx) {
 
   const avisoEspecies = crearAviso();
   const avisoGeneral = crearAviso();
-  const selectEspecie = h("select", { id: "especie-select", name: "especie", required: true, "aria-describedby": "especie-select-ayuda especie-select-error", disabled: true });
-  const errorEspecie = h("p", { class: "error-campo", id: "especie-select-error", "aria-live": "polite" });
+  // F42: carrusel de mascotas; su <select> oculto conserva el id «especie-select», el name y el evento change.
+  const carrusel = crearCarruselEspecies({
+    id: "especie-select",
+    nombre: "especie",
+    etiqueta: "¿Qué planta es?",
+    ayuda: "Desliza y elige la tuya. Cada planta tiene sus valores ideales: los verás debajo de cada dato.",
+  });
+  const selectEspecie = carrusel.select;
   const medicion = camposDeMedicion("suelto");
   const boton = h("button", { type: "submit", id: "btn-diagnosticar", class: "boton boton-primario" }, "Ver cómo está");
   const btnReintentar = h("button", { type: "button", id: "btn-reintentar-especies", class: "boton boton-secundario" }, "Reintentar");
@@ -32,11 +40,7 @@ export async function montar(contenedor, ctx) {
   const formulario = h(
     "form",
     { id: "formulario-diagnostico", novalidate: true },
-    h("div", { class: "campo" },
-      h("label", { for: "especie-select" }, "¿Qué planta es?"),
-      selectEspecie,
-      h("p", { class: "rango-optimo", id: "especie-select-ayuda" }, "Cada planta tiene sus valores ideales: los verás debajo de cada dato."),
-      errorEspecie),
+    carrusel.contenedor,
     medicion.nodos,
     h("details", { class: "ayuda-plegable" },
       h("summary", {}, "¿Con qué mido esto?"),
@@ -119,28 +123,18 @@ export async function montar(contenedor, ctx) {
     entrada(vista.burbujas.map((b) => b.nodo), { y: 14, escalon: 0.08, retraso: 0.2 });
   }
 
-  function opcion(valor, texto, extra = {}) {
-    return h("option", { value: valor, ...extra }, texto);
-  }
-
   async function cargarEspecies() {
     avisoEspecies.limpiar();
     btnReintentar.hidden = true;
-    selectEspecie.disabled = true;
-    vaciar(selectEspecie);
-    selectEspecie.append(opcion("", "Cargando plantas…", { disabled: true, selected: true }));
+    carrusel.cargando("Cargando plantas…");
     try {
       const especies = await obtenerEspecies();
       if (!ctx.vigente()) return;
       especiesPorNombre = new Map(especies.map((e) => [e.nombre, e.rangos]));
-      vaciar(selectEspecie);
-      selectEspecie.append(opcion("", "Elige tu planta", { selected: true }));
-      for (const especie of especies) selectEspecie.append(opcion(especie.nombre, especie.nombre));
-      selectEspecie.disabled = false;
+      carrusel.poner(opcionesDeEspecies(especies));
     } catch (error) {
       if (!ctx.vigente()) return;
-      vaciar(selectEspecie);
-      selectEspecie.append(opcion("", "No se pudo cargar la lista de plantas", { disabled: true, selected: true }));
+      carrusel.fallo("No se pudo cargar la lista de plantas");
       avisoEspecies.mostrar(error);
       btnReintentar.hidden = false;
     }
@@ -169,5 +163,8 @@ export async function montar(contenedor, ctx) {
   });
 
   await cargarEspecies();
-  return () => pararBalanceo();
+  return () => {
+    pararBalanceo();
+    carrusel.limpiar();
+  };
 }

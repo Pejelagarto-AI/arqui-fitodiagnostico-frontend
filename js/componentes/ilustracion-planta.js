@@ -10,7 +10,7 @@ const NIVEL_AGUA_VACIA = 230; // y del borde inferior de la matera
 const NIVEL_AGUA_LLENA = 150; // y del borde superior
 
 // Hojas: [ruta, origen x, origen y, clase de color]
-const HOJAS = [
+export const HOJAS = [
   ["M130 120c-30-2-52-22-56-50 28 2 50 22 56 50Z", 130, 120, "hoja-a"],
   ["M130 100c30-2 52-22 56-50-28 2-50 22-56 50Z", 130, 100, "hoja-b"],
   ["M130 80c-24-4-40-22-42-46 22 4 38 22 42 46Z", 130, 80, "hoja-a"],
@@ -20,12 +20,12 @@ const HOJAS = [
 // Planta carnívora (especies con «atrapamoscas» o «carniv»): una cabeza grande de trampa, con ojos y dientes
 // triangulares, sobre un tallo en la misma matera. Las dos hojitas laterales y la cabeza se inclinan igual que las
 // hojas de la planta común (cabizbaja en riesgo, marchita en crítico).
-const HOJAS_CARNIVORA = [
+export const HOJAS_CARNIVORA = [
   ["M130 138c-26 0-46-12-52-34 24 0 46 12 52 34Z", 130, 138, "hoja-a"],
   ["M130 126c26 0 46-12 52-34-24 0-46 12-52 34Z", 130, 126, "hoja-b"],
 ];
-const ABIERTA_SUP = -14; // cuánto se separa la mandíbula de arriba cuando la boca descansa abierta
-const ABIERTA_INF = 6;
+export const ABIERTA_SUP = -14; // cuánto se separa la mandíbula de arriba cuando la boca descansa abierta
+export const ABIERTA_INF = 6;
 
 function dientes(arriba) {
   const xs = arriba ? [100, 116, 132, 148, 160] : [92, 108, 124, 140, 156];
@@ -33,7 +33,7 @@ function dientes(arriba) {
 }
 
 /** La cabeza de la carnívora: interior rojo, mandíbula de abajo con dientes, mandíbula de arriba con ojos y dientes. */
-function crearCabeza() {
+export function crearCabeza() {
   const interior = svg("ellipse", { class: "ilu-boca-interior", cx: 130, cy: 77, rx: 45, ry: 21 });
   const inferior = svg("g", { class: "ilu-mandibula ilu-mandibula--inferior", transform: `translate(0 ${ABIERTA_INF})` },
     svg("path", { class: "ilu-cabeza", d: "M86 80Q130 118 174 80Z" }),
