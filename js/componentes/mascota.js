@@ -63,15 +63,23 @@ function cactus() {
   return { planta: [izq, der, columna], arriba: [flor], refs: { izq, der, columna, flor }, geo: T.GEO_CACTUS };
 }
 
-/** Suculenta: roseta (filas 16 a 45) de siete hojas carnosas y un corazón con la cara en (24, 36). */
+/**
+ * Suculenta: un corazón redondo (centro (24, 36), radio 9,6) con la cara, y siete hojas carnosas y romas alrededor
+ * de la mitad de arriba: tres arriba (filas 16 a 26) y dos por lado (filas 27 a 41), como suculenta_saludable_0.
+ */
 function suculenta() {
-  const sucu = (clase, grados, largo, ancho) => svg("path", { class: `masc-sucu ${clase}`, d: hojaPuntiaguda(24, 39, grados, largo, ancho) });
+  const sucu = (clase, grados, distancia, largo, ancho) => {
+    const r = (grados * Math.PI) / 180;
+    const cx = (24 + Math.cos(r) * distancia).toFixed(2);
+    const cy = (37 + Math.sin(r) * distancia).toFixed(2);
+    return svg("ellipse", { class: `masc-sucu ${clase}`, cx, cy, rx: largo / 2, ry: ancho, transform: `rotate(${grados} ${cx} ${cy})` });
+  };
   const roseta = svg("g", { class: "masc-roseta" },
-    sucu("masc-sucu--a", 180, 20, 2.6), sucu("masc-sucu--a", 0, 20, 2.6),
-    sucu("masc-sucu--b", -155, 21, 2.4), sucu("masc-sucu--b", -25, 21, 2.4),
-    sucu("masc-sucu--c", -125, 21, 2.2), sucu("masc-sucu--c", -55, 21, 2.2),
-    sucu("masc-sucu--c", -90, 23, 2.4),
-    svg("ellipse", { class: "masc-cuerpo masc-sucu--corazon", cx: 24, cy: 36.5, rx: 9.6, ry: 8.6 }));
+    sucu("masc-sucu--a", 178, 13.5, 12, 4.2), sucu("masc-sucu--a", 2, 13.5, 12, 4.2),
+    sucu("masc-sucu--b", -150, 13.5, 11, 3.4), sucu("masc-sucu--b", -30, 13.5, 11, 3.4),
+    sucu("masc-sucu--b", -122, 13, 10, 3.4), sucu("masc-sucu--b", -58, 13, 10, 3.4),
+    sucu("masc-sucu--c", -90, 13.5, 11, 3.8),
+    svg("circle", { class: "masc-cuerpo masc-sucu--corazon", cx: 24, cy: 36.4, r: 9.6 }));
   return { planta: [roseta], refs: { roseta }, geo: T.GEO_CHICA };
 }
 
@@ -97,17 +105,22 @@ function helecho() {
   return { planta: frondas.map((f) => f.nodo), refs: { frondas }, caraEnMatera: true };
 }
 
-/** Carnívora: la cabeza de trampa del front (F36), llevada a las coordenadas del sprite (la matera de 120 a 32 px). */
+/**
+ * Carnívora: la cabeza de trampa del front (F36) a la medida de la de la OLED (carni_abierta_0: 44 px de ancho,
+ * filas 0 a 36, ojos a 9 px del centro en la fila 9), sobre su tallo y las dos hojas de abajo (filas 37 a 45).
+ */
+const ESCALA_TRAMPA = 0.5;
 function carnivora() {
   const cabeza = crearCabeza();
   const hojas = HOJAS_CARNIVORA.map(([d, ox, oy, clase]) => svg("path", { class: `ilu-hoja ${clase}`, d, "data-ox": ox, "data-oy": oy }));
   const desplazable = svg("g", { class: "masc-trampa" }, cabeza.grupo);
-  const escala = svg("g", { transform: "matrix(0.26667 0 0 0.26667 -10.667 8.667)" },
-    svg("path", { class: "ilu-tallo", d: "M130 150V98", "stroke-width": 7, "stroke-linecap": "round" }),
-    ...hojas,
-    desplazable);
+  const planta = [
+    svg("path", { class: "ilu-tallo", d: "M24 46V32", "stroke-width": 4, "stroke-linecap": "round" }),
+    svg("g", { transform: "matrix(0.37 0 0 0.37 -24.1 -6.06)" }, hojas),
+    svg("g", { transform: `matrix(${ESCALA_TRAMPA} 0 0 ${ESCALA_TRAMPA} -41 -17)` }, desplazable),
+  ];
   const ojos = [...cabeza.superior.querySelectorAll(".ilu-ojo, .ilu-pupila")];
-  return { planta: [escala], refs: { cabeza, hojas, desplazable, ojos }, sinCara: true };
+  return { planta, refs: { cabeza, hojas, desplazable, ojos }, sinCara: true };
 }
 
 /** Genérica (respaldo): la planta común de la OLED, tres hojas grandes y una chica; la cara va en la matera. */
@@ -291,7 +304,7 @@ export function crearMascota(familia, { estado = "SALUDABLE", clase = "" } = {})
       const abertura = [1, 0.5, 0][boca];
       refs.cabeza.superior.setAttribute("transform", `translate(0 ${ABIERTA_SUP * abertura})`);
       refs.cabeza.inferior.setAttribute("transform", `translate(0 ${ABIERTA_INF * abertura})`);
-      refs.desplazable.setAttribute("transform", `translate(0 ${(dyBoca / 0.26667).toFixed(2)})`);
+      refs.desplazable.setAttribute("transform", `translate(0 ${(dyBoca / ESCALA_TRAMPA).toFixed(2)})`);
       const ojo = c.abierto * parpadeo * (boca === 2 ? 0.3 : 1);
       const f = Math.max(0.15, ojo).toFixed(2);
       for (const o of refs.ojos) o.setAttribute("transform", `translate(0 ${o.getAttribute("cy")}) scale(1 ${f}) translate(0 ${-o.getAttribute("cy")})`);
