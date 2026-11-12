@@ -28,6 +28,16 @@
   --sol: #f5c542;
   --boca: #b3261e;
   --boca-seca: #7d4a43;
+  /* mascotas (F41): los mismos en los dos temas, la planta es la misma */
+  --disco: #e8b866;
+  --disco-borde: #b07a35;
+  --petalo: #f5c542;
+  --petalo-b: #f0ad2c;
+  --flor: #e8608c;
+  --sucu-a: #5f9e86;
+  --sucu-b: #7fb89c;
+  --sucu-c: #a3d1b6;
+  --cara-tinta: #1b251e;
 
   --saludable: #1f6e38;
   --saludable-fondo: #dff3e3;
@@ -1472,6 +1482,100 @@ body[data-familia="planta"] .indicador-conexion--global {
 
 .ilustracion-planta--mini {
   max-width: 120px;
+}
+
+/* ---------- mascotas por familia (F41): coordenadas del sprite de la OLED, 48x64 ---------- */
+
+.mascota {
+  display: block;
+  width: 100%;
+  max-width: 160px;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+.masc-petalo {
+  fill: var(--petalo);
+}
+
+.masc-petalo--b {
+  fill: var(--petalo-b);
+}
+
+.masc-disco {
+  fill: var(--disco);
+}
+
+.masc-disco-borde {
+  fill: none;
+  stroke: var(--disco-borde);
+  stroke-width: 0.8;
+}
+
+.masc-cuerpo {
+  fill: var(--hoja);
+}
+
+.masc-costilla,
+.masc-raquis {
+  fill: none;
+  stroke: var(--hoja-oscura);
+  stroke-width: 1;
+  stroke-linecap: round;
+}
+
+.masc-flor-petalo {
+  fill: var(--flor);
+}
+
+.masc-flor-centro {
+  fill: var(--petalo);
+}
+
+.masc-sucu--a {
+  fill: var(--sucu-a);
+}
+
+.masc-sucu--b {
+  fill: var(--sucu-b);
+}
+
+.masc-sucu--c,
+.masc-sucu--corazon {
+  fill: var(--sucu-c);
+}
+
+.masc-ojo {
+  fill: var(--cara-tinta);
+}
+
+.masc-brillo {
+  fill: #ffffff;
+}
+
+.masc-boca,
+.masc-ceja {
+  fill: none;
+  stroke: var(--cara-tinta);
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.masc-lagrima {
+  fill: var(--agua);
+}
+
+.mascota[data-estado="EN_RIESGO"] :is(.masc-cuerpo, .ilu-hoja, .masc-sucu, .ilu-cabeza) {
+  fill: var(--hoja-riesgo);
+}
+
+.mascota[data-estado="CRITICO"] :is(.masc-cuerpo, .ilu-hoja, .masc-sucu, .ilu-cabeza) {
+  fill: var(--hoja-critica);
+}
+
+.mascota[data-estado="CRITICO"] .ilu-boca-interior {
+  fill: var(--boca-seca);
 }
 
 /* ---------- historial como lista (tabla con forma de renglones) ---------- */
