@@ -9,10 +9,9 @@
 // Del QR solo se saca el código: nunca se abre ni se navega al enlace que trae.
 import { h, svg } from "../ui.js";
 import { barrerMira, movimientoReducido } from "../animaciones.js";
-import { codigoDeQr, modosDeLector, ladoReducido } from "../qr-lectura.js";
+import { codigoDeQr, modosDeLector, ladoReducido, planDeLectura } from "../qr-lectura.js";
 
 const CUADROS_POR_SEGUNDO = 9;
-const LADO_DE_CUADRO = 480; // el cuadro del video se reduce a esto antes de leerlo: de sobra para un QR y rápido
 const LADO_DE_FOTO = 1024;
 
 /** Lo que este navegador puede hacer, para decidir el modo. */
@@ -46,7 +45,7 @@ function cargarJsQr() {
 }
 
 /**
- * Devuelve `leer(lienzo)` -> texto del QR o null. Si el navegador trae BarcodeDetector con QR (Chrome en
+ * Devuelve `leer(lienzo, nativa)` -> texto del QR o null. Si el navegador trae BarcodeDetector con QR (Chrome en
  * Android) se intenta primero con él, que es nativo; si no ve nada (o no existe) lee jsQR, que además prueba la
  * imagen invertida: la pantalla OLED de la matera puede mostrar el QR claro sobre fondo oscuro.
  */
@@ -61,10 +60,11 @@ async function prepararDecodificador() {
     nativo = null;
   }
   const jsQR = await cargarJsQr();
-  return async (lienzo) => {
+  // `nativa`: fuente a resolución completa (el video) para el detector nativo, en vez del lienzo reducido.
+  return async (lienzo, nativa = null) => {
     if (nativo) {
       try {
-        const hallados = await nativo.detect(lienzo);
+        const hallados = await nativo.detect(nativa || lienzo);
         if (hallados.length && hallados[0].rawValue) return hallados[0].rawValue;
       } catch {
         // el detector nativo puede fallar con un cuadro a medio pintar: se sigue con jsQR
@@ -141,14 +141,15 @@ export function crearLectorQr({ alLeer, reposo = null, capacidades = capacidades
   let flujo = null; // MediaStream de la cámara
   let reloj = null;
   let ocupado = false;
+  let indiceDeCuadro = 0;
   let pararMira = () => {};
   let decodificador = null;
   let ultimoRechazo = { texto: null, en: 0 };
   let destruido = false;
 
-  const decodificar = async (fuente) => {
+  const decodificar = async (fuente, nativa = null) => {
     if (!decodificador) decodificador = prepararDecodificador();
-    return (await decodificador)(fuente);
+    return (await decodificador)(fuente, nativa);
   };
 
   /** Texto de un QR -> matera aceptada (true) o mensaje. */
@@ -186,11 +187,14 @@ export function crearLectorQr({ alLeer, reposo = null, capacidades = capacidades
     if (ocupado || !flujo || video.readyState < 2 || !video.videoWidth) return;
     ocupado = true;
     try {
-      const { ancho, alto } = ladoReducido(video.videoWidth, video.videoHeight, LADO_DE_CUADRO);
-      lienzo.width = ancho;
-      lienzo.height = alto;
-      lienzo.getContext("2d", { willReadFrequently: true }).drawImage(video, 0, 0, ancho, alto);
-      const texto = await decodificar(lienzo);
+      // Una sola pasada por cuadro; la siguiente usa otra escala o recorte (planDeLectura). El lienzo es el mismo.
+      const indice = indiceDeCuadro++;
+      const { sx, sy, sw, sh, ancho, alto } = planDeLectura(indice, video.videoWidth, video.videoHeight);
+      if (lienzo.width !== ancho) lienzo.width = ancho;
+      if (lienzo.height !== alto) lienzo.height = alto;
+      lienzo.getContext("2d", { willReadFrequently: true }).drawImage(video, sx, sy, sw, sh, 0, 0, ancho, alto);
+      // BarcodeDetector ve el video a resolución nativa en las pasadas de cuadro completo; en los recortes, el lienzo.
+      const texto = await decodificar(lienzo, sw === video.videoWidth ? video : null);
       if (!texto || !flujo) return;
       // El mismo QR rechazado sigue frente a la cámara: no se repite el aviso en cada cuadro.
       if (texto === ultimoRechazo.texto && Date.now() - ultimoRechazo.en < 2500) return;
@@ -207,11 +211,22 @@ export function crearLectorQr({ alLeer, reposo = null, capacidades = capacidades
     decir("Abriendo la cámara…");
     botonCamara.disabled = true;
     try {
-      flujo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      // Más resolución: el QR de la OLED (29 módulos en 58 px) a 10 o 15 cm ocupa poco del cuadro.
+      flujo = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false,
+      });
       if (destruido) {
         for (const pista of flujo.getTracks()) pista.stop();
         flujo = null;
         return;
+      }
+      // Enfoque continuo si el navegador lo admite; iOS lo ignora o lo rechaza y no pasa nada.
+      try {
+        const pista = flujo.getVideoTracks()[0];
+        if (pista && typeof pista.applyConstraints === "function") await pista.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
+      } catch {
+        // sin enfoque continuo se lee igual
       }
       video.srcObject = flujo;
       visor.hidden = false;
@@ -228,6 +243,7 @@ export function crearLectorQr({ alLeer, reposo = null, capacidades = capacidades
         detener();
         decir("No se pudo cargar el lector de QR. Revisa la conexión o escribe el código.", "error");
       });
+      indiceDeCuadro = 0;
       reloj = setInterval(cuadro, Math.round(1000 / CUADROS_POR_SEGUNDO));
       cerrar.focus({ preventScroll: true });
     } catch (error) {
