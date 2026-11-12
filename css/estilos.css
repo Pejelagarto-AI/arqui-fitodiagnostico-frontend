@@ -4581,3 +4581,7 @@ body[data-sesion="no"] .pie {
     transition: none;
   }
 }
+
+.campo-carrusel {
+  position: relative;
+}

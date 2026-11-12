@@ -41,7 +41,7 @@ http://localhost:5500/?api=http://localhost:9090/api/v1#/plantas
 ### Pruebas
 
 ```bash
-node --test tests/*.test.mjs                                # 114 unitarias de la lógica pura (rutas, pestañas, sondeo, tablero, recorrido, lectura de QR, voz de la planta...), sin dependencias
+node --test tests/*.test.mjs                                # 137 unitarias de la lógica pura (rutas, pestañas, sondeo, tablero, recorrido, lectura de QR, voz de la planta, mascotas, carrusel...), sin dependencias
 cd tests/humo && npm install && node humo.mjs               # humo de punta a punta: backend + front levantados, Chrome headless
 ```
 
@@ -110,6 +110,8 @@ El administrador registra los dispositivos en `#/admin/dispositivos` (F19): al r
 | `js/vendor/gsap.min.js` | GSAP 3.12.5 vendorizado; script clásico antes de `app.js` |
 | `js/animaciones.js` | envoltura de GSAP: entrada, barras, números, líneas, ilustración; no hace nada con reduced-motion |
 | `js/componentes/ilustracion-planta.js`, `minigrafica.js`, `escala.js` | planta en matera SVG reactiva, minigráfica de tendencia y cálculos puros (F21) |
+| `js/componentes/mascota.js`, `mascota-tiempo.js`, `especie.js` | mascota por especie (girasol, cactus, suculenta, helecho, carnívora, genérica), igual a la de la OLED: mismo dibujo, caras y tiempos del firmware (F41) |
+| `js/componentes/carrusel-especies.js`, `carrusel-estado.js` | carrusel para elegir la especie deslizando, con las mascotas animadas; el `<select>` oculto lleva el valor (F42) |
 | `js/cache.js`, `js/deshacer.js`, `js/transiciones.js` | caché en memoria para stale-while-revalidate, petición retrasada tras «Deshacer», View Transitions (F25, F26, F28); puros salvo las transiciones, con pruebas |
 | `js/pestanas.js`, `js/tablero.js` | pestañas del detalle y filtros del tablero (F37); puros, con pruebas |
 | `js/vistas/portada.js`, `js/portada-guion.js`, `js/voz-planta.js`, `js/mensajes.js` | portada, lo que «dice» la planta y los errores en lenguaje de persona (F38); los tres últimos puros |
