@@ -1,0 +1,95 @@
+// RF-A4..A6: ver y editar los datos de la cuenta, cambiar la contraseña y eliminar la cuenta.
+import { obtenerCuenta, actualizarCuenta, cambiarContrasena, eliminarCuenta } from "../api.js";
+import * as sesion from "../sesion.js";
+import { olvidarRecorridos } from "../componentes/recorrido.js";
+import { h, campo, crearAviso, crearNota, conCarga, confirmar, limpiarErroresDeFormulario, marcarCampoConError, toast } from "../ui.js";
+
+export const titulo = "Mi perfil";
+
+export async function montar(contenedor, ctx) {
+  const cuenta = await obtenerCuenta();
+  if (!ctx.vigente()) return;
+  sesion.actualizarUsuario(cuenta);
+
+  // ---- datos ----
+  const avisoDatos = crearAviso();
+  const notaDatos = crearNota();
+  const nombre = campo({ id: "perfil-nombre", nombre: "nombre", etiqueta: "Nombre", valor: cuenta.nombre, maxlength: "120", autocomplete: "name" });
+  const correo = campo({ id: "perfil-correo", nombre: "correo", etiqueta: "Correo", tipo: "email", valor: cuenta.correo, maxlength: "254", autocomplete: "email" });
+  const botonDatos = h("button", { type: "submit", class: "boton boton-primario", id: "btn-guardar-perfil" }, "Guardar cambios");
+  const formDatos = h("form", { id: "formulario-perfil", novalidate: true }, nombre.contenedor, correo.contenedor, avisoDatos.elemento, notaDatos.elemento, botonDatos);
+  formDatos.addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    limpiarErroresDeFormulario(formDatos);
+    avisoDatos.limpiar();
+    notaDatos.limpiar();
+    try {
+      const actualizada = await conCarga(botonDatos, "Guardando…", () => actualizarCuenta({ nombre: nombre.input.value.trim(), correo: correo.input.value.trim() }));
+      sesion.actualizarUsuario(actualizada);
+      notaDatos.mostrar("Datos actualizados.");
+    } catch (error) {
+      if (!marcarCampoConError(formDatos, error)) avisoDatos.mostrar(error);
+    }
+  });
+
+  // ---- contraseña ----
+  const avisoClave = crearAviso();
+  const notaClave = crearNota();
+  const actual = campo({ id: "clave-actual", nombre: "contrasenaActual", etiqueta: "Contraseña actual", tipo: "password", autocomplete: "current-password" });
+  const nueva = campo({ id: "clave-nueva", nombre: "contrasenaNueva", etiqueta: "Contraseña nueva", tipo: "password", autocomplete: "new-password", minlength: "8", maxlength: "72", ayuda: "Entre 8 y 72 caracteres." });
+  const botonClave = h("button", { type: "submit", class: "boton boton-primario", id: "btn-cambiar-clave" }, "Cambiar contraseña");
+  const formClave = h("form", { id: "formulario-clave", novalidate: true }, actual.contenedor, nueva.contenedor, avisoClave.elemento, notaClave.elemento, botonClave);
+  formClave.addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    limpiarErroresDeFormulario(formClave);
+    avisoClave.limpiar();
+    notaClave.limpiar();
+    try {
+      await conCarga(botonClave, "Cambiando…", () => cambiarContrasena(actual.input.value, nueva.input.value));
+      formClave.reset();
+      notaClave.mostrar("Contraseña cambiada.");
+    } catch (error) {
+      // Contraseña actual incorrecta llega como 400 (D30), no como 401: no se pierde la sesión.
+      if (!marcarCampoConError(formClave, error)) avisoClave.mostrar(error);
+    }
+  });
+
+  // ---- eliminar ----
+  const avisoBorrar = crearAviso();
+  const botonBorrar = h("button", { type: "button", class: "boton boton-peligro", id: "btn-eliminar-cuenta" }, "Eliminar mi cuenta");
+  botonBorrar.addEventListener("click", async () => {
+    avisoBorrar.limpiar();
+    const acepta = await confirmar("Se borrará tu cuenta con tus plantas y su historial. Las personas a quienes les compartiste plantas dejarán de verlas. No se puede deshacer.", { aceptar: "Eliminar para siempre", peligro: true });
+    if (!acepta) return;
+    try {
+      await conCarga(botonBorrar, "Eliminando…", () => eliminarCuenta());
+      sesion.cerrar();
+      toast("Tu cuenta fue eliminada.");
+      ctx.irA("/");
+    } catch (error) {
+      avisoBorrar.mostrar(error);
+    }
+  });
+
+  contenedor.append(
+    h("section", { class: "tarjeta" },
+      h("h2", { "data-titulo": "" }, "Mi perfil"),
+      cuenta.roles.includes("ADMINISTRADOR") ? h("p", { class: "texto-suave" }, "Tu cuenta es de administración.") : null,
+      formDatos,
+    ),
+    h("section", { class: "tarjeta" }, h("h2", {}, "Cambiar contraseña"), formClave),
+    // El recorrido guiado se puede repetir (F39): se olvida que ya se vio y vuelve a salir en el tablero y en una planta.
+    h("section", { class: "tarjeta" },
+      h("h2", {}, "Ayuda"),
+      h("p", { class: "texto-suave" }, "¿Quieres que te mostremos otra vez dónde está cada cosa?"),
+      h("button", { type: "button", class: "boton boton-secundario", id: "btn-ver-recorrido", onclick: () => { olvidarRecorridos(); toast("Listo. Verás el recorrido al abrir tus plantas."); ctx.irA("/plantas"); } }, "Ver el recorrido otra vez"),
+    ),
+    // En teléfono el menú de arriba no existe (F37): cerrar sesión vive aquí. En escritorio sigue en la cabecera.
+    h("section", { class: "tarjeta solo-movil" },
+      h("h2", {}, "Sesión"),
+      h("p", { class: "texto-suave" }, `Entraste como ${cuenta.correo}.`),
+      h("button", { type: "button", class: "boton boton-secundario", id: "btn-cerrar-sesion-perfil", onclick: () => { sesion.cerrar(); toast("Sesión cerrada."); ctx.irA("/"); } }, "Cerrar sesión"),
+    ),
+    h("section", { class: "tarjeta zona-peligro" }, h("h2", {}, "Eliminar cuenta"), avisoBorrar.elemento, botonBorrar),
+  );
+}

@@ -1,0 +1,374 @@
+// Utilidades de interfaz compartidas por todas las pantallas. Regla de oro
+// anti-XSS: el contenido que viene de la API se inserta SIEMPRE como texto
+// (textContent / nodos de texto), nunca con innerHTML.
+
+import { retrasar, TIEMPO_DESHACER_MS } from "./deshacer.js";
+import { mensajeParaPersona } from "./mensajes.js";
+
+/** Crea un elemento: h("button", { class: "boton", onclick: fn }, "Texto", otroNodo). */
+export function h(etiqueta, atributos = {}, ...hijos) {
+  const nodo = document.createElement(etiqueta);
+  for (const [clave, valor] of Object.entries(atributos || {})) {
+    if (valor === undefined || valor === null || valor === false) continue;
+    if (clave.startsWith("on") && typeof valor === "function") {
+      nodo.addEventListener(clave.slice(2).toLowerCase(), valor);
+    } else if (clave === "class") {
+      nodo.className = valor;
+    } else if (valor === true) {
+      nodo.setAttribute(clave, "");
+    } else {
+      nodo.setAttribute(clave, valor);
+    }
+  }
+  agregar(nodo, hijos);
+  return nodo;
+}
+
+const NS_SVG = "http://www.w3.org/2000/svg";
+
+/**
+ * Crea un elemento SVG con createElementNS: svg("path", { d: "M0 0" }, hijos...).
+ * Como h(), nunca interpreta texto como marcado: los datos llegan solo como atributos o nodos de texto.
+ */
+export function svg(etiqueta, atributos = {}, ...hijos) {
+  const nodo = document.createElementNS(NS_SVG, etiqueta);
+  for (const [clave, valor] of Object.entries(atributos || {})) {
+    if (valor === undefined || valor === null || valor === false) continue;
+    nodo.setAttribute(clave, valor === true ? "" : String(valor));
+  }
+  agregar(nodo, hijos);
+  return nodo;
+}
+
+function agregar(nodo, hijos) {
+  for (const hijo of hijos.flat(Infinity)) {
+    if (hijo === null || hijo === undefined || hijo === false) continue;
+    nodo.append(hijo instanceof Node ? hijo : document.createTextNode(String(hijo)));
+  }
+}
+
+export function vaciar(nodo) {
+  nodo.replaceChildren();
+}
+
+// ---- fechas y etiquetas ----
+
+export function formatearFecha(iso) {
+  if (!iso) return "";
+  const fecha = new Date(iso);
+  if (Number.isNaN(fecha.getTime())) return String(iso);
+  return fecha.toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
+}
+
+const HORA = { hour: "numeric", minute: "2-digit" };
+
+/**
+ * Fecha para leer de un vistazo: «hoy 4:33 p. m.», «ayer 4:33 p. m.», «lun 4:33 p. m.» (últimos 6 días)
+ * y la fecha completa si pasó más de una semana. Pura salvo por `ahora`, que se puede inyectar.
+ */
+export function formatearFechaRelativa(iso, ahora = Date.now()) {
+  if (!iso) return "";
+  const fecha = new Date(iso);
+  if (Number.isNaN(fecha.getTime())) return String(iso);
+  const inicioDeDia = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const dias = Math.round((inicioDeDia(new Date(ahora)) - inicioDeDia(fecha)) / 86400000);
+  const hora = fecha.toLocaleTimeString("es-CO", HORA);
+  if (dias === 0) return `hoy ${hora}`;
+  if (dias === 1) return `ayer ${hora}`;
+  if (dias > 1 && dias < 7) return `${fecha.toLocaleDateString("es-CO", { weekday: "short" }).replace(".", "")} ${hora}`;
+  return formatearFecha(iso);
+}
+
+export const ETIQUETAS_ESTADO_GLOBAL = {
+  SALUDABLE: "Saludable",
+  EN_RIESGO: "En riesgo",
+  CRITICO: "Crítico",
+};
+
+export const ETIQUETAS_ESTADO_PARAMETRO = { BAJO: "Bajo", OPTIMO: "Óptimo", ALTO: "Alto" };
+
+export const ETIQUETAS_PARAMETRO = {
+  humedad: "Humedad de la tierra",
+  luz: "Luz",
+  temperatura: "Temperatura",
+};
+
+export const ETIQUETAS_ESTADO_SOLICITUD = { PENDIENTE: "Pendiente", APROBADA: "Aprobada", RECHAZADA: "Rechazada" };
+
+export function chipDeEstadoGlobal(estado) {
+  return h("span", { class: `chip chip--${estado.toLowerCase()}` }, ETIQUETAS_ESTADO_GLOBAL[estado] || estado);
+}
+
+export function chipDeSolicitud(estado) {
+  const clase = { PENDIENTE: "riesgo", APROBADA: "saludable", RECHAZADA: "critico" }[estado] || "riesgo";
+  return h("span", { class: `chip chip--${clase}` }, ETIQUETAS_ESTADO_SOLICITUD[estado] || estado);
+}
+
+// ---- esqueletos de carga (F23) ----
+
+/** Una carga rápida no debe parpadear: el esqueleto solo se ve si la espera pasa de este umbral. */
+export const RETRASO_ESQUELETO_MS = 300;
+
+/**
+ * Pone `nodo` en modo esqueleto: de inmediato `data-esqueleto="espera"` (el CSS lo deja invisible pero
+ * ocupando su lugar, así nada salta) y, si pasaron `ms` sin que se cancele, `"visible"` (bloques grises
+ * con la forma del componente real). Devuelve `cancelar()`, que lo quita; llamarlo dos veces no hace nada.
+ */
+export function esqueletoSiTarda(nodo, { ms = RETRASO_ESQUELETO_MS } = {}) {
+  nodo.setAttribute("data-esqueleto", "espera");
+  let temporizador = setTimeout(() => nodo.setAttribute("data-esqueleto", "visible"), ms);
+  return () => {
+    if (temporizador === null) return;
+    clearTimeout(temporizador);
+    temporizador = null;
+    nodo.removeAttribute("data-esqueleto");
+  };
+}
+
+// ---- errores visibles ----
+
+/**
+ * Zona de aviso con role="alert". `mostrar(error)` acepta un ErrorApi, un Error
+ * o un texto; `limpiar()` la oculta. Todas las pantallas tienen al menos una.
+ */
+export function crearAviso() {
+  const texto = h("p");
+  const elemento = h("div", { class: "banner-error", role: "alert", hidden: true }, texto);
+  return {
+    elemento,
+    mostrar(error) {
+      // En lenguaje de persona: sin «API» ni «backend», con mayúscula inicial y qué hacer (js/mensajes.js).
+      texto.textContent = mensajeParaPersona(error);
+      elemento.hidden = false;
+    },
+    limpiar() {
+      texto.textContent = "";
+      elemento.hidden = true;
+    },
+  };
+}
+
+/** Aviso de éxito o información (role="status"). */
+export function crearNota() {
+  const texto = h("p");
+  const elemento = h("div", { class: "banner-ok", role: "status", hidden: true }, texto);
+  return {
+    elemento,
+    mostrar(mensaje) {
+      texto.textContent = mensaje;
+      elemento.hidden = false;
+    },
+    limpiar() {
+      texto.textContent = "";
+      elemento.hidden = true;
+    },
+  };
+}
+
+// ---- formularios ----
+
+/**
+ * Un campo con etiqueta, input y zona de error enlazada por aria-describedby.
+ * Devuelve { contenedor, input, error(texto) }.
+ */
+export function campo({ id, etiqueta, tipo = "text", nombre, requerido = true, ayuda, valor = "", ...extra }) {
+  const idError = `${id}-error`;
+  const idAyuda = `${id}-ayuda`;
+  const atributos = {
+    id,
+    name: nombre || id,
+    required: requerido,
+    "aria-describedby": ayuda ? `${idAyuda} ${idError}` : idError,
+    ...extra,
+  };
+  const input = tipo === "textarea" ? h("textarea", { rows: "3", ...atributos }) : h("input", { type: tipo, ...atributos });
+  input.value = valor;
+  const zonaError = h("p", { class: "error-campo", id: idError, "aria-live": "polite" });
+  const contenedor = h(
+    "div",
+    { class: "campo" },
+    h("label", { for: id }, etiqueta),
+    input,
+    ayuda ? h("p", { class: "rango-optimo", id: idAyuda }, ayuda) : null,
+    zonaError,
+  );
+  return {
+    contenedor,
+    input,
+    error(texto) {
+      zonaError.textContent = texto || "";
+      if (texto) input.setAttribute("aria-invalid", "true");
+      else input.removeAttribute("aria-invalid");
+    },
+  };
+}
+
+/** Un <select> con etiqueta y zona de error. `opciones`: [{ valor, texto, deshabilitada? }]. */
+export function campoSelect({ id, etiqueta, nombre, opciones, valor = "", requerido = true }) {
+  const idError = `${id}-error`;
+  const select = h("select", { id, name: nombre || id, required: requerido, "aria-describedby": idError });
+  for (const o of opciones) select.append(h("option", { value: o.valor, disabled: o.deshabilitada }, o.texto));
+  select.value = valor;
+  const zonaError = h("p", { class: "error-campo", id: idError, "aria-live": "polite" });
+  return {
+    contenedor: h("div", { class: "campo" }, h("label", { for: id }, etiqueta), select, zonaError),
+    select,
+    error(texto) {
+      zonaError.textContent = texto || "";
+      if (texto) select.setAttribute("aria-invalid", "true");
+      else select.removeAttribute("aria-invalid");
+    },
+  };
+}
+
+/** Quita las marcas de error de un formulario antes de reenviarlo. */
+export function limpiarErroresDeFormulario(formulario) {
+  for (const input of formulario.querySelectorAll("[aria-invalid]")) input.removeAttribute("aria-invalid");
+  for (const zona of formulario.querySelectorAll(".error-campo")) zona.textContent = "";
+}
+
+/**
+ * Si el error nombra un campo del formulario (`detalle.campo`) lo pinta junto
+ * a ese campo y devuelve true; si no, devuelve false y quien llama lo muestra
+ * en su aviso general.
+ */
+export function marcarCampoConError(formulario, error) {
+  if (!error || !error.campo) return false;
+  const input = formulario.querySelector(`[name="${CSS.escape(error.campo)}"]`);
+  if (!input) return false;
+  input.setAttribute("aria-invalid", "true");
+  const idError = `${input.id}-error`;
+  const zona = formulario.querySelector(`#${CSS.escape(idError)}`);
+  if (zona) zona.textContent = error.mensaje;
+  input.focus();
+  return true;
+}
+
+/**
+ * Corre `accion` con el botón deshabilitado y un texto de espera, para que un
+ * doble clic no mande dos peticiones. Devuelve lo que devuelva la acción.
+ */
+export async function conCarga(boton, textoEspera, accion) {
+  const original = boton.textContent;
+  boton.disabled = true;
+  boton.textContent = textoEspera;
+  try {
+    return await accion();
+  } finally {
+    boton.disabled = false;
+    boton.textContent = original;
+  }
+}
+
+// ---- toasts ----
+
+function zonaDeToasts() {
+  let zona = document.getElementById("zona-toasts");
+  if (!zona) {
+    zona = h("div", { id: "zona-toasts", class: "zona-toasts", role: "status", "aria-live": "polite" });
+    document.body.append(zona);
+  }
+  return zona;
+}
+
+export function toast(mensaje, tipo = "info") {
+  const nodo = h("div", { class: `toast toast--${tipo}` }, mensaje);
+  zonaDeToasts().append(nodo);
+  setTimeout(() => nodo.remove(), 6000);
+}
+
+/**
+ * Toast con «Deshacer» (F25) para lo reversible: la acción ya se hizo en pantalla, la petición sale
+ * pasado el plazo y el botón la cancela. role="status" (lo leen los lectores sin quitar el foco). Es un
+ * aviso de algo que el usuario acaba de hacer: no tiene que ver con el estado de la planta (F16, sin toasts).
+ * Devuelve { deshacer } para quien necesite cancelar por código. `alDeshacer` revierte la pantalla;
+ * `ejecutar` es la petición; `alFallar(error)` revierte y explica si la petición falla.
+ */
+export function toastConDeshacer(mensaje, { ejecutar, alDeshacer, alFallar = () => {}, alTerminar = () => {}, ms = TIEMPO_DESHACER_MS }) {
+  const nodo = h("div", { class: "toast toast--deshacer", role: "status" });
+  const accion = retrasar(ejecutar, {
+    ms,
+    alTerminar: (error) => {
+      nodo.remove();
+      if (error) alFallar(error);
+      alTerminar(error);
+    },
+  });
+  const boton = h("button", { type: "button", class: "toast-boton", "data-accion": "deshacer" }, "Deshacer");
+  boton.addEventListener("click", () => {
+    if (!accion.deshacer()) return;
+    nodo.remove();
+    alDeshacer();
+  });
+  nodo.append(h("span", {}, mensaje), boton);
+  zonaDeToasts().append(nodo);
+  return accion;
+}
+
+// ---- confirmación ----
+
+/** Diálogo de confirmación accesible (<dialog>). Resuelve true si aceptan. */
+export function confirmar(mensaje, { aceptar = "Aceptar", peligro = false } = {}) {
+  return new Promise((resolver) => {
+    const dialogo = h("dialog", { class: "dialogo", "aria-label": "Confirmación" });
+    const cerrar = (valor) => {
+      dialogo.close();
+      dialogo.remove();
+      resolver(valor);
+    };
+    dialogo.append(
+      h("p", {}, mensaje),
+      h(
+        "div",
+        { class: "acciones" },
+        h("button", { type: "button", class: "boton boton-secundario", onclick: () => cerrar(false) }, "Cancelar"),
+        h(
+          "button",
+          { type: "button", class: `boton ${peligro ? "boton-peligro" : "boton-primario"}`, "data-confirmar": "si", onclick: () => cerrar(true) },
+          aceptar,
+        ),
+      ),
+    );
+    dialogo.addEventListener("cancel", (e) => {
+      e.preventDefault();
+      cerrar(false);
+    });
+    document.body.append(dialogo);
+    dialogo.showModal();
+  });
+}
+
+// ---- portapapeles ----
+
+export async function copiarAlPortapapeles(texto) {
+  try {
+    await navigator.clipboard.writeText(texto);
+    return true;
+  } catch {
+    // Contextos no seguros o permiso denegado: respaldo con un textarea temporal.
+    const area = h("textarea", { "aria-hidden": "true" });
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    area.value = texto;
+    document.body.append(area);
+    area.select();
+    let copiado = false;
+    try {
+      copiado = document.execCommand("copy");
+    } catch {
+      copiado = false;
+    }
+    area.remove();
+    return copiado;
+  }
+}
+
+/** Enlace «← Texto» para volver a la pantalla anterior; mismo aspecto en todo el front. */
+export function enlaceDeVolver(ruta, texto) {
+  return h("a", { href: `#${ruta}`, class: "enlace-volver" }, h("span", { "aria-hidden": "true" }, "←"), texto);
+}
+
+/** Enlace de una ruta del front (con hash). */
+export function enlace(ruta, texto, clase = "") {
+  return h("a", { href: `#${ruta}`, class: clase }, texto);
+}

@@ -6,38 +6,119 @@ Cliente web del sistema de diagnóstico de plantas: HTML, CSS y JavaScript está
 
 ## Por qué está en un repositorio aparte
 
-Este front es un cliente **independiente**: se sirve desde otro origen y solo conoce el contrato HTTP del backend (`GET /api/v1/especies`, `POST /api/v1/diagnosticos`). No importa código del backend ni el backend genera HTML para él. Vivir en su propio repositorio hace visible esa frontera, y por eso el backend habilita CORS en vez de servir estos archivos.
+Este front es un cliente **independiente**: se sirve desde otro origen y solo conoce el contrato HTTP y el WebSocket del backend. No importa código del backend ni el backend genera HTML para él. Vivir en su propio repositorio hace visible esa frontera, y por eso el backend habilita CORS en vez de servir estos archivos.
 
 ## Cómo correrlo
 
-1. Backend primero, en `http://localhost:8080` (ver su README).
-2. Front, servido con cualquier servidor estático — por ejemplo:
+1. Backend primero, en `http://localhost:8080` (ver su README). Desde el corte 2 exige variables de entorno. Para que los enlaces de los correos abran este front (que enruta por hash), `FITO_FRONT_URL` termina en `#`:
+
+```bash
+export FITO_JWT_SECRETO="$(openssl rand -base64 48)"
+export FITO_ADMIN_CORREO=admin@fito.test FITO_ADMIN_CONTRASENA=admin-clave-larga
+export FITO_FRONT_URL='http://localhost:5500/#'     # enlaces: http://localhost:5500/#/invitacion?token=...
+./mvnw spring-boot:run
+# opcional, correos de invitación y recuperación: docker run -d --rm --name mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit
+```
+
+2. Front, con cualquier servidor estático:
 
 ```bash
 python3 -m http.server 5500
 ```
 
-3. Abrir `http://localhost:5500`. El backend ya trae `http://localhost:5500` y `http://127.0.0.1:5500` habilitados en CORS por defecto.
+3. Abrir `http://localhost:5500`. El backend ya trae `http://localhost:5500` y `http://127.0.0.1:5500` en CORS y en los orígenes permitidos del WebSocket.
+
+**Enlaces de correo.** Con el `FITO_FRONT_URL` por defecto (`http://localhost:5500`) el backend arma `/invitacion?token=...` y `/restablecer?token=...`. Este front no necesita configuración del servidor para eso: `invitacion/index.html` y `restablecer/index.html` redirigen a `#/invitacion?token=...` y `#/restablecer?token=...`. Con `FITO_FRONT_URL=http://localhost:5500/#` el enlace ya es de hash y no hay redirección. Ambas formas funcionan.
 
 ### Apuntar a otra API
 
-`js/config.js` toma la URL base de `?api=`, sin tocar código:
+`js/config.js` toma la URL base de `?api=` (antes del hash) y el WebSocket de `?ws=` (si no, lo deduce: mismo servidor, ruta `/ws`):
 
 ```
-http://localhost:5500/?api=http://localhost:9090/api/v1
+http://localhost:5500/?api=http://localhost:9090/api/v1#/plantas
 ```
 
-Sin el query param, usa `http://localhost:8080/api/v1`.
+### Pruebas
+
+```bash
+node --test tests/*.test.mjs                                # 114 unitarias de la lógica pura (rutas, pestañas, sondeo, tablero, recorrido, lectura de QR, voz de la planta...), sin dependencias
+cd tests/humo && npm install && node humo.mjs               # humo de punta a punta: backend + front levantados, Chrome headless
+```
+
+El recorrido guiado de la primera vez (F39) tapa la pantalla: para probar a mano sin él, abre `http://localhost:5500/?tour=no#/plantas` o pon `localStorage["fito.tour"] = "no"`. El humo lo apaga así en todos sus contextos menos en el paso que lo recorre.
+
+## En el teléfono
+
+Hasta 899 px de ancho la app se navega como una app (F37): barra inferior de pestañas, detalle de planta en pestañas y el botón principal de cada formulario pegado abajo. Para leer el QR de la matera sin salir de la app (F40), la cámara en vivo exige contexto seguro: sirve el front por HTTPS (un proxy delante que mande `/api/*` y `/ws*` al backend; la página usa entonces la API de su mismo origen) o usa `localhost`. Por HTTP desde el celular queda la foto del QR, que también se lee dentro de la app.
+
+## Sin red (demo offline)
+
+La página no pide nada fuera de `'self'`: GSAP está en `js/vendor/` y Nunito en `css/fuentes/`, y la CSP de `index.html` no admite CDN ni Google Fonts. Con el backend y `python3 -m http.server 5500` locales, la demo corre sin internet. Con `prefers-reduced-motion` no hay animaciones y se ve el estado final.
+
+## Diseño
+
+Sistema visual «orgánico ilustrado» (F20, F21, F22): tema claro y oscuro automáticos, la planta en su matera cambia con la humedad, la luz y el estado, cada parámetro tiene su barra con la banda óptima y una minigráfica de las últimas lecturas, y «Mis plantas» es un tablero con el estado de cada una. La auditoría que lo originó vive en el repositorio de la entrega (`ux/AUDITORIA-UX.md`).
+
+## Estado de la planta: sondeo (polling)
+
+El detalle de una planta se actualiza solo: cada **5 s** (`INTERVALO_SONDEO_MS` en `js/sondeo.js`) pide `GET /plantas/{id}/diagnostico` (el vigente) y la página actual de `GET /plantas/{id}/diagnosticos` (el historial, con el origen MANUAL o DISPOSITIVO de cada registro). El indicador de la cabecera dice «actualizado hace Xs». Se detiene al salir de la pantalla y se pausa con la pestaña oculta. Si la API falla lo dice en pantalla (sin apilar avisos) y reintenta con espera creciente. El WebSocket ya no mueve el estado de la planta: queda solo para los avisos (toasts, acceso perdido). Detalle en F16 de [`docs/IMPLEMENTACION-CORTE2.md`](docs/IMPLEMENTACION-CORTE2.md).
+
+## Vincular un dispositivo (reclamo por serial)
+
+El humano no copia ninguna credencial. Cada dispositivo sale de fábrica con un **serial** impreso (`fito-7K2M9Q`) y un secreto guardado adentro. En el detalle de una planta propia, el asistente de vinculación (F36) o, a mano, la sección **Dispositivos** pide el código de 6 letras y números (el prefijo `fito-` lo pone el front) y llama a `POST /plantas/{id}/dispositivos` con `{serial}`. El dispositivo, por su cuenta, pide un reto, responde con un HMAC de su secreto y recibe su token. La lista de la sección dice «esperando que se conecte» o «conectado hace Xs» (se refresca con el sondeo de 5 s) y permite desvincular. Los diagnósticos que envíe aparecen en el historial con origen «Dispositivo». Detalle en F18 de [`docs/IMPLEMENTACION-CORTE2.md`](docs/IMPLEMENTACION-CORTE2.md).
+
+El administrador registra los dispositivos en `#/admin/dispositivos` (F19): al registrar, el serial y el secreto se muestran **una sola vez** con botón de copiar y el comando listo del simulador, más el **QR del sticker** (`qrcode-generator` vendorizado, SVG propio) con botón de imprimir: quien lo escanee llega a `#/vincular?serial=...` (F34). Requiere el backend de la fase 3.
+
+## Rutas (hash)
+
+| Ruta | Acceso | Pantalla |
+|---|---|---|
+| `#/` | sin sesión | portada: qué es el producto y por dónde empezar (F38); con sesión lleva al tablero |
+| `#/diagnostico` | pública | diagnóstico sin cuenta (RF-F6): escribes lo que mediste y la planta te dice cómo está |
+| `#/entrar`, `#/registro`, `#/recuperar` | sin sesión | iniciar sesión, crear cuenta, pedir enlace de recuperación |
+| `#/restablecer?token=` | pública | elegir contraseña nueva (enlace del correo) |
+| `#/invitacion?token=` | pública | aceptar invitación, con sesión o registrándose (enlace del correo) |
+| `#/perfil` | sesión | datos, contraseña, eliminar cuenta |
+| `#/plantas`, `#/plantas/nueva` | sesión | tablero (o la bienvenida si no hay plantas) con filtros por estado y «Qué hacer hoy»; planta nueva |
+| `#/plantas/{id}`, `/historial`, `/matera`, `/mas` | sesión | detalle en pestañas con la activa en la URL (F37): Hoy, Historial, Matera y Más (medir a mano, compartir, ajustes) |
+| `#/plantas/:id/vincular` | sesión | asistente de vinculación de cinco pasos: busca la matera cercana, se confirma con el código de 6 caracteres o el QR y termina en «Conexión exitosa» (F36) |
+| `#/vincular?serial=` | sesión | vincular una matera a una planta propia; es el destino del QR del sticker (F34) |
+| `#/v/:codigo` | pública | enlace corto del QR de la pantalla de la matera: redirige a `#/vincular?serial=fito-<CODIGO>` (F35); si vienes del asistente vincula directo a esa planta |
+| `#/solicitudes` | sesión | pedir una especie y ver mis solicitudes |
+| `#/admin`, `#/admin/usuarios`, `#/admin/usuarios/{id}`, `#/admin/especies`, `#/admin/solicitudes`, `#/admin/dispositivos` | admin | administración; dispositivos de fábrica (serial y secreto) |
 
 ## Estructura
 
 | Archivo | Responsabilidad |
 |---|---|
-| `index.html` | formulario de medición (especie, humedad, luz, temperatura) y las zonas de resultado/error |
-| `js/config.js` | única fuente de la URL base de la API (`API_BASE`), sobreescribible con `?api=` |
-| `js/api.js` | **único archivo que llama a `fetch`.** Envuelve `GET /especies` y `POST /diagnosticos`, y normaliza cualquier falla (red, HTTP 4xx/5xx, cuerpo no-JSON) a un `ErrorApi` con `{codigo, mensaje, campo, status}` |
-| `js/app.js` | lógica de interfaz: puebla el selector de especies, pinta rangos óptimos, maneja el submit del formulario y pinta resultado o error. No llama a `fetch` directamente — todo pasa por `api.js` |
-| `css/estilos.css` | estilos con variables CSS, colores semánticos por estado (saludable/en riesgo/crítico, bajo/óptimo/alto) y soporte `prefers-reduced-motion` |
+| `index.html` | cascarón: menú, `<main id="vista">`, CSP y `referrer` |
+| `js/config.js` | `API_BASE` y `WS_URL`, sobreescribibles con `?api=` y `?ws=` |
+| `js/api.js` | **único archivo que llama a `fetch`.** Una función por endpoint; normaliza todo error a `ErrorApi {codigo, mensaje, campo, status}`; maneja 204; adjunta el token (salvo en rutas públicas); un 401 con token vigente avisa a `app.js` |
+| `js/envivo.js` | **único archivo que abre un WebSocket.** STOMP 1.2, suscripciones, reconexión con espera creciente, estado de la conexión. Solo para avisos (toasts, acceso perdido) |
+| `js/tiempo.js` | «conectado hace Xs» y «esperando que se conecte» de los dispositivos; puro, con pruebas |
+| `js/sondeo.js` | sondeo periódico (polling) con pausa por pestaña oculta y espera creciente ante errores; puro, con pruebas |
+| `js/stomp.js` | codec STOMP puro (sin red), con pruebas |
+| `js/sesion.js` | token, caducidad y usuario en `sessionStorage`; único que toca el almacenamiento |
+| `js/rutas.js`, `js/router.js` | parseo y resolución de rutas por hash (puro) / enrutador con guardas y carga perezosa de pantallas |
+| `js/app.js` | tabla de rutas, menú, indicador en vivo, avisos globales, 401 |
+| `js/ui.js` | helpers de DOM sin `innerHTML` (`h`), campos, avisos de error, toasts, confirmación, portapapeles |
+| `js/vistas/*.js` | una pantalla por módulo: `export function montar(contenedor, ctx)` |
+| `js/componentes/*.js` | piezas compartidas: diagnóstico, campos de medición, rangos, paneles del detalle de planta |
+| `redireccion.js`, `invitacion/`, `restablecer/` | reenvío de los enlaces de camino del backend a las rutas hash |
+| `css/estilos.css` | sistema visual: tokens en `:root` (claro y oscuro por `prefers-color-scheme`), escala tipográfica, tarjetas, burbujas, historial como lista, responsive y `prefers-reduced-motion` (F20) |
+| `css/fuentes.css`, `css/fuentes/` | Nunito vendorizada (`@font-face`, woff2 latin) |
+| `js/vendor/gsap.min.js` | GSAP 3.12.5 vendorizado; script clásico antes de `app.js` |
+| `js/animaciones.js` | envoltura de GSAP: entrada, barras, números, líneas, ilustración; no hace nada con reduced-motion |
+| `js/componentes/ilustracion-planta.js`, `minigrafica.js`, `escala.js` | planta en matera SVG reactiva, minigráfica de tendencia y cálculos puros (F21) |
+| `js/cache.js`, `js/deshacer.js`, `js/transiciones.js` | caché en memoria para stale-while-revalidate, petición retrasada tras «Deshacer», View Transitions (F25, F26, F28); puros salvo las transiciones, con pruebas |
+| `js/pestanas.js`, `js/tablero.js` | pestañas del detalle y filtros del tablero (F37); puros, con pruebas |
+| `js/vistas/portada.js`, `js/portada-guion.js`, `js/voz-planta.js`, `js/mensajes.js` | portada, lo que «dice» la planta y los errores en lenguaje de persona (F38); los tres últimos puros |
+| `js/tour.js`, `js/componentes/recorrido.js` | recorrido guiado de la primera vez (F39): lógica pura y capa con foco y globo |
+| `js/qr-lectura.js`, `js/componentes/lector-qr.js`, `js/vendor/jsQR.js` | lector de QR dentro de la app (F40): cámara en vivo o foto; jsQR 1.4.0 vendorizado, cargado bajo demanda |
+| `js/url-api.js` | URL de la API por defecto: mismo host puerto 8080 por HTTP, mismo origen por HTTPS (F35, F40) |
+| `tests/` | pruebas unitarias y script de humo (`tests/humo/qr-png.mjs` arma los QR de prueba) |
+
+Decisiones y límites: [`docs/IMPLEMENTACION-CORTE2.md`](docs/IMPLEMENTACION-CORTE2.md).
 
 ---
 
