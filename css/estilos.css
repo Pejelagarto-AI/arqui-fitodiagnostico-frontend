@@ -1578,6 +1578,38 @@ body[data-familia="planta"] .indicador-conexion--global {
   fill: var(--boca-seca);
 }
 
+/* poses calcadas de dibujar.py (F44): nervio de las hojas grandes, foliolos del helecho, decoración de la matera */
+.masc-vena {
+  fill: none;
+  stroke: var(--hoja-oscura);
+  stroke-width: 0.7;
+  stroke-linecap: round;
+}
+
+.masc-foliolos {
+  fill: none;
+  stroke: var(--hoja);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+}
+
+.mascota[data-estado="EN_RIESGO"] .masc-foliolos {
+  stroke: var(--hoja-riesgo);
+}
+
+.mascota[data-estado="CRITICO"] .masc-foliolos {
+  stroke: var(--hoja-critica);
+}
+
+.masc-deco {
+  fill: var(--crema);
+}
+
+/* la cabeza cerrada de la carnívora en riesgo y crítico: la misma trampa, sin dientes, con el trazo a su escala */
+.masc-trampa-cerrada {
+  stroke-width: 1.2;
+}
+
 /* ---------- historial como lista (tabla con forma de renglones) ---------- */
 
 .historial-lista {

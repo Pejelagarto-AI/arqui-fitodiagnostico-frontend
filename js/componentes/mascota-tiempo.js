@@ -49,6 +49,34 @@ export const MORDISCO = [
   { hasta: 460, boca: 0, dy: -1 },
 ];
 export const MORDISCO_MS = 460;
+// Fila de los ojos de la carnívora saludable por cuadro de boca (abierta, media, cerrada): (32 - CARNI_G[boca]) / 2.
+export const CARNIVORA_OJOS_Y = [9, 12, 16];
+
+/**
+ * SALUDO: la reacción al toque (F44). NO existe aún en el firmware: queda PENDIENTE DE CALCAR en `pantalla.cpp` para
+ * cuando la matera tenga el botón. Está escrita en los mismos términos que la OLED (cuadros de 50 ms a 20 fps, px del
+ * sprite de 48x64) para que se copie tal cual: cada cuadro trae cuánto sube el cuerpo entero (`cuerpo(bmp, seno, amp,
+ * dy)`, la matera no se mueve) y qué tan abiertos van los ojos (el `parpadeo` de `caraGrande`). Durante el saludo la
+ * cara es la contenta (CARA_NIVEL[0]) sin transición, en cualquier estado, como la suculenta regada.
+ *   CUADRO_MS 50 · 12 cuadros = DURACION_MS 600 · el salto sube 5 px (cuadros 0 a 5), baja a +1 (cuadro 7: aterriza
+ *   agachada) y asienta; parpadeo doble: ojos a 0,5 · 0 · 0,5 en los cuadros 2 a 4 y otra vez en los 6 a 8.
+ * Con movimiento reducido: sin salto ni parpadeo, la cara contenta durante REDUCIDO_MS (800 ms).
+ */
+export const SALUDO = Object.freeze({
+  CUADRO_MS: 50,
+  DURACION_MS: 600,
+  DY: Object.freeze([-2, -4, -5, -5, -4, -2, 0, 1, 0, 0, 0, 0]),
+  OJOS: Object.freeze([1, 1, 0.5, 0, 0.5, 1, 0.5, 0, 0.5, 1, 1, 1]),
+  CARA: Object.freeze({ abierto: 1.0, inclina: 0.0, boca: 1.0, onda: 0.0 }),
+  REDUCIDO_MS: 800,
+});
+
+/** El cuadro del saludo a `t` ms de empezado: { cuadro, dy, ojos }; null si no ha empezado o ya terminó. */
+export function pasoSaludo(t) {
+  if (!(t >= 0) || t >= SALUDO.DURACION_MS) return null;
+  const cuadro = Math.floor(t / SALUDO.CUADRO_MS);
+  return { cuadro, dy: SALUDO.DY[cuadro], ojos: SALUDO.OJOS[cuadro] };
+}
 
 /** Nivel 0, 1 o 2 desde el estado del diagnóstico (sin diagnóstico se dibuja como saludable, igual que la matera). */
 export function nivelDe(estado) {
@@ -167,13 +195,16 @@ export function piezasDeCaraMatera(cara, parpadeo, { nivel = 0, ahora = 0 } = {}
   return { ojos, cejas, boca, lagrima };
 }
 
-/** Girasol saludable: cuadro de la corona (0 o 1), cabeceo (px) y mirada (px) a `ahora` ms. */
+/**
+ * Girasol saludable: cuadro de la corona (0 o 1), cabeceo (px) y mirada (px) a `ahora` ms. Con píxeles enteros, como
+ * el firmware (`lroundf`): el cabeceo sube o baja de a 1 px el cuerpo entero y la mirada mueve la cara de a 1 px.
+ */
 export function poseGirasol(ahora, nivel) {
   if (nivel !== 0) return { cuadro: 0, dy: 0, mira: 0 };
   return {
     cuadro: Math.floor(ahora / GIRASOL_CUADRO_MS) % 2,
-    dy: 0.6 * Math.sin((2 * Math.PI * (ahora % GIRASOL_CABECEO_MS)) / GIRASOL_CABECEO_MS),
-    mira: 1.5 * Math.sin((2 * Math.PI * (ahora % GIRASOL_MIRA_MS)) / GIRASOL_MIRA_MS),
+    dy: lround(0.6 * Math.sin((2 * Math.PI * (ahora % GIRASOL_CABECEO_MS)) / GIRASOL_CABECEO_MS)),
+    mira: lround(1.5 * Math.sin((2 * Math.PI * (ahora % GIRASOL_MIRA_MS)) / GIRASOL_MIRA_MS)),
   };
 }
 

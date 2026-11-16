@@ -6,132 +6,116 @@
 // las piezas que calcula `piezasDeCara`, como `caraGrande` en el chip: ojos, cejas, boca y lágrima por estado.
 // Se construye con createElementNS (`svg()`); los colores salen de clases del CSS, nunca de estilos en línea.
 import { svg } from "../ui.js";
-import { HOJAS_CARNIVORA, crearCabeza, ABIERTA_SUP, ABIERTA_INF } from "./ilustracion-planta.js";
 import { FAMILIAS } from "./especie.js";
 import * as T from "./mascota-tiempo.js";
+import * as P from "./mascota-poses.js";
 
-/**
- * Hoja puntiaguda que sale de (x, y) hacia `grados` (0 = derecha, -90 = arriba), de largo `largo` y medio ancho
- * `ancho`. Devuelve el trazo. Puro.
- */
-export function hojaPuntiaguda(x, y, grados, largo, ancho) {
-  const r = (grados * Math.PI) / 180;
-  const ux = Math.cos(r);
-  const uy = Math.sin(r);
-  const n = (v) => Number(v.toFixed(2));
-  const punta = [x + ux * largo, y + uy * largo];
-  const medio = [x + ux * largo * 0.5, y + uy * largo * 0.5];
-  const c1 = [medio[0] - uy * ancho * 2, medio[1] + ux * ancho * 2];
-  const c2 = [medio[0] + uy * ancho * 2, medio[1] - ux * ancho * 2];
-  return `M${n(x)} ${n(y)}Q${n(c1[0])} ${n(c1[1])} ${n(punta[0])} ${n(punta[1])}Q${n(c2[0])} ${n(c2[1])} ${n(x)} ${n(y)}Z`;
+// ---------- cuerpos, calcados de firmware/sprites/dibujar.py (mascota-poses.js trae los números) ----------
+// Cada familia devuelve `cuerpos[nivel][cuadro]`: un <g> por pose de la OLED (un sprite por estado y, donde lo
+// hay, su segundo cuadro de idle). Se dibujan todos y se muestra solo el vigente (atributo `display`, sin estilos
+// en línea). dibujar.py pone sus trazos, elipses y polígonos en centros de píxel: eso va dentro de `centrado()`,
+// corrido medio píxel; los rectángulos y píxeles sueltos (brazos del cactus, espinas, decoración) van en bordes.
+
+const cuerpo = (...hijos) => svg("g", { class: "masc-cuerpo-pose", display: "none" }, ...hijos);
+const centrado = (...hijos) => svg("g", { transform: `translate(${P.CORRIMIENTO} ${P.CORRIMIENTO})` }, ...hijos);
+const trazo = (clase, d) => svg("path", { class: clase, d });
+const tallo = (puntos, grosor) => svg("path", { class: "ilu-tallo", d: P.talloD(...puntos), fill: "none", "stroke-width": grosor, "stroke-linecap": "round" });
+
+/** Hoja con su vena (los nervios de las hojas grandes del sprite). `clase` es hoja-a o hoja-b. */
+function hojaDe(clase, h) {
+  const l = P.lente(h.base, h.tip, h.ancho, { curva: h.curva || 0, vena: h.vena !== false });
+  return [trazo(`ilu-hoja ${clase}`, l.d), l.vena ? trazo("masc-vena", l.vena) : null];
 }
+const hojasDe = (lista) => lista.map((h, i) => hojaDe(i % 2 ? "hoja-b" : "hoja-a", h));
+const sueloDe = (s) => (s ? hojaDe("hoja-b", { ...s, vena: false }) : null);
 
-const hoja = (clase, x, y, grados, largo, ancho) => svg("path", { class: `ilu-hoja ${clase}`, d: hojaPuntiaguda(x, y, grados, largo, ancho) });
-
-// ---------- cuerpos, calcados de firmware/sprites/arte/<familia>_saludable*.txt ----------
-
-/** Girasol: corona de 12 pétalos (r 10 a 17,5) y disco de radio 10 con la cara en el centro (24, 17); tallo y dos hojas. */
+/** Girasol: tallo, dos hojas, corona de pétalos y disco con la cara en el centro (CARA_GIRASOL). */
 function girasol() {
-  const petalos = Array.from({ length: 12 }, (_, i) =>
-    svg("ellipse", { class: `masc-petalo${i % 2 ? " masc-petalo--b" : ""}`, cx: 24, cy: 3.4, rx: 3.1, ry: 4.6, transform: `rotate(${i * 30} 24 17)` }));
-  const corona = svg("g", { class: "masc-corona" }, petalos);
-  const cabeza = svg("g", { class: "masc-cabeza" }, corona,
-    svg("circle", { class: "masc-disco", cx: 24, cy: 17, r: 10.2 }),
-    svg("circle", { class: "masc-disco-borde", cx: 24, cy: 17, r: 8.8 }));
-  const hojas = svg("g", { class: "masc-hojas" },
-    hoja("hoja-b", 24, 40, -37, 20, 3.4),
-    hoja("hoja-a", 24, 42, -151, 20.6, 3.6));
-  return {
-    planta: [svg("path", { class: "ilu-tallo", d: "M24 46V27", "stroke-width": 2.6, "stroke-linecap": "round" }), hojas, cabeza],
-    refs: { corona, cabeza, hojas },
-    geo: T.GEO_CHICA,
-  };
+  let corona0 = null;
+  const cuerpos = P.GIRASOL.map((p, nivel) => {
+    const petalos = P.petalosDe(p.corona).map((e) =>
+      svg("ellipse", { class: `masc-petalo${e.i % 2 ? " masc-petalo--b" : ""}`, cx: e.cx, cy: e.cy, rx: e.rx, ry: e.ry, transform: `rotate(${e.giro} ${e.cx} ${e.cy})` }));
+    const corona = svg("g", { class: "masc-corona" }, petalos);
+    if (nivel === 0) corona0 = corona;
+    const { cx, cy, r } = p.disco;
+    return [cuerpo(centrado(tallo(p.tallo, 3), hojasDe(p.hojas), sueloDe(p.suelo), corona,
+      svg("circle", { class: "masc-disco", cx, cy, r: r + 0.5 }),
+      svg("circle", { class: "masc-disco-borde", cx, cy, r: r - 1.2 })))];
+  });
+  return { cuerpos, refs: { corona: corona0 }, geo: T.GEO_CHICA };
 }
 
-/** Cactus: columna de 19 px (x 15 a 34) con cúpula en la fila 9, brazo izquierdo bajo y derecho alto, costillas. */
+/** Cactus: columna de 19 px con cúpula, dos brazos (dos rectángulos redondeados cada uno), costillas y espinas de 1 px. */
 function cactus() {
-  const izq = svg("g", { class: "masc-brazo" },
-    svg("path", { class: "masc-cuerpo", d: "M15.5 34H9a4 4 0 0 1-4-4V19.5a3.5 3.5 0 0 1 7 0V27h3.5Z" }),
-    svg("path", { class: "masc-costilla", d: "M8.5 19V31" }));
-  const der = svg("g", { class: "masc-brazo" },
-    svg("path", { class: "masc-cuerpo", d: "M33.5 31H39.5a4 4 0 0 0 4-4V14.8a3.75 3.75 0 0 0-7.5 0V24h-2.5Z" }),
-    svg("path", { class: "masc-costilla", d: "M39.75 14V29" }));
-  const columna = svg("g", { class: "masc-columna" },
-    svg("path", { class: "masc-cuerpo", d: "M15 46V19a9.5 9.5 0 0 1 19 0V46Z" }),
-    svg("path", { class: "masc-costilla", d: "M19.5 36V46M24.5 36V46M29.5 36V46" }));
-  const flor = svg("g", { class: "masc-flor" });
-  return { planta: [izq, der, columna], arriba: [flor], refs: { izq, der, columna, flor }, geo: T.GEO_CACTUS };
+  const rect = ([x0, y0, x1, y1], rx) => svg("rect", { class: "masc-cuerpo", x: x0, y: y0, width: x1 - x0 + 1, height: y1 - y0 + 1, rx });
+  const cuerpos = P.CACTUS.map((p) => {
+    const costillas = [];
+    const brazos = p.brazos.map(([vertical, horizontal]) => {
+      const x = Math.floor((vertical[0] + vertical[2]) / 2);
+      costillas.push(`M${x} ${vertical[1] + 3}V${vertical[3] - 3}`);
+      return [rect(vertical, 3), rect(horizontal, 3)];
+    });
+    for (const x of [19, 24, 29]) costillas.push(`M${x} ${p.costillaDesde}V46`);
+    const espinas = [];
+    for (let y = p.cima + 6; y < 46; y += 5) espinas.push([14, y], [34, y + 2]);
+    for (const [vertical] of p.brazos) for (let y = vertical[1] + 3; y < vertical[3] - 2; y += 5) espinas.push([vertical[0] - 1, y], [vertical[2] + 1, y + 2]);
+    const caida = p.espinaCaida ? svg("path", { class: "masc-costilla", d: `M${p.espinaCaida[0][0]} ${p.espinaCaida[0][1]}L${p.espinaCaida[1][0]} ${p.espinaCaida[1][1]}` }) : null;
+    return [cuerpo(brazos, svg("rect", { class: "masc-cuerpo", x: 15, y: p.cima, width: 19, height: 48 - p.cima, rx: 9 }),
+      trazo("masc-cuerpo", P.pixelesD(espinas)), centrado(trazo("masc-costilla", costillas.join("")), caida))];
+  });
+  return { cuerpos, refs: { flor: svg("g", { class: "masc-flor" }) }, geo: T.GEO_CACTUS, arriba: true };
 }
 
-/**
- * Suculenta: un corazón redondo (centro (24, 36), radio 9,6) con la cara, y siete hojas carnosas y romas alrededor
- * de la mitad de arriba: tres arriba (filas 16 a 26) y dos por lado (filas 27 a 41), como suculenta_saludable_0.
- */
+/** Suculenta: roseta de hojas gruesas (las de atrás y las del medio) alrededor del corazón liso con la cara. Saludable tiene un segundo cuadro inflado. */
 function suculenta() {
-  const sucu = (clase, grados, distancia, largo, ancho) => {
-    const r = (grados * Math.PI) / 180;
-    const cx = (24 + Math.cos(r) * distancia).toFixed(2);
-    const cy = (37 + Math.sin(r) * distancia).toFixed(2);
-    return svg("ellipse", { class: `masc-sucu ${clase}`, cx, cy, rx: largo / 2, ry: ancho, transform: `rotate(${grados} ${cx} ${cy})` });
-  };
-  const roseta = svg("g", { class: "masc-roseta" },
-    sucu("masc-sucu--a", 178, 13.5, 12, 4.2), sucu("masc-sucu--a", 2, 13.5, 12, 4.2),
-    sucu("masc-sucu--b", -150, 13.5, 11, 3.4), sucu("masc-sucu--b", -30, 13.5, 11, 3.4),
-    sucu("masc-sucu--b", -122, 13, 10, 3.4), sucu("masc-sucu--b", -58, 13, 10, 3.4),
-    sucu("masc-sucu--c", -90, 13.5, 11, 3.8),
-    svg("circle", { class: "masc-cuerpo masc-sucu--corazon", cx: 24, cy: 36.4, r: 9.6 }));
-  return { planta: [roseta], refs: { roseta }, geo: T.GEO_CHICA };
+  const cuerpos = P.SUCULENTA.map((p, nivel) => (nivel === 0 ? [false, true] : [false]).map((inflada) => {
+    const { hojas, centro, cx, cy } = P.hojasDeSuculenta(nivel, inflada);
+    return cuerpo(centrado(
+      hojas.map((h) => trazo(`masc-sucu masc-sucu--${h.capa === "a" ? "a" : "b"}`, h.d)),
+      p.suelo ? trazo("masc-sucu masc-sucu--b", P.lente(p.suelo.base, p.suelo.tip, p.suelo.ancho, { perfil: 0.7, vena: false }).d) : null,
+      svg("circle", { class: "masc-sucu masc-sucu--corazon", cx, cy, r: centro + 0.5 })));
+  }));
+  return { cuerpos, refs: {}, geo: T.GEO_CHICA };
 }
 
-/** Una fronda: raquis curvo desde la base y folíolos que se achican hacia la punta. */
-function fronda(grados, largo) {
-  const n = 7;
-  const hijos = [svg("path", { class: "masc-raquis", d: `M24 45Q25.6 ${(45 - largo * 0.55).toFixed(1)} 24 ${45 - largo}` })];
-  for (let k = 1; k <= n; k++) {
-    const y = 45 - (largo * (k + 0.4)) / (n + 1);
-    const tam = 4.2 * (1 - k / (n + 2)) + 1;
-    for (const lado of [-1, 1]) {
-      const cx = (24 + lado * tam * 0.6).toFixed(2);
-      hijos.push(svg("ellipse", { class: `ilu-hoja ${(k + (lado > 0 ? 1 : 0)) % 2 ? "hoja-a" : "hoja-b"}`, cx, cy: y.toFixed(2), rx: (tam * 0.62).toFixed(2), ry: 0.9, transform: `rotate(${-28 * lado} ${cx} ${y.toFixed(2)})` }));
-    }
-  }
-  const mecible = svg("g", { class: "masc-fronda" }, hijos);
-  return { nodo: svg("g", { transform: `rotate(${grados + 90} 24 45)` }, mecible), mecible, grados };
-}
-
-/** Helecho: cinco frondas en abanico (puntas en (0,24), (4,6), (23,1), (41,5), (47,25)); la cara va en la matera. */
+/** Helecho: cinco frondas de pluma (cuatro en crítico), en sus dos cuadros por estado; la cara va en la matera. */
 function helecho() {
-  const frondas = [[-139, 32], [-117, 44], [-90, 44], [-67, 43], [-41, 31]].map(([g, l]) => fronda(g, l));
-  return { planta: frondas.map((f) => f.nodo), refs: { frondas }, caraEnMatera: true };
+  const cuerpos = [0, 1, 2].map((nivel) => [0, 1].map((c) => {
+    const p = P.helecho(nivel, c);
+    const frondas = p.frondas.map(([p0, p1, p2, largo]) => P.frondaD(p0, p1, p2, largo, p.abre, p.decae, { paso: p.paso }));
+    return cuerpo(centrado(trazo("masc-raquis", frondas.map((f) => f.raquis).join("")), trazo("masc-foliolos", frondas.map((f) => f.foliolos).join("")), sueloDe(p.suelo)));
+  }));
+  return { cuerpos, refs: {}, caraEnMatera: true };
+}
+
+/** Genérica (respaldo): la planta común de la OLED, tallo y hojas por estado; la cara va en la matera. */
+function generica() {
+  const cuerpos = P.GENERICA.map((p) => [cuerpo(centrado(tallo(p.tallo, 3), hojasDe(p.hojas)))]);
+  return { cuerpos, refs: {}, caraEnMatera: true };
 }
 
 /**
- * Carnívora: la cabeza de trampa del front (F36) a la medida de la de la OLED (carni_abierta_0: 44 px de ancho,
- * filas 0 a 36, ojos a 9 px del centro en la fila 9), sobre su tallo y las dos hojas de abajo (filas 37 a 45).
+ * Carnívora. Saludable: la trampa de `trampa()` en dibujar.py (elipse de 45 px, boca en lente con dientes y, cerrada, el
+ * zigzag de los dientes entrelazados) en sus tres cuadros de boca (abierta, media, cerrada: carni_abierta_0, carni_media,
+ * carni_cerrada); los ojos los pinta el código, como en la OLED. En riesgo y crítico: la cabeza cerrada y lisa
+ * (carni_riesgo_0, carni_critico_0) sobre su tallo, con la cara triste que dibuja el código (boca, cejas, lágrima).
  */
-const ESCALA_TRAMPA = 0.5;
 function carnivora() {
-  const cabeza = crearCabeza();
-  const hojas = HOJAS_CARNIVORA.map(([d, ox, oy, clase]) => svg("path", { class: `ilu-hoja ${clase}`, d, "data-ox": ox, "data-oy": oy }));
-  const desplazable = svg("g", { class: "masc-trampa" }, cabeza.grupo);
-  const planta = [
-    svg("path", { class: "ilu-tallo", d: "M24 46V32", "stroke-width": 4, "stroke-linecap": "round" }),
-    svg("g", { transform: "matrix(0.37 0 0 0.37 -24.1 -6.06)" }, hojas),
-    svg("g", { transform: `matrix(${ESCALA_TRAMPA} 0 0 ${ESCALA_TRAMPA} -41 -17)` }, desplazable),
-  ];
-  const ojos = [...cabeza.superior.querySelectorAll(".ilu-ojo, .ilu-pupila")];
-  return { planta, refs: { cabeza, hojas, desplazable, ojos }, sinCara: true };
-}
-
-/** Genérica (respaldo): la planta común de la OLED, tres hojas grandes y una chica; la cara va en la matera. */
-function generica() {
-  const hojas = [
-    [hoja("hoja-a", 22, 42, -126, 32, 4.4), 22, 42],
-    [hoja("hoja-b", 26, 42, -61, 33, 4.4), 26, 42],
-    [hoja("hoja-a", 24, 44, -92, 43, 5.2), 24, 44],
-    [hoja("hoja-b", 27, 44, -33, 16, 2.6), 27, 44],
-  ];
-  return { planta: [svg("path", { class: "ilu-tallo", d: "M24 46V30", "stroke-width": 2, "stroke-linecap": "round" }), ...hojas.map(([h]) => h)], refs: { hojas }, caraEnMatera: true };
+  const abiertas = P.CARNIVORA_BOCA_G.map((g) => {
+    const t = P.cabezaDeTrampa(g);
+    return cuerpo(centrado(
+      tallo([[24, 47], [24, 42], [24, t.inf - 2]], 5),
+      hojasDe(P.CARNIVORA_HOJAS_SALUDABLE),
+      svg("ellipse", { class: "ilu-cabeza masc-trampa-cerrada", cx: t.cabeza.cx, cy: t.cabeza.cy, rx: t.cabeza.rx, ry: t.cabeza.ry }),
+      t.lente ? svg("ellipse", { class: "ilu-boca-interior", cx: t.lente.cx, cy: t.lente.cy, rx: t.lente.rx, ry: t.lente.ry }) : null,
+      t.dientes ? trazo("ilu-diente", t.dientes) : null,
+      t.zigzag ? trazo("masc-costilla", t.zigzag) : null));
+  });
+  const tristes = P.CARNIVORA_TRISTE.map((p) => cuerpo(centrado(
+    tallo([[24, 47], [24 - p.desv, 42], [24, p.cy + 9 - 2]], 5),
+    hojasDe(P.CARNIVORA_HOJAS),
+    svg("ellipse", { class: "ilu-cabeza masc-trampa-cerrada", cx: 24, cy: p.cy - 2, rx: 22.5, ry: 11.5 }))));
+  return { cuerpos: [abiertas, [tristes[0]], [tristes[1]]], refs: {}, geo: T.GEO_TRAMPA };
 }
 
 const DIBUJOS = { girasol, cactus, suculenta, helecho, carnivora, generica };
@@ -153,55 +137,32 @@ function nodosDeCara(piezas) {
   return nodos;
 }
 
-// Poses de en riesgo y crítico. La OLED tiene un sprite por estado; aquí se aproxima con transformaciones que
-// llevan la cabeza al centro de cara del firmware (CARA_<FAMILIA>[nivel]). Ver F41: es lo que queda por calcar.
-const CAIDA = [0, 10, 22];
-
-function aplicarPose(familia, refs, nivel) {
-  const pon = (nodo, t) => (t ? nodo.setAttribute("transform", t) : nodo.removeAttribute("transform"));
-  if (familia === "girasol") {
-    const p = T.CARA_GIRASOL[nivel];
-    pon(refs.hojas, nivel ? `rotate(${CAIDA[nivel] / 2} 24 42)` : null);
-    refs.poseCabeza = nivel ? `translate(${p.x - 24} ${p.y - 17}) rotate(${nivel * 25} 24 17)` : "";
-  } else if (familia === "cactus") {
-    const abajo = nivel ? "matrix(1 0 0 -0.7 0 52)" : null; // brazos colgando (espejo sobre la fila 30)
-    pon(refs.izq, abajo);
-    pon(refs.der, abajo);
-    const baja = T.CARA_CACTUS[nivel].y - T.CARA_CACTUS[0].y;
-    pon(refs.columna, baja ? `translate(0 ${baja})` : null);
-  } else if (familia === "suculenta") {
-    pon(refs.roseta, nivel ? `translate(0 ${46 * (1 - [1, 0.94, 0.86][nivel])}) scale(1 ${[1, 0.94, 0.86][nivel]})` : null);
-  } else if (familia === "helecho") {
-    refs.frondas.forEach((f) => (f.caida = Math.sign(f.grados + 90) * [0, 12, 30][nivel]));
-  } else if (familia === "generica") {
-    refs.hojas.forEach(([h, x, y], i) => pon(h, nivel ? `rotate(${(i === 0 || i === 2 ? -1 : 1) * CAIDA[nivel] * (i === 2 ? 0.3 : 1)} ${x} ${y})` : null));
-  } else if (familia === "carnivora") {
-    refs.hojas.forEach((h, i) => pon(h, nivel ? `rotate(${(i % 2 ? 1 : -1) * CAIDA[nivel]} ${h.dataset.ox} ${h.dataset.oy})` : null));
-    pon(refs.cabeza.grupo, nivel ? `rotate(${CAIDA[nivel]} 130 100)` : null);
-  }
-}
-
 /**
- * Crea la mascota de una familia. Devuelve { nodo, familia, ponerEstado(estado), pintar(ahora, { reposo }) }.
- * `pintar` dibuja el cuadro de `ahora` (ms) con las reglas del chip; `reposo` deja la pose quieta (sin balanceo,
- * sin parpadeo, la flor del cactus abierta), que es lo que se ve con movimiento reducido. `nodo` es decorativo
- * (aria-hidden): quien lo muestra pone el nombre de la especie en texto. Familia desconocida: la genérica.
+ * Crea la mascota de una familia. Devuelve { nodo, familia, ponerEstado(estado), pintar(ahora, { reposo }), saludar(),
+ * morder() }. `pintar` dibuja el cuadro de `ahora` (ms) con las reglas del chip; `reposo` deja la pose quieta (sin
+ * balanceo, sin parpadeo, la flor del cactus abierta), que es lo que se ve con movimiento reducido. `nodo` es
+ * decorativo (aria-hidden): quien lo muestra pone el nombre de la especie en texto. Familia desconocida: la genérica.
+ *
+ * `saludar()` es el toque (F44): un salto y un parpadeo doble de `T.SALUDO.DURACION_MS`, con cara de contenta; con
+ * `{ reducido: true }` (movimiento reducido) la pose queda quieta y solo cambia la expresión.
+ * `morder()` es el mordisco de la OLED cuando llega una lectura (solo carnívora saludable, como `mordisco()`).
  */
 export function crearMascota(familia, { estado = "SALUDABLE", clase = "" } = {}) {
   const nombre = FAMILIAS.includes(familia) ? familia : "generica";
   const dibujo = DIBUJOS[nombre]();
   const refs = dibujo.refs;
-  const planta = svg("g", { class: "masc-planta" }, dibujo.planta);
+  const planta = svg("g", { class: "masc-planta" }, dibujo.cuerpos.flat());
   const cara = svg("g", { class: "masc-cara" });
   const nodo = svg("svg", { class: `mascota mascota--${nombre}${clase ? ` ${clase}` : ""}`, viewBox: "0 0 48 64", "aria-hidden": "true", focusable: "false", "data-familia": nombre },
     planta,
-    ...(dibujo.arriba || []),
+    ...(dibujo.arriba ? [refs.flor] : []),
     svg("rect", { class: "ilu-borde", x: 8, y: 46, width: 32, height: 4, rx: 1 }),
     svg("path", { class: "ilu-matera", d: "M11 51H37L34 64H14Z" }),
+    trazo("masc-deco", P.pixelesD(P.decoracionDeMatera(nombre))), // los píxeles apagados del borde y la banda de la matera
     cara,
   );
 
-  // Estado del «chip»: nivel y desde cuándo, cara en transición, parpadeo y mordisco.
+  // Estado del «chip»: nivel y desde cuándo, cara en transición, parpadeo, mordisco y saludo.
   let nivel = 0;
   let nivelDesde = 0;
   let caraDesde = T.CARA_NIVEL[0];
@@ -212,8 +173,22 @@ export function crearMascota(familia, { estado = "SALUDABLE", clase = "" } = {})
   let parpadeoDesde = -Infinity;
   let proximoMordisco = null;
   let mordiscoDesde = -Infinity;
+  let saludoDesde = -Infinity;
+  let saludoQuieto = false;
+  let temporizadorSaludo = null;
   let firmaCara = "";
   let ultimaFlor = "";
+  let vigente = null; // el <g> que se ve
+  let ultimasPiezas = null; // las de la cara del último cuadro (para las herramientas de comparación)
+
+  /** Muestra la pose (nivel, cuadro) y esconde las demás. */
+  function mostrar(cuadro) {
+    const g = dibujo.cuerpos[nivel][Math.min(cuadro, dibujo.cuerpos[nivel].length - 1)];
+    if (g === vigente) return;
+    if (vigente) vigente.setAttribute("display", "none");
+    g.removeAttribute("display");
+    vigente = g;
+  }
 
   function ponerEstado(nuevo) {
     const n = T.nivelDe(nuevo);
@@ -224,7 +199,7 @@ export function crearMascota(familia, { estado = "SALUDABLE", clase = "" } = {})
     caraT0 = reloj;
     nivel = n;
     nivelDesde = reloj;
-    aplicarPose(nombre, refs, nivel);
+    mostrar(0);
   }
 
   function pintarFlor(ahora, reposo) {
@@ -243,57 +218,63 @@ export function crearMascota(familia, { estado = "SALUDABLE", clase = "" } = {})
     }
   }
 
-  /** Pinta el cuadro de `ahora` (ms). */
-  function pintar(ahora, { reposo = false } = {}) {
+  /**
+   * Pinta el cuadro de `ahora` (ms). Con `reposo` la pose queda quieta; en ese caso `cuadro` elige el cuadro de idle que
+   * se deja fijo (girasol: corona girada, suculenta: inflada, helecho: segundo cuadro de frondas, carnívora: 0 boca
+   * abierta, 1 media, 2 cerrada). Sirve a la herramienta de comparación con los sprites y a las pruebas.
+   */
+  function pintar(ahora, { reposo = false, cuadro = 0 } = {}) {
     reloj = ahora;
     if (caraT0 === -Infinity) caraT0 = ahora - T.TRANSICION_MS;
     const seno = reposo ? 0 : T.senoBalanceo(ahora);
     const amp = T.amplitud(nombre, nivel);
-    planta.setAttribute("transform", T.matrizBalanceo(seno, amp));
 
-    // parpadeo cada 3 a 5 s (150 ms)
+    // saludo (el toque): salto y parpadeo doble con la cara contenta; con reposo solo la expresión
+    const saludo = reposo ? null : T.pasoSaludo(ahora - saludoDesde);
+    const contenta = saludo || saludoQuieto;
+
+    // parpadeo cada 3 a 5 s (150 ms); en el saludo manda el parpadeo doble
     let parpadeo = 1;
     if (!reposo) {
       if (proximoParpadeo === null) proximoParpadeo = ahora + T.esperaDeParpadeo();
       if (ahora >= proximoParpadeo) { parpadeoDesde = ahora; proximoParpadeo = ahora + T.esperaDeParpadeo(); }
-      parpadeo = T.factorParpadeo(ahora - parpadeoDesde);
+      parpadeo = saludo ? saludo.ojos : T.factorParpadeo(ahora - parpadeoDesde);
     }
-    const c = reposo ? caraHasta : T.caraEn(caraDesde, caraHasta, ahora - caraT0);
+    const c = contenta ? T.SALUDO.CARA : reposo ? caraHasta : T.caraEn(caraDesde, caraHasta, ahora - caraT0);
     let piezas = null;
     let dx = 0;
-    let dy = 0;
+    let dy = saludo ? saludo.dy : 0; // el cuerpo entero (todo lo que está sobre la matera) sube y baja
+    let caraDy = dy;
 
     if (nombre === "girasol") {
       const p = T.CARA_GIRASOL[nivel];
       const pose = reposo ? { cuadro: 0, dy: 0, mira: 0 } : T.poseGirasol(ahora, nivel);
-      refs.corona.setAttribute("transform", pose.cuadro ? "rotate(15 24 17)" : "");
-      refs.cabeza.setAttribute("transform", `${refs.poseCabeza || ""} translate(0 ${pose.dy.toFixed(2)})`);
+      if (nivel === 0) refs.corona.setAttribute("transform", (reposo ? cuadro : pose.cuadro) ? "rotate(15 24 17)" : "");
+      if (!saludo) { dy = pose.dy; caraDy = dy; }
       dx = pose.mira + T.desv(p.y, seno, amp);
-      dy = pose.dy;
       piezas = T.piezasDeCara(c, parpadeo, p.x, p.y, T.GEO_CHICA, { nivel, ahora });
     } else if (nombre === "cactus") {
       const p = T.CARA_CACTUS[nivel];
       dx = T.desv(p.y, seno, amp);
       piezas = T.piezasDeCara(c, parpadeo, p.x, p.y, T.GEO_CACTUS, { nivel, ahora });
       pintarFlor(ahora, reposo);
-      refs.flor.setAttribute("transform", `translate(${T.desv(T.CACTUS_Y_FLOR, seno, amp).toFixed(2)} 0)`);
+      refs.flor.setAttribute("transform", `translate(${T.desv(T.CACTUS_Y_FLOR, seno, amp).toFixed(2)} ${dy})`);
     } else if (nombre === "suculenta") {
       const p = T.CARA_SUCULENTA[nivel];
-      const inflada = !reposo && T.suculentaInflada(ahora, nivel);
-      // suculenta_saludable_1: la roseta crece de 40x30 a 44x32 px con la base quieta en la fila 45.
-      if (nivel === 0) refs.roseta.setAttribute("transform", inflada ? "translate(-2.4 -3.15) scale(1.1 1.07)" : "");
+      mostrar(reposo ? cuadro : T.suculentaInflada(ahora, nivel) ? 1 : 0);
       dx = T.desv(p.y, seno, amp);
       piezas = T.piezasDeCara(c, parpadeo, p.x, p.y, T.GEO_CHICA, { nivel, ahora });
     } else if (nombre === "helecho") {
-      const cuadro = reposo ? 0 : T.cuadroHelecho(ahora, nivel);
-      // Dos cuadros que alternan (HELECHO_MS): en el segundo cada fronda se corre hacia el lado contrario a su vecina.
-      refs.frondas.forEach((f, i) => f.mecible.setAttribute("transform", `rotate(${((f.caida || 0) + (cuadro ? (i % 2 ? 5 : -5) : 0)).toFixed(1)} 24 45)`));
+      mostrar(reposo ? cuadro : T.cuadroHelecho(ahora, nivel));
       piezas = T.piezasDeCaraMatera(c, parpadeo, { nivel, ahora });
+      caraDy = 0; // la cara va en la matera: no sube con el salto
     } else if (nombre === "generica") {
       piezas = T.piezasDeCaraMatera(c, parpadeo, { nivel, ahora });
+      caraDy = 0;
     } else {
-      // carnívora: saludable muerde sola cada 6 a 10 s; al cerrar entrecierra los ojos. Parpadea como todas.
-      let boca = 0;
+      // carnívora: saludable muerde sola cada 6 a 10 s; el cuadro de boca decide dónde van los ojos (fila 9, 12 o 16).
+      // En riesgo y crítico la cabeza va cerrada y lisa (la cara triste con boca la pone el código).
+      let boca = reposo && nivel === 0 ? cuadro : 0;
       let dyBoca = 0;
       if (!reposo && nivel === 0) {
         if (proximoMordisco === null) proximoMordisco = T.proximoMordisco(ahora);
@@ -301,16 +282,18 @@ export function crearMascota(familia, { estado = "SALUDABLE", clase = "" } = {})
         const paso = T.pasoMordisco(ahora - mordiscoDesde);
         if (paso) { boca = paso.boca; dyBoca = paso.dy; }
       }
-      const abertura = [1, 0.5, 0][boca];
-      refs.cabeza.superior.setAttribute("transform", `translate(0 ${ABIERTA_SUP * abertura})`);
-      refs.cabeza.inferior.setAttribute("transform", `translate(0 ${ABIERTA_INF * abertura})`);
-      refs.desplazable.setAttribute("transform", `translate(0 ${(dyBoca / ESCALA_TRAMPA).toFixed(2)})`);
-      const ojo = c.abierto * parpadeo * (boca === 2 ? 0.3 : 1);
-      const f = Math.max(0.15, ojo).toFixed(2);
-      for (const o of refs.ojos) o.setAttribute("transform", `translate(0 ${o.getAttribute("cy")}) scale(1 ${f}) translate(0 ${-o.getAttribute("cy")})`);
+      mostrar(boca); // el cuadro de boca es el cuerpo: abierta, media o cerrada
+      dy += dyBoca;
+      caraDy = dy;
+      const yo = nivel === 0 ? T.CARNIVORA_OJOS_Y[boca] : P.CARNIVORA_TRISTE[nivel - 1].cara;
+      const cm = boca === 2 ? { ...c, abierto: c.abierto * 0.3 } : c;
+      dx = T.desv(yo, seno, amp);
+      piezas = T.piezasDeCara(cm, parpadeo, 24, yo, T.GEO_TRAMPA, { conBoca: nivel > 0, nivel, ahora });
     }
 
-    cara.setAttribute("transform", dx || dy ? `translate(${dx.toFixed(2)} ${dy.toFixed(2)})` : "");
+    ultimasPiezas = piezas;
+    planta.setAttribute("transform", `${dy ? `translate(0 ${dy}) ` : ""}${T.matrizBalanceo(seno, amp)}`);
+    cara.setAttribute("transform", dx || caraDy ? `translate(${dx.toFixed(2)} ${caraDy})` : "");
     if (piezas) {
       const firma = JSON.stringify(piezas);
       if (firma !== firmaCara) {
@@ -320,7 +303,29 @@ export function crearMascota(familia, { estado = "SALUDABLE", clase = "" } = {})
     }
   }
 
+  /** El toque: la mascota saluda. Sin `reducido` es el salto con parpadeo doble; con `reducido`, solo la expresión. */
+  function saludar({ reducido = false } = {}) {
+    if (reducido) {
+      saludoQuieto = true;
+      pintar(reloj, { reposo: true });
+      clearTimeout(temporizadorSaludo);
+      temporizadorSaludo = setTimeout(() => {
+        saludoQuieto = false;
+        pintar(reloj, { reposo: true });
+      }, T.SALUDO.REDUCIDO_MS);
+      return;
+    }
+    saludoDesde = reloj;
+  }
+
+  /** Mordisco por lectura nueva (`mordisco()` del firmware): solo la carnívora saludable. */
+  function morder() {
+    if (nombre !== "carnivora" || nivel > 0) return;
+    mordiscoDesde = reloj;
+    proximoMordisco = T.proximoMordisco(reloj);
+  }
+
   ponerEstado(estado);
   pintar(0, { reposo: true });
-  return { nodo, familia: nombre, ponerEstado, pintar };
+  return { nodo, familia: nombre, ponerEstado, pintar, saludar, morder, piezas: () => ultimasPiezas };
 }
