@@ -2957,6 +2957,13 @@ textarea {
     white-space: nowrap;
   }
 
+  /* la luz del día (F49) ocupa su propia fila bajo la cabecera; sin esto cae en la columna del icono y se parte letra a letra */
+  .burbuja .burbuja-dia {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    margin-top: 0.35rem;
+  }
+
   .burbuja .pista,
   .burbuja .pista-ley,
   .burbuja .tendencia {
