@@ -8,6 +8,7 @@ cara que el firmware pinta por código se les superpone con las mismas piezas qu
 
     python3 tools/comparar-mascotas.py                       # escribe docs/mascotas/*.png
     python3 tools/comparar-mascotas.py --arte ruta/al/arte   # sprites desde una carpeta en vez de git
+    python3 tools/comparar-mascotas.py --oled <salida de previsualizar.py>/mascota   # F49: dormida y saludo
 
 Imprime, por pose, qué tanto coincide la silueta de la planta (filas sobre la matera) entre sprite y front (IoU).
 """
@@ -428,6 +429,82 @@ def construir(datos, args, css):
     print(f"promedio {medio:.3f} en {len(filas_resumen)} poses")
 
 
+# ---------------------------------------------------------------- F49: noche y saludo contra los cuadros de la OLED
+
+FAMILIA_FIRMWARE = {"generica": "comun"}  # previsualizar.py llama «comun» a la planta común
+
+
+def cuadro_oled(carpeta, nombre):
+    """Un cuadro de 48x64 que guardó `noche_y_saludo()` de previsualizar.py (la mascota sola, cara y zzz incluidos)."""
+    im = Image.open(os.path.join(carpeta, nombre + ".png")).convert("L")
+    assert im.size == (48, 64), nombre
+    rgb = Image.new("RGB", (48, 64), (16, 16, 16))
+    rgb.paste((255, 255, 255), (0, 0), im.point(lambda v: 255 if v > 127 else 0))
+    sil = {(x, y) for y in range(Y_MATERA) for x in range(48) if im.getpixel((x, y)) > 127}
+    return rgb, sil
+
+
+def construir_noche_saludo(datos, args, css):
+    """dormida.png (seis familias x tres estados) y saludo.png (seis familias x 12 cuadros): cada celda es el cuadro de
+    la OLED (arriba) y la mascota del front (abajo) en el mismo instante. IoU como siempre, sobre las filas 0 a 45."""
+    f_titulo, f_chica = fuente(14), fuente(11)
+    fondo_front = (253, 246, 229)
+    filas = []
+
+    def celda(nombre_oled, dato, esc):
+        o_im, sil_o = cuadro_oled(args.oled, nombre_oled)
+        f_im, f_nativo = panel_front(dato, css, esc, fondo_front)
+        pix = f_nativo.load()
+        sil_f = {(x, y) for y in range(Y_MATERA) for x in range(48) if pix[x, y][3] > 127}
+        return o_im.resize((48 * esc, 64 * esc), Image.NEAREST), f_im, iou(sil_o, sil_f)
+
+    # dormida
+    esc, margen = 3, 8
+    ancho_p, alto_p = 48 * esc, 64 * esc
+    hoja = Image.new("RGB", (110 + 3 * (ancho_p + margen), 32 + len(FAMILIAS) * (2 * alto_p + 18 + margen)), (255, 255, 255))
+    d = ImageDraw.Draw(hoja)
+    for col, estado in enumerate(ESTADOS):
+        d.text((110 + col * (ancho_p + margen), 8), f"{estado} de noche", fill=(20, 20, 20), font=f_titulo)
+    for fila, familia in enumerate(FAMILIAS):
+        y0 = 32 + fila * (2 * alto_p + 18 + margen)
+        d.text((8, y0 + alto_p - 6), familia, fill=(20, 20, 20), font=f_titulo)
+        for col, estado in enumerate(ESTADOS):
+            n = {"SALUDABLE": "saludable", "EN_RIESGO": "riesgo", "CRITICO": "critico"}[estado]
+            o_im, f_im, valor = celda(f"dormida_{FAMILIA_FIRMWARE.get(familia, familia)}_{n}", datos["noche"][familia][estado], esc)
+            x0 = 110 + col * (ancho_p + margen)
+            hoja.paste(o_im, (x0, y0))
+            hoja.paste(f_im, (x0, y0 + alto_p))
+            d.text((x0, y0 + 2 * alto_p + 2), f"IoU {valor:.2f}", fill=(60, 60, 60), font=f_chica)
+            filas.append(("dormida", familia, estado, valor))
+    hoja.save(os.path.join(args.salida, "dormida.png"))
+
+    # saludo
+    esc = 2
+    ancho_p, alto_p = 48 * esc, 64 * esc
+    hoja = Image.new("RGB", (110 + 12 * (ancho_p + 4), 32 + len(FAMILIAS) * (2 * alto_p + 16 + margen)), (255, 255, 255))
+    d = ImageDraw.Draw(hoja)
+    for k in range(12):
+        d.text((110 + k * (ancho_p + 4), 8), f"cuadro {k}", fill=(20, 20, 20), font=f_chica)
+    for fila, familia in enumerate(FAMILIAS):
+        y0 = 32 + fila * (2 * alto_p + 16 + margen)
+        d.text((8, y0 + alto_p - 6), familia, fill=(20, 20, 20), font=f_titulo)
+        for k in range(12):
+            o_im, f_im, valor = celda(f"saludo_{FAMILIA_FIRMWARE.get(familia, familia)}_{k:02d}", datos["saludo"][familia][k], esc)
+            x0 = 110 + k * (ancho_p + 4)
+            hoja.paste(o_im, (x0, y0))
+            hoja.paste(f_im, (x0, y0 + alto_p))
+            d.text((x0, y0 + 2 * alto_p + 1), f"{valor:.2f}", fill=(60, 60, 60), font=f_chica)
+            filas.append(("saludo", familia, f"cuadro {k:02d}", valor))
+    hoja.save(os.path.join(args.salida, "saludo.png"))
+
+    print(f"{'pose':8} {'familia':10} {'cuadro':12} IoU de la planta (filas 0 a 45)")
+    for pose, familia, cual, valor in filas:
+        print(f"{pose:8} {familia:10} {cual:12} {valor:.3f}")
+    for pose in ("dormida", "saludo"):
+        vals = [v for p_, _, _, v in filas if p_ == pose]
+        print(f"promedio {pose} {sum(vals) / len(vals):.3f} en {len(vals)} cuadros")
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--backend", default=os.path.expanduser("~/Documentos/fitodiagnostico-backend"), help="repo del backend (se lee con git show)")
@@ -435,10 +512,15 @@ def main():
     p.add_argument("--arte", help="carpeta con los .txt de los sprites (en vez de git)")
     p.add_argument("--salida", default=os.path.join(RAIZ, "docs", "mascotas"))
     p.add_argument("--escala", type=int, default=4, help="aumento de las imágenes por familia")
+    p.add_argument("--oled", help="F49: carpeta mascota/ que deja `previsualizar.py` (cuadros de 48x64 de la OLED); "
+                                  "compara la pose dormida y el saludo en vez de los sprites")
     args = p.parse_args()
     css = Css(os.path.join(RAIZ, "css", "estilos.css"))
     crudo = subprocess.check_output(["node", os.path.join(RAIZ, "tools", "mascotas-svg.mjs")], cwd=RAIZ)
-    construir(json.loads(crudo), args, css)
+    if args.oled:
+        construir_noche_saludo(json.loads(crudo), args, css)
+    else:
+        construir(json.loads(crudo), args, css)
 
 
 if __name__ == "__main__":
