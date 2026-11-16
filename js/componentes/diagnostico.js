@@ -61,7 +61,27 @@ export const DIAGNOSTICO_DE_ESQUELETO = {
   recomendaciones: [],
 };
 
-function burbujaDeParametro(parametro, { esqueleto = false } = {}) {
+const cifra = (n) => Number(n).toLocaleString("es-CO", { maximumFractionDigits: 1 });
+
+/**
+ * F49. La luz del día con la regla de la fase 8 del backend: `exposicionLuminica` trae las horas con luz y el lux
+ * efectivo de las últimas 24 h. Devuelve { horas, lux, texto } o null si no hay historial (`base: INSTANTANEA`, o un
+ * servidor viejo sin el campo): entonces no se muestran horas. Puro.
+ */
+export function luzDelDia(diagnostico) {
+  const e = diagnostico && diagnostico.exposicionLuminica;
+  if (!e || e.base !== "ACUMULADA" || e.horasDeLuz == null || e.luxEfectivo == null) return null;
+  return { horas: e.horasDeLuz, lux: e.luxEfectivo, texto: `Hoy: ${cifra(e.horasDeLuz)} h de luz, ${cifra(e.luxEfectivo)} lx efectivos` };
+}
+
+/** F49. ¿La luz de este diagnóstico no cuenta? De noche (`periodo: "NOCHE"`) la luz no entra al estado (D121). */
+export function luzNoCuenta(diagnostico) {
+  return Boolean(diagnostico) && diagnostico.periodo === "NOCHE";
+}
+
+export const DE_NOCHE_NO_CUENTA = "de noche no cuenta";
+
+function burbujaDeParametro(parametro, { esqueleto = false, noche = false, dia = null } = {}) {
   const nombre = parametro.nombre;
   const etiqueta = ETIQUETAS_PARAMETRO[nombre] || nombre;
   const [min, max] = parametro.rangoOptimo;
@@ -80,17 +100,23 @@ function burbujaDeParametro(parametro, { esqueleto = false } = {}) {
     "aria-label": `${etiqueta}: ${parametro.valor} ${parametro.unidad}; lo ideal es de ${min} a ${max} ${parametro.unidad}`,
   }, banda, relleno);
 
+  const esLuz = nombre === "luz";
   const valorReal = h("span", { class: "num-valor" }, String(parametro.valor));
   const valorAnimado = h("span", { class: "num-anim", "aria-hidden": "true" });
   const ranura = h("div", { class: "tendencia" });
 
   // En el esqueleto no hay datos: sin data-parametro/estado ni el rol de imagen de la barra.
   if (esqueleto) pista.removeAttribute("role");
-  const nodo = h("section", { class: "burbuja", "data-parametro": esqueleto ? null : nombre, "data-estado": esqueleto ? null : parametro.estado },
+  // F49: de noche la ficha de luz va en gris (CSS por `data-noche`) y en vez del estado dice que no cuenta; con
+  // historial, el número es el de ahora y debajo va la luz del día.
+  const deNoche = esLuz && noche && !esqueleto;
+  const delDia = esLuz && !esqueleto ? dia : null;
+  const nodo = h("section", { class: "burbuja", "data-parametro": esqueleto ? null : nombre, "data-estado": esqueleto ? null : parametro.estado, "data-noche": deNoche ? "true" : null },
     h("div", { class: "burbuja-icono" }, iconoDeParametro(nombre)),
     h("h3", {}, etiqueta),
-    h("div", { class: "num" }, valorReal, valorAnimado, h("small", {}, parametro.unidad)),
-    chipDeParametro(parametro.estado),
+    h("div", { class: "num" }, valorReal, valorAnimado, h("small", {}, delDia ? `${parametro.unidad} ahora` : parametro.unidad)),
+    delDia ? h("p", { class: "burbuja-dia" }, delDia.texto) : null,
+    deNoche ? h("span", { class: "chip chip--noche" }, DE_NOCHE_NO_CUENTA) : chipDeParametro(parametro.estado),
     pista,
     h("div", { class: "pista-ley" },
       h("span", {}, numeroLegible(escala[0])),
@@ -126,7 +152,8 @@ function listaDeRecomendaciones(diagnostico) {
  * de cada parámetro sin repintar el resto; así el sondeo la mantiene al día.
  */
 export function crearVistaDeDiagnostico(diagnostico, { serie = null, resumen = false, esqueleto = false } = {}) {
-  const burbujas = diagnostico.parametros.map((p) => burbujaDeParametro(p, { esqueleto }));
+  const contextoDeLuz = { noche: luzNoCuenta(diagnostico), dia: luzDelDia(diagnostico) };
+  const burbujas = diagnostico.parametros.map((p) => burbujaDeParametro(p, { esqueleto, ...contextoDeLuz }));
   let firmaDeSerie = null;
 
   function actualizarSerie(registros) {
