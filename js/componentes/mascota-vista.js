@@ -8,13 +8,13 @@ import { familiaDe } from "./especie.js";
 import { animarMascota, hayMovimiento } from "../animaciones.js";
 
 /**
- * Devuelve { nodo, mascota, familia, aplicar(estado, periodo), morder(), saludar(), iniciar(), parar() }.
+ * Devuelve { nodo, mascota, familia, aplicar(estado, periodo), morder(), saludar(), saludarSolo(), regar(), iniciar(), parar() }.
  *  - `especie` (texto del catálogo) o `familia` (ya resuelta; gana si viene) escogen el dibujo.
  *  - `estado`: SALUDABLE | EN_RIESGO | CRITICO | null (sin diagnóstico: se dibuja saludable y se atenúa por CSS).
  *  - `periodo`: DIA | NOCHE del diagnóstico (F49); de noche la mascota duerme. Sin dato, de día.
  *  - `toque`: el nodo es un botón («Saludar a <nombre>») que responde al clic, al toque y a Enter o Espacio.
  *    Si la mascota queda junto a un enlace de toda la tarjeta (el tablero), va por encima y el toque NO navega: solo saluda.
- *  - `alTocar`: gancho opcional, se llama en cada toque (ahí irá `acariciarMascota` de api.js cuando exista).
+ *  - `alTocar`: gancho opcional, se llama en cada toque (la pestaña «Mascota» llama ahí a `acariciarMascota`, F54).
  *  - `animar: false`: no arranca el idle (la escena lo arranca cuando la muestra).
  */
 export function crearMascotaVista({ especie, familia, estado = null, periodo = null, clase = "", nombre = "", toque = false, alTocar = null, animar = true } = {}) {
@@ -57,5 +57,9 @@ export function crearMascotaVista({ especie, familia, estado = null, periodo = n
 
   aplicar(estado, periodo);
   if (animar) iniciar();
-  return { nodo, mascota, familia: mascota.familia, aplicar, morder: () => mascota.morder(), saludar, iniciar, parar };
+  /** F54: la regaron (evento REGADA): la suculenta como en la OLED, las demás un parpadeo doble. */
+  const regar = () => mascota.regar({ reducido: !hayMovimiento() });
+  /** El saludo sin el gancho `alTocar`: para cuando el saludo lo dispara un aviso y no un toque. */
+  const saludarSolo = () => mascota.saludar({ reducido: !hayMovimiento() });
+  return { nodo, mascota, familia: mascota.familia, aplicar, morder: () => mascota.morder(), saludar, saludarSolo, regar, iniciar, parar };
 }

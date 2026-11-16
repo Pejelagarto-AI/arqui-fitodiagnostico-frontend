@@ -159,6 +159,7 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
   const planta = svg("g", { class: "masc-planta" }, dibujo.cuerpos.flat(), dibujo.dormido || null);
   const cara = svg("g", { class: "masc-cara" });
   const zzz = svg("g", { class: "masc-zzz" }); // F49: el "zzz" de la planta dormida (no respira ni se balancea)
+  const gota = trazo("masc-gota", ""); // F54: la gota que cae sobre la suculenta regada (icono_gota de la OLED)
   const nodo = svg("svg", { class: `mascota mascota--${nombre}${clase ? ` ${clase}` : ""}`, viewBox: "0 0 48 64", "aria-hidden": "true", focusable: "false", "data-familia": nombre },
     planta,
     ...(dibujo.arriba ? [refs.flor] : []),
@@ -167,6 +168,7 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
     trazo("masc-deco", P.pixelesD(P.decoracionDeMatera(nombre))), // los píxeles apagados del borde y la banda de la matera
     cara,
     zzz,
+    gota,
   );
 
   // Estado del «chip»: nivel y desde cuándo, cara en transición, parpadeo, mordisco y saludo.
@@ -189,6 +191,9 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
   let ultimasPiezas = null; // las de la cara del último cuadro (para las herramientas de comparación)
   let noche = false; // F49: el diagnóstico dijo periodo NOCHE
   let ultimoZzz = -1;
+  let regadoDesde = -Infinity; // F54: evento REGADA (la suculenta infla y sonríe; las demás, parpadeo doble)
+  let dobleDesde = -Infinity;
+  let ultimaGota = "";
 
   /** Muestra la pose (nivel, cuadro) y esconde las demás. `g` fuerza un cuerpo (el girasol dormido). */
   function mostrar(cuadro, g = dibujo.cuerpos[nivel][Math.min(cuadro, dibujo.cuerpos[nivel].length - 1)]) {
@@ -265,8 +270,10 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
       if (proximoParpadeo === null) proximoParpadeo = ahora + T.esperaDeParpadeo();
       if (ahora >= proximoParpadeo) { parpadeoDesde = ahora; proximoParpadeo = ahora + T.esperaDeParpadeo(); }
       if (!duerme) parpadeo = saludo ? saludo.ojos : T.factorParpadeo(ahora - parpadeoDesde);
+      const doble = saludo ? null : T.ojosDeParpadeoDoble(ahora - dobleDesde);
+      if (doble !== null) parpadeo = doble; // F54: el parpadeo doble del riego (también despierta un momento)
     }
-    const c = contenta ? T.SALUDO.CARA : reposo ? caraHasta : T.caraEn(caraDesde, caraHasta, ahora - caraT0);
+    let c = contenta ? T.SALUDO.CARA : reposo ? caraHasta : T.caraEn(caraDesde, caraHasta, ahora - caraT0);
     let piezas = null;
     let dx = 0;
     // el cuerpo entero (todo lo que está sobre la matera) sube y baja: el salto del saludo o la respiración dormida
@@ -290,7 +297,12 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
       refs.flor.setAttribute("transform", `translate(${T.desv(T.CACTUS_Y_FLOR, seno, amp).toFixed(2)} ${dy})`);
     } else if (nombre === "suculenta") {
       const p = T.CARA_SUCULENTA[nivel];
-      mostrar(duerme ? 0 : reposo ? cuadro : T.suculentaInflada(ahora, nivel) ? 1 : 0);
+      // F54: regada (pintarSuculenta del firmware): cae la gota, después se infla (o da un saltito) y sonríe
+      const riego = reposo ? null : T.pasoRiego(ahora - regadoDesde, nivel, p.y);
+      if (riego && riego.sonrie && !contenta) c = T.caraRegada(c);
+      if (riego) { dy += riego.dy; caraDy = dy; }
+      gotaEn(riego ? riego.gotaY : null);
+      mostrar(riego && riego.inflada ? 1 : duerme ? 0 : reposo ? cuadro : T.suculentaInflada(ahora, nivel) ? 1 : 0);
       dx = T.desv(p.y, seno, amp);
       piezas = T.piezasDeCara(c, parpadeo, p.x, p.y, T.GEO_CHICA, { nivel: nivelCara, ahora });
     } else if (nombre === "helecho") {
@@ -333,6 +345,28 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
     }
   }
 
+  /** F54: la gota de la suculenta regada con su esquina en (X_GOTA, y); null la quita. No se balancea. */
+  function gotaEn(y) {
+    const d = y === null ? "" : P.pixelesD(T.pixelesDeGota(T.RIEGO.X_GOTA, y));
+    if (d === ultimaGota) return;
+    ultimaGota = d;
+    gota.setAttribute("d", d);
+  }
+
+  /**
+   * F54: la regaron (evento REGADA). La suculenta hace lo de la OLED (gota, se infla, sonríe); las demás familias, que
+   * en la OLED no reaccionan al riego, un parpadeo doble. Con `reducido` no hay movimiento: solo la suculenta sonríe
+   * un momento, como el saludo quieto.
+   */
+  function regar({ reducido = false } = {}) {
+    if (reducido) {
+      if (nombre === "suculenta") saludar({ reducido: true });
+      return;
+    }
+    if (nombre === "suculenta") regadoDesde = reloj;
+    else dobleDesde = reloj;
+  }
+
   /** El toque: la mascota saluda. Sin `reducido` es el salto con parpadeo doble; con `reducido`, solo la expresión. */
   function saludar({ reducido = false } = {}) {
     if (reducido) {
@@ -358,5 +392,5 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
   ponerEstado(estado);
   ponerPeriodo(periodo);
   pintar(0, { reposo: true });
-  return { nodo, familia: nombre, ponerEstado, ponerPeriodo, pintar, saludar, morder, piezas: () => ultimasPiezas };
+  return { nodo, familia: nombre, ponerEstado, ponerPeriodo, pintar, saludar, morder, regar, piezas: () => ultimasPiezas };
 }
