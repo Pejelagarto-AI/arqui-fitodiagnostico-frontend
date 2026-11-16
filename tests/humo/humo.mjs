@@ -189,7 +189,7 @@ async function ejecutar() {
     // La raíz es la portada (F38): se mira sin violaciones y desde ella «Prueba sin cuenta» lleva al diagnóstico.
     await p.goto(`${FRONT}/`);
     await p.locator("#portada-crear").waitFor();
-    await p.locator(".portada-escena .ilustracion-planta").first().waitFor();
+    await p.locator(".portada-escena .mascota").first().waitFor();
     await p.click("#portada-probar");
     await p.waitForURL(/#\/diagnostico$/); // sin esperarHash: con la CSP puesta no se puede evaluar texto en la página
     await p.locator("#especie-select option[value='potos']").waitFor({ state: "attached" });
@@ -659,7 +659,7 @@ async function ejecutar() {
     assert.equal((await chipPideCredencial(matera)).status, 200);
     await pAna.locator("#btn-asistente-ver").waitFor({ timeout: 20000 });
   });
-  await paso("planta carnívora (especie «atrapamoscas»): su ilustración es la carnívora, con dos mandíbulas", async () => {
+  await paso("planta carnívora (especie «atrapamoscas»): su mascota es la carnívora, y la tocas para que salude", async () => {
     const especies = (await api(null, "GET", "/especies")).cuerpo;
     if (!especies.some((e) => e.nombre === "atrapamoscas")) {
       console.log("        (la especie «atrapamoscas» no existe en esta base: se omite)");
@@ -669,11 +669,11 @@ async function ejecutar() {
     const creada = await api(sesionAna, "POST", "/plantas", { apodo: "Chompy", especie: "atrapamoscas" });
     assert.equal(creada.status, 201);
     await pAna.goto(`${FRONT}/#/plantas/${creada.cuerpo.id}`);
-    await pAna.locator(".ilustracion-planta--carnivora .ilu-mandibula").first().waitFor();
-    assert.equal(await pAna.locator(".ilustracion-planta--carnivora .ilu-mandibula").count(), 2);
+    await pAna.locator(".cabecera-planta .mascota--carnivora").first().waitFor();
+    assert.equal(await pAna.locator(".cabecera-planta .mascota-toque[role='button'][aria-label^='Saludar a']").count(), 1);
     await pAna.goto(`${FRONT}/#/plantas`);
-    await pAna.locator(".tarjeta-planta .ilustracion-planta--carnivora").first().waitFor();
-    assert.equal(await pAna.locator(".ilustracion-planta:not(.ilustracion-planta--carnivora)").count() >= 1, true);
+    await pAna.locator(".tarjeta-planta .mascota--carnivora").first().waitFor();
+    assert.equal(await pAna.locator(".tarjeta-planta .mascota:not(.mascota--carnivora)").count() >= 1, true);
     await api(sesionAna, "DELETE", `/plantas/${creada.cuerpo.id}`);
   });
   await paso("admin: listar y buscar usuarios, ver detalle con plantas", async () => {

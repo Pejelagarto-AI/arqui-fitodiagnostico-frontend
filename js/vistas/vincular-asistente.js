@@ -6,10 +6,9 @@
 import { buscarDispositivosCercanos, listarDispositivos, obtenerPlanta, vincularDispositivo } from "../api.js";
 import { invalidarCache } from "../cache.js";
 import { crearSondeo } from "../sondeo.js";
-import { entrada, radar, girar, exito, balancear } from "../animaciones.js";
+import { entrada, radar, girar, exito } from "../animaciones.js";
 import { h, enlaceDeVolver, crearAviso } from "../ui.js";
-import { crearIlustracionPlanta } from "../componentes/ilustracion-planta.js";
-import { esCarnivora } from "../componentes/especie.js";
+import { crearMascotaVista } from "../componentes/mascota-vista.js";
 import { ilustracionEnciende, ilustracionRadar, ilustracionQr, anilloDeEspera, escenaDeExito, iconoDeAyuda } from "../componentes/asistente-ilustraciones.js";
 import { crearLectorQr } from "../componentes/lector-qr.js";
 import {
@@ -80,7 +79,6 @@ export async function montar(contenedor, ctx) {
   guardarRecuerdo(id);
 
   const esperaHallazgo = esperaSinHallazgoMs(ctx.query.get("espera"));
-  const carnivora = esCarnivora(planta.especie);
   const directo = ctx.query.get("serial");
   let serialObjetivo = null;
   let estado = estadoInicial();
@@ -220,10 +218,9 @@ export async function montar(contenedor, ctx) {
   }
 
   function ayudaSinHallazgo(limpiezas) {
-    const triste = crearIlustracionPlanta({ carnivora });
-    triste.nodo.classList.add("asis-ilustracion", "asis-triste");
-    triste.aplicar(triste.estadoVisual({ estado: "CRITICO", humedadPct: 25, luzPct: 30 }));
-    limpiezas.push(balancear(triste.refs.grupoHojas));
+    // La mascota de la planta, triste (la pose de crítico de la OLED): «todavía no la vemos».
+    const triste = crearMascotaVista({ especie: planta.especie, estado: "CRITICO", clase: "asis-triste" });
+    limpiezas.push(triste.parar);
     return [
       triste.nodo,
       h("p", { class: "asistente-estado" }, "Todavía no la vemos. Revisa esto:"),
@@ -411,15 +408,14 @@ export async function montar(contenedor, ctx) {
   // ---- paso 5 ----
   function pasoExito() {
     olvidarPlantaRecordada();
-    const escena = escenaDeExito({ carnivora });
+    const escena = escenaDeExito({ especie: planta.especie });
     const ver = h("button", { type: "button", class: "boton boton-primario asistente-accion", id: "btn-asistente-ver", onclick: irADetalle }, "Ver mi planta");
-    queueMicrotask(() => exito({ aro: escena.aro, planta: escena.planta, hojas: escena.hojas, chulo: escena.chulo, insignia: escena.insignia }));
-    const detenerBalanceo = balancear(escena.ilustracion.refs.grupoHojas);
+    queueMicrotask(() => exito({ aro: escena.aro, planta: escena.planta, origenPlanta: { transformOrigin: "50% 100%" }, chulo: escena.chulo, insignia: escena.insignia }));
     return {
       titulo: "Conexión exitosa",
       anunciar: `Conexión exitosa. ${planta.apodo} ya está conectada a su matera ${codigoVisible(serialObjetivo)}.`,
       nodos: [escena.nodo, h("p", { class: "asistente-estado" }, `${planta.apodo} ya está conectada a su matera ${codigoVisible(serialObjetivo)}.`), h("p", { class: "texto-suave" }, "En unos segundos verás sus lecturas en el detalle de la planta."), ver],
-      limpiar: detenerBalanceo,
+      limpiar: escena.vista.parar,
       enfocar: () => ver.focus({ preventScroll: true }),
     };
   }

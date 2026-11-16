@@ -43,8 +43,3 @@ export function familiaDe(especie) {
 export function cambiaElDibujo(antes, despues) {
   return familiaDe(antes) !== familiaDe(despues);
 }
-
-/** Las especies con «atrapamoscas» o «carniv» en el nombre (sin tilde, como en el firmware) se dibujan como planta carnívora. */
-export function esCarnivora(especie) {
-  return familiaDe(especie) === "carnivora";
-}

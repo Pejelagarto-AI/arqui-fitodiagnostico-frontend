@@ -11,17 +11,16 @@ import { textoHace } from "../tiempo.js";
 import { crearSondeo } from "../sondeo.js";
 import { recordarPlantaActiva, esPlantaActiva, nombrarParaTransicion, quitarNombreDeTransicion } from "../transiciones.js";
 import { leerCache, guardarCache, sonIguales, alVolver } from "../cache.js";
-import { entrada, balancear } from "../animaciones.js";
+import { entrada } from "../animaciones.js";
 import * as sesion from "../sesion.js";
 import { conTransicion } from "../transiciones.js";
 import { FILTROS, cuentaPorEstado, pasaElFiltro, filtroVigente, plegar } from "../tablero.js";
 import { recomendacionEnPalabras } from "../voz-planta.js";
 import { lanzarRecorridoSiToca } from "../componentes/recorrido.js";
 import { h, vaciar, crearAviso, chipDeEstadoGlobal, esqueletoSiTarda, ETIQUETAS_PARAMETRO } from "../ui.js";
-import { crearIlustracionPlanta } from "../componentes/ilustracion-planta.js";
-import { esCarnivora } from "../componentes/especie.js";
+import { crearMascotaVista } from "../componentes/mascota-vista.js";
 import { iconoDeParametro } from "../componentes/diagnostico.js";
-import { nivelesDeDiagnostico, recomendacionesPorParametro } from "../componentes/escala.js";
+import { recomendacionesPorParametro } from "../componentes/escala.js";
 
 export const titulo = "Mis plantas";
 
@@ -62,7 +61,8 @@ function valorDeTarjeta(nombre, etiqueta, p) {
 
 /** Tarjeta de una planta propia. Nace con apodo y especie; `completar` le pone la lectura cuando llega. */
 function crearTarjeta(planta) {
-  const ilustracion = crearIlustracionPlanta({ mini: true, carnivora: esCarnivora(planta.especie) });
+  // La mascota de la familia de la especie (F44), chica.
+  const ilustracion = crearMascotaVista({ especie: planta.especie, nombre: planta.apodo, clase: "mascota--mini" });
   const estado = h("span", { class: "tarjeta-planta-estado" });
   const valores = h("div", { class: "tarjeta-planta-valores" });
   const cuando = h("p", { class: "tarjeta-planta-cuando texto-suave" }, "Leyendo…");
@@ -105,14 +105,14 @@ function crearTarjeta(planta) {
     vaciar(valores);
     if (lectura.tipo !== "datos") {
       enlace.dataset.estado = "SIN_DIAGNOSTICO";
-      ilustracion.aplicar(ilustracion.estadoVisual({ estado: null }));
+      ilustracion.aplicar(null);
       cuando.textContent = lectura.tipo === "vacio" ? "Aún sin lecturas" : "No pudimos leer cómo está";
       cuando.removeAttribute("data-registrado");
       return;
     }
     const { diagnostico, registradoEn } = lectura.registro;
     enlace.dataset.estado = diagnostico.estado;
-    ilustracion.aplicar(ilustracion.estadoVisual({ estado: diagnostico.estado, ...nivelesDeDiagnostico(diagnostico) }));
+    ilustracion.aplicar(diagnostico.estado);
     estado.append(chipDeEstadoGlobal(diagnostico.estado));
     for (const [nombre, etiqueta] of PARAMETROS) {
       valores.append(valorDeTarjeta(nombre, etiqueta, diagnostico.parametros.find((x) => x.nombre === nombre)));
@@ -126,7 +126,7 @@ function crearTarjeta(planta) {
     if (cuando.dataset.registrado) cuando.textContent = `Leída ${textoHace(cuando.dataset.registrado)}`;
   }
 
-  return { nodo, completar, actualizarTiempo };
+  return { nodo, completar, actualizarTiempo, parar: () => ilustracion.parar() };
 }
 
 /** «Camila Rojas» -> «Camila». Sin nombre, cadena vacía. */
@@ -170,8 +170,7 @@ export async function montar(contenedor, ctx) {
 
   // ---- primera vez (F38): en vez de un tablero vacío, una bienvenida con un solo paso que dar ----
   const nombre = primerNombre(sesion.usuario() && sesion.usuario().nombre);
-  const ilustracionBienvenida = crearIlustracionPlanta();
-  ilustracionBienvenida.aplicar(ilustracionBienvenida.estadoVisual({ estado: "SALUDABLE", humedadPct: 62, luzPct: 75 }));
+  const ilustracionBienvenida = crearMascotaVista({ familia: "generica", estado: "SALUDABLE" }); // aún no hay especie: la planta común
   const tituloBienvenida = h("h2", { class: "bienvenida-titulo", id: "bienvenida-titulo" }, nombre ? `Hola, ${nombre}.` : "Hola.");
   const accionBienvenida = h("div", { class: "bienvenida-accion" });
   const bienvenida = h("section", { class: "tarjeta bienvenida", id: "bienvenida", "aria-labelledby": "bienvenida-titulo", hidden: true },
@@ -186,7 +185,6 @@ export async function montar(contenedor, ctx) {
     accionBienvenida,
     h("p", { class: "texto-suave bienvenida-nota" }, "¿Aún no tienes matera? Igual puedes agregarla y anotar las mediciones a mano."),
   );
-  const pararBalanceo = balancear(ilustracionBienvenida.refs.grupoHojas);
 
   const bloquePropias = h("section", { class: "bloque-propias", "aria-label": "Tus plantas" }, propias);
   const bloqueCompartidas = h("section", { class: "tarjeta", id: "bloque-compartidas" },
@@ -335,6 +333,7 @@ export async function montar(contenedor, ctx) {
     lecturas = new Map([...lecturas].filter(([id]) => mias.some((p) => p.id === id)));
     vaciar(propias);
     vaciar(compartidas);
+    tarjetas.forEach((t) => t.parar());
     tarjetas = mias.map(crearTarjeta);
     for (const [i, planta] of mias.entries()) if (lecturas.has(planta.id)) tarjetas[i].completar(lecturas.get(planta.id));
     acomodar(mias.length === 0, ajenas.length > 0);
@@ -394,7 +393,8 @@ export async function montar(contenedor, ctx) {
   const quitarRevalidacion = alVolver(revalidar);
   return () => {
     clearTimeout(esperaDelRecorrido);
-    pararBalanceo();
+    ilustracionBienvenida.parar();
+    tarjetas.forEach((t) => t.parar());
     quitarRevalidacion();
     sondeo.detener();
     clearInterval(reloj);

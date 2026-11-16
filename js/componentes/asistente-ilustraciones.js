@@ -1,7 +1,7 @@
 // Ilustraciones SVG del asistente de vinculación (F36). Todas se construyen con svg() (createElementNS);
 // los colores salen de clases del CSS (tokens), nunca de estilos en línea, así que siguen el tema claro y oscuro.
-import { svg } from "../ui.js";
-import { crearIlustracionPlanta } from "./ilustracion-planta.js";
+import { h, svg } from "../ui.js";
+import { crearMascotaVista } from "./mascota-vista.js";
 
 const MATERA = "M78 120h104l-12 70H90z";
 
@@ -87,20 +87,18 @@ export function anilloDeEspera() {
 }
 
 /**
- * Paso 5: la plantica de la planta (la misma ilustración del detalle, sana) dentro de un aro, con la insignia
- * del chulo. `exito()` de animaciones.js la hace crecer. `carnivora` elige la planta carnívora.
+ * Paso 5: la mascota de la planta (la de su familia, saludable) dentro de un aro, con la insignia del chulo.
+ * `exito()` de animaciones.js la hace crecer desde la matera. Son tres capas en una caja cuadrada: el aro (SVG de
+ * 260), la mascota (el SVG de 48x64 centrado) y la insignia (SVG de 260); así la mascota conserva sus coordenadas.
  */
-export function escenaDeExito({ carnivora = false } = {}) {
-  const ilustracion = crearIlustracionPlanta({ carnivora });
-  ilustracion.aplicar(ilustracion.estadoVisual({ estado: "SALUDABLE", humedadPct: 60, luzPct: 70 }));
+export function escenaDeExito({ especie, familia } = {}) {
+  const vista = crearMascotaVista({ especie, familia, estado: "SALUDABLE" });
+  const capa = (clase, ...hijos) => svg("svg", { class: `asis-exito-capa ${clase}`, viewBox: "0 0 260 260", "aria-hidden": "true", focusable: "false" }, ...hijos);
   const aro = svg("circle", { class: "asis-exito-aro", cx: 130, cy: 130, r: 122 });
   const chulo = svg("path", { class: "asis-chulo", d: "M212 40l8 8 14-17", fill: "none", "stroke-width": 5, "stroke-linecap": "round", "stroke-linejoin": "round" });
   const insignia = svg("g", { class: "asis-insignia" }, svg("circle", { class: "asis-insignia-fondo", cx: 224, cy: 40, r: 22 }), chulo);
-  const nodo = ilustracion.nodo;
-  nodo.classList.add("asis-ilustracion", "asis-exito-escena");
-  nodo.insertBefore(aro, nodo.firstChild);
-  nodo.append(insignia);
-  return { nodo, aro, insignia, chulo, planta: ilustracion.refs.grupoPlanta, hojas: ilustracion.refs.hojas, ilustracion };
+  const nodo = h("div", { class: "asis-exito-escena", "aria-hidden": "true" }, capa("asis-exito-fondo", aro), vista.nodo, capa("asis-exito-sello", insignia));
+  return { nodo, aro, insignia, chulo, planta: vista.nodo, vista };
 }
 
 /** Iconos de la lista de ayuda («No encontramos tu matera»): trazo simple, color del texto. */

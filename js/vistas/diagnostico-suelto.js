@@ -10,18 +10,16 @@ import { camposDeMedicion } from "../componentes/medicion.js";
 import { crearCarruselEspecies } from "../componentes/carrusel-especies.js";
 import { opcionesDeEspecies } from "../componentes/carrusel-estado.js";
 import { crearVistaDeDiagnostico } from "../componentes/diagnostico.js";
-import { crearIlustracionPlanta } from "../componentes/ilustracion-planta.js";
-import { esCarnivora } from "../componentes/especie.js";
-import { nivelesDeDiagnostico } from "../componentes/escala.js";
+import { crearMascotaVista } from "../componentes/mascota-vista.js";
 import { fraseDePlanta } from "../voz-planta.js";
-import { balancear, entrada, llenarBarra, contar } from "../animaciones.js";
+import { entrada, llenarBarra, contar } from "../animaciones.js";
 
 export const titulo = "Diagnóstico sin cuenta";
 
 export async function montar(contenedor, ctx) {
   const conSesion = sesion.haySesion();
   let especiesPorNombre = new Map();
-  let pararBalanceo = () => {};
+  let pararMascota = () => {};
 
   const avisoEspecies = crearAviso();
   const avisoGeneral = crearAviso();
@@ -84,8 +82,8 @@ export async function montar(contenedor, ctx) {
   contenedor.append(pantallaFormulario, pantallaResultado);
 
   function mostrarFormulario() {
-    pararBalanceo();
-    pararBalanceo = () => {};
+    pararMascota();
+    pararMascota = () => {};
     pantallaResultado.hidden = true;
     pantallaFormulario.hidden = false;
     window.scrollTo(0, 0);
@@ -94,10 +92,10 @@ export async function montar(contenedor, ctx) {
 
   function mostrarResultado(diagnostico) {
     const especie = diagnostico.especie || selectEspecie.value;
-    // La planta reacciona: nace en su estado neutro y se acomoda al diagnóstico (agua, sol, hojas).
-    pararBalanceo();
+    // La mascota de la especie (F44) pone la cara y la pose del diagnóstico, como la matera en su OLED.
+    pararMascota();
     vaciar(zonaIlustracion);
-    const ilustracion = crearIlustracionPlanta({ carnivora: esCarnivora(especie) });
+    const ilustracion = crearMascotaVista({ especie, estado: diagnostico.estado });
     zonaIlustracion.append(ilustracion.nodo);
     tituloResultado.textContent = `Así está tu ${especie}`;
     frase.textContent = fraseDePlanta(diagnostico);
@@ -112,9 +110,8 @@ export async function montar(contenedor, ctx) {
     window.scrollTo(0, 0);
     tituloResultado.focus({ preventScroll: true });
 
-    ilustracion.aplicar(ilustracion.estadoVisual({ estado: diagnostico.estado, ...nivelesDeDiagnostico(diagnostico) }), { animar: true });
-    if (diagnostico.estado !== "SALUDABLE") ilustracion.morder();
-    pararBalanceo = balancear(ilustracion.refs.grupoHojas);
+    ilustracion.morder(); // la carnívora saludable muerde: es una lectura nueva, como en la OLED
+    pararMascota = ilustracion.parar;
     entrada([zonaIlustracion, frase.parentElement], { y: 10, escalon: 0.12 });
     vista.burbujas.forEach((b, i) => {
       llenarBarra(b.relleno, { retraso: 0.25 + 0.12 * i });
@@ -164,7 +161,7 @@ export async function montar(contenedor, ctx) {
 
   await cargarEspecies();
   return () => {
-    pararBalanceo();
+    pararMascota();
     carrusel.limpiar();
   };
 }
