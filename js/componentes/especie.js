@@ -19,19 +19,32 @@ export const CLAVES_DE_FAMILIA = Object.freeze([
 /** Las familias que tienen dibujo propio; «generica» es el respaldo de cualquier otra especie. */
 export const FAMILIAS = Object.freeze(["girasol", "cactus", "suculenta", "helecho", "carnivora", "generica"]);
 
-function normalizar(texto) {
-  return String(texto ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+/**
+ * Minúsculas de A a Z y nada más, como `tolower` en el firmware (que recorre bytes y deja intactos los de UTF-8): no se
+ * quitan tildes ni se tocan otras letras. Así «Planta carnívora» (con í) NO coincide con «carniv», igual que en la matera.
+ */
+function minusculasAscii(texto) {
+  return String(texto).replace(/[A-Z]/g, (letra) => letra.toLowerCase());
 }
 
-/** Familia de la mascota para un nombre de especie: girasol | cactus | suculenta | helecho | carnivora | generica. */
+/**
+ * Familia de la mascota para un nombre de especie: girasol | cactus | suculenta | helecho | carnivora | generica.
+ * Idéntica a `familiaDe` de pantalla.cpp: busca cada clave dentro del nombre (sin distinguir A-Z de a-z, sin quitar
+ * tildes) y gana la primera de la tabla; sin nombre o sin coincidencia, la genérica (la «común» del firmware).
+ */
 export function familiaDe(especie) {
-  const nombre = normalizar(especie);
-  if (!nombre) return "generica";
+  if (especie === null || especie === undefined) return "generica";
+  const nombre = minusculasAscii(especie);
   for (const [clave, familia] of CLAVES_DE_FAMILIA) if (nombre.includes(clave)) return familia;
   return "generica";
 }
 
-/** Las especies con «atrapamoscas» o «carniv» (con o sin tilde) en el nombre se dibujan como planta carnívora. */
+/** ¿Cambiar de una especie a otra cambia el dibujo? Es decir, ¿son de familias distintas? */
+export function cambiaElDibujo(antes, despues) {
+  return familiaDe(antes) !== familiaDe(despues);
+}
+
+/** Las especies con «atrapamoscas» o «carniv» en el nombre (sin tilde, como en el firmware) se dibujan como planta carnívora. */
 export function esCarnivora(especie) {
   return familiaDe(especie) === "carnivora";
 }
