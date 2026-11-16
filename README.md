@@ -42,7 +42,7 @@ http://localhost:5500/?api=http://localhost:9090/api/v1#/plantas
 
 ```bash
 node --test tests/*.test.mjs                                # 176 unitarias de la lógica pura (rutas, pestañas, sondeo, tablero, recorrido, lectura de QR, voz de la planta, mascotas y su saludo, carrusel...), sin dependencias
-cd tests/humo && npm install && node humo.mjs               # humo de punta a punta: backend + front levantados, Chrome headless
+cd tests/humo && npm install && node humo.mjs               # humo (en esta máquina, con puertos alternos: docs/HUMO.md) de punta a punta: backend + front levantados, Chrome headless
 ```
 
 El recorrido guiado de la primera vez (F39) tapa la pantalla: para probar a mano sin él, abre `http://localhost:5500/?tour=no#/plantas` o pon `localStorage["fito.tour"] = "no"`. El humo lo apaga así en todos sus contextos menos en el paso que lo recorre.
