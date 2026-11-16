@@ -101,7 +101,7 @@ export async function montar(contenedor, ctx) {
 
   // La mascota de la especie (F44) reacciona al diagnóstico vigente (cara y pose por estado, como la OLED) y saluda
   // al tocarla. Agua y luz ya no van en el dibujo: están en las fichas de valores de «Hoy».
-  const ilustracion = crearMascotaVista({ especie: planta.especie, nombre: planta.apodo });
+  const ilustracion = crearMascotaVista({ especie: planta.especie, nombre: planta.apodo, toque: true });
   cabecera.querySelector("#ilustracion-planta").append(ilustracion.nodo);
   // Elemento compartido con la tarjeta del tablero (F28): al volver, esa tarjeta lleva el mismo nombre de transición.
   recordarPlantaActiva(id);
@@ -222,6 +222,7 @@ export async function montar(contenedor, ctx) {
         planta = editada;
         nombreNodo.textContent = editada.apodo;
         especieNodo.textContent = editada.especie;
+        ilustracion.nodo.setAttribute("aria-label", `Saludar a ${editada.apodo}`);
         // Otra familia de planta, otra mascota: se vuelve a armar la pantalla.
         if (otroDibujo) {
           invalidarCache();

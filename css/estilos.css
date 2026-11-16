@@ -1541,6 +1541,22 @@ body[data-familia="planta"] .indicador-conexion--global {
   opacity: 0.55;
 }
 
+/* tocar la planta (F44): el botón es el dibujo; el aro de foco lo rodea */
+.mascota-toque {
+  display: block;
+  width: 100%;
+  margin: 0 auto;
+  border-radius: var(--radio);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mascota-toque:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
 .mascota--mini {
   max-width: 100%;
 }

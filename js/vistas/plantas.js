@@ -61,8 +61,8 @@ function valorDeTarjeta(nombre, etiqueta, p) {
 
 /** Tarjeta de una planta propia. Nace con apodo y especie; `completar` le pone la lectura cuando llega. */
 function crearTarjeta(planta) {
-  // La mascota de la familia de la especie (F44), chica.
-  const ilustracion = crearMascotaVista({ especie: planta.especie, nombre: planta.apodo, clase: "mascota--mini" });
+  // La mascota de la familia de la especie (F44), chica; al tocarla saluda y NO abre el detalle (el resto de la tarjeta sí).
+  const ilustracion = crearMascotaVista({ especie: planta.especie, nombre: planta.apodo, toque: true, clase: "mascota--mini" });
   const estado = h("span", { class: "tarjeta-planta-estado" });
   const valores = h("div", { class: "tarjeta-planta-valores" });
   const cuando = h("p", { class: "tarjeta-planta-cuando texto-suave" }, "Leyendo…");
