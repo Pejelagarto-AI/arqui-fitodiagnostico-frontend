@@ -146,6 +146,9 @@ export const obtenerPlanta = (id) => pedir("GET", `/plantas/${seg(id)}`);
 export const editarPlanta = (id, apodo, especie) => pedir("PUT", `/plantas/${seg(id)}`, { cuerpo: { apodo, especie } });
 export const eliminarPlanta = (id) => pedir("DELETE", `/plantas/${seg(id)}`);
 export const registrarMedicion = (id, medicion) => pedir("POST", `/plantas/${seg(id)}/mediciones`, { cuerpo: medicion });
+// Punto de enganche del toque (F44), SIN llamar: cuando el backend exponga la acción de la mascota, el toque de
+// `crearMascotaVista` (opción `alTocar`) la enviaría así. Hoy el saludo es solo visual y no toca la red.
+// export const acariciarMascota = (id) => pedir("POST", `/plantas/${seg(id)}/mascota/acciones`, { cuerpo: { tipo: "ACARICIAR" } });
 export const obtenerDiagnosticoVigente = (id) => pedir("GET", `/plantas/${seg(id)}/diagnostico`);
 export const obtenerHistorial = (id, pagina = 0, tamano = 10) =>
   pedir("GET", `/plantas/${seg(id)}/diagnosticos?pagina=${pagina}&tamano=${tamano}`);

@@ -1367,13 +1367,6 @@ body[data-familia="planta"] .indicador-conexion--global {
 
 /* ---------- ilustración de la planta ---------- */
 
-.ilustracion-planta {
-  display: block;
-  width: 100%;
-  max-width: 260px;
-  margin: 0 auto;
-}
-
 .ilu-sombra {
   fill: var(--borde);
 }
@@ -1384,11 +1377,6 @@ body[data-familia="planta"] .indicador-conexion--global {
 
 .ilu-borde {
   fill: var(--tierra-oscura);
-}
-
-.ilu-agua {
-  fill: var(--agua);
-  opacity: 0.4;
 }
 
 .ilu-tallo {
@@ -1403,38 +1391,7 @@ body[data-familia="planta"] .indicador-conexion--global {
   fill: var(--hoja-oscura);
 }
 
-.ilustracion-planta[data-estado="EN_RIESGO"] .ilu-hoja {
-  fill: var(--hoja-riesgo);
-}
-
-.ilustracion-planta[data-estado="CRITICO"] .ilu-hoja {
-  fill: var(--hoja-critica);
-}
-
-.ilustracion-planta[data-estado="SIN_DIAGNOSTICO"] .ilu-hoja,
-.ilustracion-planta[data-estado="SIN_DIAGNOSTICO"] .ilu-tallo {
-  fill: var(--tinta-suave);
-  opacity: 0.55;
-}
-
-.ilustracion-planta[data-estado="SIN_DIAGNOSTICO"] .ilu-tallo {
-  stroke: var(--tinta-suave);
-  fill: none;
-}
-
-.ilustracion-planta[data-estado="SIN_DIAGNOSTICO"] .ilu-agua {
-  opacity: 0.2;
-}
-
-.ilu-sol circle {
-  fill: var(--sol);
-}
-
-.ilu-sol path {
-  stroke: var(--sol);
-}
-
-/* planta carnívora: cabeza de trampa con ojos y dientes (contraste medido en claro y oscuro) */
+/* planta carnívora: cabeza de trampa con dientes (contraste medido en claro y oscuro); los ojos los pinta el código */
 .ilu-cabeza {
   fill: var(--hoja);
   stroke: var(--hoja-oscura);
@@ -1451,37 +1408,6 @@ body[data-familia="planta"] .indicador-conexion--global {
   stroke: var(--hoja-oscura);
   stroke-width: 1.5;
   stroke-linejoin: round;
-}
-
-.ilu-ojo {
-  fill: #ffffff;
-  stroke: var(--hoja-oscura);
-  stroke-width: 2;
-}
-
-.ilu-pupila {
-  fill: #1b251e;
-}
-
-.ilustracion-planta[data-estado="EN_RIESGO"] .ilu-cabeza {
-  fill: var(--hoja-riesgo);
-}
-
-.ilustracion-planta[data-estado="CRITICO"] .ilu-cabeza {
-  fill: var(--hoja-critica);
-}
-
-.ilustracion-planta[data-estado="CRITICO"] .ilu-boca-interior {
-  fill: var(--boca-seca);
-}
-
-.ilustracion-planta[data-estado="SIN_DIAGNOSTICO"] .ilu-cabeza {
-  fill: var(--tinta-suave);
-  opacity: 0.55;
-}
-
-.ilustracion-planta--mini {
-  max-width: 120px;
 }
 
 /* ---------- mascotas por familia (F41): coordenadas del sprite de la OLED, 48x64 ---------- */
@@ -1576,6 +1502,74 @@ body[data-familia="planta"] .indicador-conexion--global {
 
 .mascota[data-estado="CRITICO"] .ilu-boca-interior {
   fill: var(--boca-seca);
+}
+
+/* poses calcadas de dibujar.py (F44): nervio de las hojas grandes, foliolos del helecho, decoración de la matera */
+.masc-vena {
+  fill: none;
+  stroke: var(--hoja-oscura);
+  stroke-width: 0.7;
+  stroke-linecap: round;
+}
+
+.masc-foliolos {
+  fill: none;
+  stroke: var(--hoja);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+}
+
+.mascota[data-estado="EN_RIESGO"] .masc-foliolos {
+  stroke: var(--hoja-riesgo);
+}
+
+.mascota[data-estado="CRITICO"] .masc-foliolos {
+  stroke: var(--hoja-critica);
+}
+
+.masc-deco {
+  fill: var(--crema);
+}
+
+/* la cabeza cerrada de la carnívora en riesgo y crítico: la misma trampa, sin dientes, con el trazo a su escala */
+.masc-trampa-cerrada {
+  stroke-width: 1.2;
+}
+
+/* sin diagnóstico (todavía sin lecturas): la mascota se dibuja saludable, pero atenuada */
+.mascota[data-estado="SIN_DIAGNOSTICO"] {
+  opacity: 0.55;
+}
+
+/* tocar la planta (F44): el botón es el dibujo; el aro de foco lo rodea */
+.mascota-toque {
+  display: block;
+  width: 100%;
+  margin: 0 auto;
+  border-radius: var(--radio);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mascota-toque:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+.mascota--mini {
+  max-width: 100%;
+}
+
+.cabecera-planta .mascota,
+.cabecera-planta .mascota-toque {
+  max-width: 100%;
+}
+
+.portada-planta .mascota,
+.bienvenida-dibujo .mascota,
+.resultado-ilustracion .mascota {
+  max-width: 100%;
 }
 
 /* ---------- historial como lista (tabla con forma de renglones) ---------- */
@@ -2294,8 +2288,8 @@ li,
   fill: none;
 }
 
-.asis-triste {
-  max-width: 11rem;
+.asis-triste.mascota {
+  max-width: 9rem;
 }
 
 /* QR */
@@ -2331,14 +2325,35 @@ li,
 }
 
 /* éxito */
+.asis-exito-escena {
+  position: relative;
+  width: 100%;
+  max-width: 15rem;
+  margin: 0 auto;
+  aspect-ratio: 1;
+}
+
+.asis-exito-capa {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* la mascota va centrada dentro del aro: 48x64 en una caja cuadrada */
+.asis-exito-escena .mascota {
+  position: absolute;
+  left: 24%;
+  top: 12%;
+  width: 52%;
+  max-width: none;
+  margin: 0;
+}
+
 .asis-exito-aro {
   fill: var(--saludable-fondo);
   stroke: var(--saludable);
   stroke-width: 3;
-}
-
-.asis-exito-escena .ilu-sol {
-  display: none;
 }
 
 .asis-insignia-fondo {
@@ -2715,10 +2730,6 @@ textarea {
 
 .cabecera-planta::before {
   background: radial-gradient(circle at calc(100% - 24px) calc(100% - 6px), var(--saludable-fondo) 0 84px, transparent 85px);
-}
-
-.cabecera-planta .ilustracion-planta {
-  max-width: 100%;
 }
 
 .tarjeta.cabecera-planta h2[data-titulo] {
@@ -3152,16 +3163,7 @@ body[data-sesion="no"] .pie {
   width: min(52vw, 12.5rem);
 }
 
-.portada-planta .ilustracion-planta {
-  max-width: 100%;
-}
-
 /* El sol de la ilustración sobra: el de la escena es el círculo del fondo. */
-.portada-escena .ilu-sombra {
-  fill: var(--superficie);
-  opacity: 0.7;
-}
-
 .portada-globo {
   position: absolute;
   top: 0.85rem;
@@ -3709,10 +3711,6 @@ body[data-sesion="no"] .pie {
   gap: var(--e2);
 }
 
-.resultado-ilustracion .ilustracion-planta {
-  max-width: 100%;
-}
-
 .resultado-suelto h2 {
   margin: 0 0 0.5rem;
   font-size: clamp(1.3rem, 5.5vw, 1.7rem);
@@ -3854,10 +3852,6 @@ body[data-sesion="no"] .pie {
 
 .bienvenida-dibujo {
   width: min(48vw, 11rem);
-}
-
-.bienvenida-dibujo .ilustracion-planta {
-  max-width: 100%;
 }
 
 .tarjeta.bienvenida > h2.bienvenida-titulo {

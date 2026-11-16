@@ -3,10 +3,10 @@
 // probar sin cuenta). La protagonista es la misma ilustración reactiva del detalle: aquí recorre un guion
 // (js/portada-guion.js) en el que la planta «habla» según lo que miden los sensores.
 import { h, svg } from "../ui.js";
-import { crearIlustracionPlanta } from "../componentes/ilustracion-planta.js";
+import { crearMascotaVista } from "../componentes/mascota-vista.js";
 import { iconoDeParametro } from "../componentes/diagnostico.js";
-import { balancear, cambiarEstado, entrada, movimientoReducido, orquestarPortada } from "../animaciones.js";
-import { MOMENTOS, PASOS, DURACION_MOMENTO_MS, siguienteMomento } from "../portada-guion.js";
+import { cambiarEstado, entrada, movimientoReducido, orquestarPortada } from "../animaciones.js";
+import { MOMENTOS, PASOS, DURACION_MOMENTO_MS, siguienteMomento, familiasDelGuion } from "../portada-guion.js";
 
 export const titulo = "Tu planta te dice cómo está";
 
@@ -41,14 +41,11 @@ function iconoDePaso(nombre) {
 
 export async function montar(contenedor) {
   // ---- escena viva ----
-  const plantas = {
-    comun: crearIlustracionPlanta(),
-    carnivora: crearIlustracionPlanta({ carnivora: true }),
-  };
-  const cajas = {
-    comun: h("div", { class: "portada-planta", "data-planta": "comun" }, plantas.comun.nodo),
-    carnivora: h("div", { class: "portada-planta", "data-planta": "carnivora", hidden: true }, plantas.carnivora.nodo),
-  };
+  // Una mascota por familia del guion (F44): las cinco especies del catálogo. Solo la visible corre su idle.
+  const familias = familiasDelGuion();
+  const primera = MOMENTOS[0].planta;
+  const plantas = Object.fromEntries(familias.map((f) => [f, crearMascotaVista({ familia: f, estado: MOMENTOS.find((m) => m.planta === f).estado, animar: f === primera })]));
+  const cajas = Object.fromEntries(familias.map((f) => [f, h("div", { class: "portada-planta", "data-planta": f, hidden: f !== primera }, plantas[f].nodo)]));
   const frase = h("p", { class: "portada-frase" });
   const globo = h("div", { class: "portada-globo" }, frase);
   const lecturas = SENSORES.map(([clave, parametro, etiqueta]) => {
@@ -62,23 +59,25 @@ export async function montar(contenedor) {
     ));
   // La escena es decorativa y se mueve sola: para lectores de pantalla queda una sola frase que la resume.
   const escena = h("div", { class: "portada-escena" },
-    h("div", { class: "portada-escena-vivo", "aria-hidden": "true" }, cajas.comun, cajas.carnivora, globo, h("div", { class: "portada-lecturas" }, lecturas.map((l) => l.nodo))),
+    h("div", { class: "portada-escena-vivo", "aria-hidden": "true" }, familias.map((f) => cajas[f]), globo, h("div", { class: "portada-lecturas" }, lecturas.map((l) => l.nodo))),
     h("p", { class: "solo-lector" }, "Ilustración: una planta en su matera cuenta cómo está. Dice «Tengo sed» cuando le falta agua, «Me falta luz» cuando está a oscuras y «Estoy bien» cuando no necesita nada."),
     pausa,
   );
 
   let indice = 0;
-  let visible = "comun";
+  let visible = primera;
   function pintarMomento(i, { animar = true } = {}) {
     const m = MOMENTOS[i];
     const ilustracion = plantas[m.planta];
     if (m.planta !== visible) {
       cajas[visible].hidden = true;
+      plantas[visible].parar();
       cajas[m.planta].hidden = false;
+      ilustracion.iniciar();
       visible = m.planta;
       if (animar) entrada(cajas[m.planta], { y: 10, duracion: 0.35 });
     }
-    ilustracion.aplicar(ilustracion.estadoVisual({ estado: m.estado, humedadPct: m.humedad, luzPct: m.luz }), { animar });
+    ilustracion.aplicar(m.estado);
     if (animar && m.muerde) ilustracion.morder();
     const aplicar = () => {
       frase.textContent = m.frase;
@@ -120,9 +119,8 @@ export async function montar(contenedor) {
 
   // ---- vida: entrada orquestada, balanceo y el guion en bucle (pausable; con movimiento reducido, quieta) ----
   const limpiezas = [
-    orquestarPortada({ escena, planta: plantas.comun.refs.grupoPlanta, globo, lecturas: lecturas.map((l) => l.nodo), textos: [titular, bajada, acciones, probar], pasos }),
-    balancear(plantas.comun.refs.grupoHojas),
-    balancear(plantas.carnivora.refs.grupoHojas),
+    orquestarPortada({ escena, planta: cajas[primera], origenPlanta: { transformOrigin: "50% 100%" }, globo, lecturas: lecturas.map((l) => l.nodo), textos: [titular, bajada, acciones, probar], pasos }),
+    () => familias.forEach((f) => plantas[f].parar()),
   ];
   let reloj = null;
   const avanzar = () => {

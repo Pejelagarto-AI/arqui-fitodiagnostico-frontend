@@ -22,6 +22,11 @@ function puedeAnimar() {
   return gsapDisponible() && !movimientoReducido();
 }
 
+/** ¿Hay movimiento? Falso con prefers-reduced-motion o sin GSAP: lo que se mueve debe quedar quieto. */
+export function hayMovimiento() {
+  return puedeAnimar();
+}
+
 /** Entrada escalonada de bloques (tarjetas, filas). */
 export function entrada(nodos, { y = 12, duracion = 0.45, escalon = 0.08, retraso = 0 } = {}) {
   const lista = [...(nodos instanceof Node ? [nodos] : nodos)].filter(Boolean);
@@ -112,13 +117,6 @@ export function interpolar(clave, desde, hasta, alActualizar, { duracion = 1.2 }
   return true;
 }
 
-/** Balanceo leve y continuo de las hojas (único bucle). Devuelve la función que lo detiene. */
-export function balancear(grupo) {
-  if (!puedeAnimar() || !grupo) return () => {};
-  const tween = globalThis.gsap.to(grupo, { rotation: 1.5, svgOrigin: "130 150", duration: 2.4, yoyo: true, repeat: -1, ease: "sine.inOut" });
-  return () => tween.kill();
-}
-
 /**
  * Radar del paso «Buscando» (F36): tres ondas que se expanden y se apagan, escalonadas, y un barrido que gira.
  * Son los únicos bucles del asistente y se detienen al devolver la función de limpieza. Con movimiento
@@ -150,12 +148,12 @@ export function girar(nodo) {
  * sube y las hojas se abren una a una) y el chulo se dibuja. Todo con `from`: el estado final ya está en el
  * DOM, así que con movimiento reducido la pantalla se ve completa y quieta.
  */
-export function exito({ aro, planta, hojas, chulo, insignia }) {
+export function exito({ aro, planta, hojas, chulo, insignia, origenPlanta = { svgOrigin: "130 150" } }) {
   if (!puedeAnimar()) return;
   const { gsap } = globalThis;
   const linea = gsap.timeline({ defaults: { ease: "power2.out" } });
   if (aro) linea.from(aro, { scale: 0.6, opacity: 0, svgOrigin: "130 130", duration: 0.5, ease: "back.out(1.8)", clearProps: "opacity,transform" });
-  if (planta) linea.from(planta, { scaleY: 0, svgOrigin: "130 150", duration: 0.7, ease: "power3.out", clearProps: "transform" }, "-=0.2");
+  if (planta) linea.from(planta, { scaleY: 0, ...origenPlanta, duration: 0.7, ease: "power3.out", clearProps: "transform" }, "-=0.2");
   const lista = [...(hojas || [])];
   if (lista.length) linea.from(lista, { scale: 0, opacity: 0, transformOrigin: "50% 100%", duration: 0.4, stagger: 0.12, ease: "back.out(2)", clearProps: "opacity,transform" }, "-=0.3");
   if (insignia) linea.from(insignia, { scale: 0, svgOrigin: "224 40", duration: 0.45, ease: "back.out(2.4)", clearProps: "transform" }, "-=0.1");
@@ -166,53 +164,17 @@ export function exito({ aro, planta, hojas, chulo, insignia }) {
 }
 
 /**
- * Un mordisco de la planta carnívora (llega una lectura nueva): las mandíbulas se cierran de golpe y vuelven a su
- * posición de reposo (abierta). Las mandíbulas son grupos SVG con un transform de reposo; GSAP parte de él y anima
- * `y`: 0 es la boca cerrada.
- */
-export function morder(superior, inferior, { abiertaSup = -14, abiertaInf = 6 } = {}) {
-  if (!puedeAnimar() || !superior || !inferior) return;
-  const { gsap } = globalThis;
-  gsap.killTweensOf([superior, inferior]);
-  gsap.timeline()
-    .to(superior, { y: 0, duration: 0.09, ease: "power2.in" }, 0)
-    .to(inferior, { y: 0, duration: 0.09, ease: "power2.in" }, 0)
-    .to(superior, { y: abiertaSup, duration: 0.5, ease: "elastic.out(1, 0.4)" }, 0.16)
-    .to(inferior, { y: abiertaInf, duration: 0.5, ease: "elastic.out(1, 0.4)" }, 0.16);
-}
-
-/** La carnívora abre la boca de par en par y la cierra, dos veces, cada cierto rato. Devuelve la función que lo detiene. */
-export function masticar(superior, inferior, { abiertaSup = -14, abiertaInf = 6 } = {}) {
-  if (!puedeAnimar() || !superior || !inferior) return () => {};
-  const { gsap } = globalThis;
-  const linea = gsap.timeline({ repeat: -1, repeatDelay: 5.5, delay: 3 });
-  for (let i = 0; i < 2; i++) {
-    linea
-      .to(superior, { y: abiertaSup - 8, duration: 0.3, ease: "power1.out" })
-      .to(inferior, { y: abiertaInf + 4, duration: 0.3, ease: "power1.out" }, "<")
-      .to(superior, { y: 0, duration: 0.16, ease: "power2.in" })
-      .to(inferior, { y: 0, duration: 0.16, ease: "power2.in" }, "<");
-  }
-  linea.to(superior, { y: abiertaSup, duration: 0.4 }).to(inferior, { y: abiertaInf, duration: 0.4 }, "<");
-  return () => {
-    linea.kill();
-    gsap.set(superior, { y: abiertaSup });
-    gsap.set(inferior, { y: abiertaInf });
-  };
-}
-
-/**
  * Entrada de la portada (F38), orquestada y sobria: la escena aparece, la planta crece desde la matera, el
  * globo salta, y el titular, la bajada y las acciones suben escalonados; los pasos de «Así funciona» llegan al
  * final. Una sola línea de tiempo, menos de 1,4 s, nada en bucle. Con movimiento reducido (o sin GSAP) no hace
  * nada: todo está ya en su sitio. Devuelve la función que la corta si el usuario sale antes.
  */
-export function orquestarPortada({ escena, planta, globo, lecturas = [], textos = [], pasos = [] }) {
+export function orquestarPortada({ escena, planta, globo, lecturas = [], textos = [], pasos = [], origenPlanta = { svgOrigin: "130 150" } }) {
   if (!puedeAnimar()) return () => {};
   const { gsap } = globalThis;
   const linea = gsap.timeline({ defaults: { ease: "power2.out" } });
   if (escena) linea.from(escena, { opacity: 0, scale: 0.96, duration: 0.45, clearProps: "opacity,transform" }, 0);
-  if (planta) linea.from(planta, { scale: 0.2, opacity: 0, svgOrigin: "130 150", duration: 0.7, ease: "back.out(1.4)", clearProps: "opacity,transform" }, 0.15);
+  if (planta) linea.from(planta, { scale: 0.2, opacity: 0, ...origenPlanta, duration: 0.7, ease: "back.out(1.4)", clearProps: "opacity,transform" }, 0.15);
   if (globo) linea.from(globo, { opacity: 0, scale: 0.7, y: 8, duration: 0.4, ease: "back.out(1.8)", clearProps: "opacity,transform" }, 0.6);
   if (lecturas.length) linea.from(lecturas, { opacity: 0, y: 8, duration: 0.3, stagger: 0.07, clearProps: "opacity,transform" }, 0.7);
   if (textos.length) linea.from(textos, { opacity: 0, y: 14, duration: 0.45, stagger: 0.08, clearProps: "opacity,transform" }, 0.2);

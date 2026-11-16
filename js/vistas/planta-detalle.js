@@ -6,16 +6,15 @@
 // (el backend igual los rechazaría con 403, D36).
 import { obtenerPlanta, obtenerEspecies, renunciarAPlanta } from "../api.js";
 import { h, enlaceDeVolver, crearAviso, conCarga, confirmar, toast, ETIQUETAS_ESTADO_GLOBAL } from "../ui.js";
-import { crearIlustracionPlanta } from "../componentes/ilustracion-planta.js";
-import { esCarnivora } from "../componentes/especie.js";
-import { nivelesDeDiagnostico } from "../componentes/escala.js";
+import { crearMascotaVista } from "../componentes/mascota-vista.js";
+import { cambiaElDibujo } from "../componentes/especie.js";
 import { crearPanelVigente } from "../componentes/planta-vigente.js";
 import { crearPanelHistorial } from "../componentes/planta-historial.js";
 import { crearPanelMedicion } from "../componentes/planta-medicion.js";
 import { crearPanelCompartir } from "../componentes/planta-compartir.js";
 import { crearPanelEdicion } from "../componentes/planta-edicion.js";
 import { crearPanelDispositivos } from "../componentes/planta-dispositivos.js";
-import { entrada, cambiarEstado, balancear } from "../animaciones.js";
+import { entrada, cambiarEstado } from "../animaciones.js";
 import { crearSondeo, textoActualizado } from "../sondeo.js";
 import { leerCache, guardarCache, invalidarCache, alVolver } from "../cache.js";
 import { recargarVista } from "../router.js";
@@ -100,27 +99,24 @@ export async function montar(contenedor, ctx) {
     });
   }
 
-  // La ilustración reacciona al diagnóstico vigente: agua = humedad, sol = luz, hojas = estado.
-  const ilustracion = crearIlustracionPlanta({ carnivora: esCarnivora(planta.especie) });
+  // La mascota de la especie (F44) reacciona al diagnóstico vigente (cara y pose por estado, como la OLED) y saluda
+  // al tocarla. Agua y luz ya no van en el dibujo: están en las fichas de valores de «Hoy».
+  const ilustracion = crearMascotaVista({ especie: planta.especie, nombre: planta.apodo, toque: true });
   cabecera.querySelector("#ilustracion-planta").append(ilustracion.nodo);
   // Elemento compartido con la tarjeta del tablero (F28): al volver, esa tarjeta lleva el mismo nombre de transición.
   recordarPlantaActiva(id);
   nombrarParaTransicion(cabecera.querySelector("#ilustracion-planta"));
-  let primeraVez = true;
   const ponerEstado = (diagnostico, { cambio = false } = {}) => {
     const estado = diagnostico ? diagnostico.estado : null;
     const aplicar = () => {
       estadoNodo.dataset.estado = estado || "SIN_DIAGNOSTICO";
       estadoNodo.textContent = estado ? ETIQUETAS_ESTADO_GLOBAL[estado] || estado : "Sin lecturas";
     };
-    // Al abrir la pantalla el agua sube y las hojas se acomodan; al llegar una lectura distinta rebota la píldora.
-    if (cambio) {
-      cambiarEstado(estadoNodo, aplicar);
-      ilustracion.morder(); // la carnívora muerde cuando llega una lectura nueva
-    }
+    // Al llegar una lectura distinta rebota la píldora.
+    if (cambio) cambiarEstado(estadoNodo, aplicar);
     else aplicar();
-    ilustracion.aplicar(ilustracion.estadoVisual({ estado, ...nivelesDeDiagnostico(diagnostico) }), { animar: primeraVez || cambio });
-    primeraVez = false;
+    ilustracion.aplicar(estado);
+    if (cambio) ilustracion.morder(); // la carnívora saludable muerde cuando llega una lectura nueva, como en la OLED
   };
 
   const vigente = crearPanelVigente(id, ctx, { alCambiarEstado: ponerEstado, esDueno: planta.esDueno });
@@ -191,7 +187,7 @@ export async function montar(contenedor, ctx) {
     ...disponibles.map((p) => paneles[p.clave]),
   );
 
-  const limpiezas = [balancear(ilustracion.refs.grupoHojas), ilustracion.masticar()];
+  const limpiezas = [() => ilustracion.parar()];
   entrada([cabecera, vigente.elemento, historial.elemento], { escalon: 0.1 });
 
   // ---- paneles según el rol ----
@@ -222,12 +218,13 @@ export async function montar(contenedor, ctx) {
     const edicion = await crearPanelEdicion(planta, ctx, {
       registrarLimpieza: (limpiar) => limpiezas.push(limpiar),
       alEditar: (editada) => {
-        const cambiaElDibujo = esCarnivora(planta.especie) !== esCarnivora(editada.especie);
+        const otroDibujo = cambiaElDibujo(planta.especie, editada.especie);
         planta = editada;
         nombreNodo.textContent = editada.apodo;
         especieNodo.textContent = editada.especie;
-        // Otra clase de planta, otro dibujo: se vuelve a armar la pantalla.
-        if (cambiaElDibujo) {
+        ilustracion.nodo.setAttribute("aria-label", `Saludar a ${editada.apodo}`);
+        // Otra familia de planta, otra mascota: se vuelve a armar la pantalla.
+        if (otroDibujo) {
           invalidarCache();
           recargarVista();
         }

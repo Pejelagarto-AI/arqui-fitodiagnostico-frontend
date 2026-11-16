@@ -68,8 +68,12 @@ test("girasol: la corona alterna cada 400 ms; quieto si no está saludable", () 
   assert.equal(T.poseGirasol(0, 0).cuadro, 0);
   assert.equal(T.poseGirasol(400, 0).cuadro, 1);
   assert.equal(T.poseGirasol(800, 0).cuadro, 0);
-  assert.ok(Math.abs(T.poseGirasol(400, 0).dy - 0.6) < 1e-9);
-  assert.ok(Math.abs(T.poseGirasol(1250, 0).mira - 1.5) < 1e-9);
+  // enteros, como `lroundf` en el firmware: 0,6 px sube 1 y 1,5 px redondea a 2 (lejos del cero)
+  assert.equal(T.poseGirasol(400, 0).dy, 1);
+  assert.equal(T.poseGirasol(1200, 0).dy, -1);
+  assert.equal(T.poseGirasol(0, 0).dy, 0);
+  assert.equal(T.poseGirasol(1250, 0).mira, 2);
+  assert.equal(T.poseGirasol(2500, 0).mira, 0);
   assert.deepEqual(T.poseGirasol(400, 1), { cuadro: 0, dy: 0, mira: 0 });
 });
 
@@ -93,4 +97,37 @@ test("mordisco: abierta, media, cerrada (+2), media (+1), abierta (-1) y fin a l
   assert.deepEqual([0, 100, 200, 300, 400].map((t) => [T.pasoMordisco(t).boca, T.pasoMordisco(t).dy]), [[0, 0], [1, 0], [2, 2], [1, 1], [0, -1]]);
   assert.equal(T.pasoMordisco(460), null);
   assert.equal(T.proximoMordisco(10000), 18000);
+});
+
+test("SALUDO (F44, pendiente de calcar en el firmware): 12 cuadros de 50 ms, salto de 5 px y parpadeo doble", () => {
+  const S = T.SALUDO;
+  assert.equal(S.CUADRO_MS, 50);
+  assert.equal(S.DURACION_MS, 600);
+  assert.equal(S.DY.length * S.CUADRO_MS, S.DURACION_MS);
+  assert.equal(S.OJOS.length, S.DY.length);
+  assert.deepEqual([...S.DY], [-2, -4, -5, -5, -4, -2, 0, 1, 0, 0, 0, 0]);
+  assert.deepEqual([...S.OJOS], [1, 1, 0.5, 0, 0.5, 1, 0.5, 0, 0.5, 1, 1, 1]);
+  assert.equal(Math.min(...S.DY), -5, "sube 5 px del sprite de 48x64");
+  assert.equal(S.DY[0], 0 + S.DY[0], "arranca ya en el aire");
+  assert.deepEqual({ ...S.CARA }, T.CARA_NIVEL[0], "la cara del saludo es la contenta del estado saludable");
+  assert.equal(S.REDUCIDO_MS, 800);
+  // el parpadeo doble usa los mismos pasos que el normal (0,5 · 0 · 0,5) dos veces
+  assert.equal(S.OJOS.filter((o) => o === 0).length, 2);
+  assert.ok(Object.isFrozen(S) && Object.isFrozen(S.DY));
+});
+
+test("pasoSaludo da el cuadro de cada instante y termina a los 600 ms", () => {
+  assert.equal(T.pasoSaludo(-1), null);
+  assert.equal(T.pasoSaludo(Infinity), null);
+  assert.equal(T.pasoSaludo(NaN), null);
+  assert.deepEqual(T.pasoSaludo(0), { cuadro: 0, dy: -2, ojos: 1 });
+  assert.deepEqual(T.pasoSaludo(149), { cuadro: 2, dy: -5, ojos: 0.5 });
+  assert.deepEqual(T.pasoSaludo(150), { cuadro: 3, dy: -5, ojos: 0 });
+  assert.deepEqual(T.pasoSaludo(350), { cuadro: 7, dy: 1, ojos: 0 });
+  assert.deepEqual(T.pasoSaludo(599), { cuadro: 11, dy: 0, ojos: 1 });
+  assert.equal(T.pasoSaludo(600), null);
+});
+
+test("la carnívora pone los ojos en la fila 9, 12 o 16 según la boca, como (32 - CARNI_G) / 2", () => {
+  assert.deepEqual(T.CARNIVORA_OJOS_Y, [14, 7, 0].map((g) => Math.floor((32 - g) / 2)));
 });
