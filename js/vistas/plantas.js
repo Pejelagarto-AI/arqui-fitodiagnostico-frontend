@@ -6,26 +6,32 @@
 // (Promise.allSettled) y cada tarjeta se completa cuando llega el suyo; la rejilla se pinta antes, con
 // apodo y especie, para que nunca quede en blanco. Evolución recomendada: que el backend devuelva el
 // estado vigente en GET /plantas y se evite el N+1 (F22).
-import { listarPlantas, listarPlantasCompartidas, obtenerDiagnosticoVigente } from "../api.js";
+import { listarPlantas, listarPlantasCompartidas, obtenerDiagnosticoVigente, obtenerMascota, listarDispositivos } from "../api.js";
+import { crearBarraDeVitalidad } from "../componentes/planta-mascota.js";
+import { palabraDeAnimo, vitalidadValida, poseDeMascota, peorSalud, saludesDeDispositivos, saludEsMala } from "../mascota-animo.js";
 import { textoHace } from "../tiempo.js";
 import { crearSondeo } from "../sondeo.js";
 import { recordarPlantaActiva, esPlantaActiva, nombrarParaTransicion, quitarNombreDeTransicion } from "../transiciones.js";
 import { leerCache, guardarCache, sonIguales, alVolver } from "../cache.js";
-import { entrada, balancear } from "../animaciones.js";
+import { entrada } from "../animaciones.js";
 import * as sesion from "../sesion.js";
 import { conTransicion } from "../transiciones.js";
 import { FILTROS, cuentaPorEstado, pasaElFiltro, filtroVigente, plegar } from "../tablero.js";
 import { recomendacionEnPalabras } from "../voz-planta.js";
 import { lanzarRecorridoSiToca } from "../componentes/recorrido.js";
 import { h, vaciar, crearAviso, chipDeEstadoGlobal, esqueletoSiTarda, ETIQUETAS_PARAMETRO } from "../ui.js";
-import { crearIlustracionPlanta } from "../componentes/ilustracion-planta.js";
-import { esCarnivora } from "../componentes/especie.js";
-import { iconoDeParametro } from "../componentes/diagnostico.js";
-import { nivelesDeDiagnostico, recomendacionesPorParametro } from "../componentes/escala.js";
+import { crearMascotaVista } from "../componentes/mascota-vista.js";
+import { iconoDeParametro, luzNoCuenta, DE_NOCHE_NO_CUENTA } from "../componentes/diagnostico.js";
+import { recomendacionesPorParametro } from "../componentes/escala.js";
 
 export const titulo = "Mis plantas";
 
 const INTERVALO_TABLERO_MS = 30000;
+// F54, F55: la mascota y la salud de cada tarjeta cuestan dos peticiones por planta (GET .../mascota y
+// GET .../dispositivos; el backend no las trae en GET /plantas). Por eso se piden solo para las tarjetas que entran
+// en pantalla, a lo sumo de a CONCURRENCIA_EXTRAS, y se refrescan como mucho cada REFRESCO_EXTRAS_MS.
+const REFRESCO_EXTRAS_MS = 120000;
+const CONCURRENCIA_EXTRAS = 3;
 const CLAVE_CACHE = "plantas:tablero";
 const PARAMETROS = [["humedad", "Humedad"], ["luz", "Luz"], ["temperatura", "Temp."]];
 // Las críticas primero en «Qué hacer hoy».
@@ -52,32 +58,53 @@ function tarjetaDeCompartida(planta) {
 }
 
 /** Un valor de la tarjeta (humedad, luz o temperatura); sin parámetro es el hueco del esqueleto. */
-function valorDeTarjeta(nombre, etiqueta, p) {
-  return h("div", { class: `tarjeta-planta-valor ${p ? `valor-${p.estado.toLowerCase()}` : ""}`, "data-parametro": nombre },
+function valorDeTarjeta(nombre, etiqueta, p, { noche = false } = {}) {
+  // F49: de noche la luz va en gris y no se colorea por su estado (no cuenta).
+  const gris = noche && nombre === "luz" && p;
+  return h("div", { class: `tarjeta-planta-valor ${gris ? "valor-noche" : p ? `valor-${p.estado.toLowerCase()}` : ""}`, "data-parametro": nombre, title: gris ? DE_NOCHE_NO_CUENTA : null },
     iconoDeParametro(nombre),
     h("span", { class: "solo-lector" }, `${etiqueta}: `),
     h("strong", {}, p ? `${p.valor} ${p.unidad}` : "—"),
+    gris ? h("span", { class: "solo-lector" }, ` (${DE_NOCHE_NO_CUENTA})`) : null,
   );
 }
 
 /** Tarjeta de una planta propia. Nace con apodo y especie; `completar` le pone la lectura cuando llega. */
 function crearTarjeta(planta) {
-  const ilustracion = crearIlustracionPlanta({ mini: true, carnivora: esCarnivora(planta.especie) });
+  // La mascota de la familia de la especie (F44), chica; al tocarla saluda y NO abre el detalle (el resto de la tarjeta sí).
+  const ilustracion = crearMascotaVista({ especie: planta.especie, nombre: planta.apodo, toque: true, clase: "mascota--mini" });
   const estado = h("span", { class: "tarjeta-planta-estado" });
   const valores = h("div", { class: "tarjeta-planta-valores" });
   const cuando = h("p", { class: "tarjeta-planta-cuando texto-suave" }, "Leyendo…");
+  // F54: vitalidad (barra fina) y ánimo en una palabra; F55: chip si la matera calla o un sensor falla.
+  const barra = crearBarraDeVitalidad({ clase: "vitalidad-barra--fina", etiqueta: `Vitalidad de ${planta.apodo}` });
+  const animo = h("span", { class: "tarjeta-planta-animo" });
+  const chipSalud = h("span", { class: "chip chip--sin-noticias", hidden: true });
+  const filaMascota = h("div", { class: "tarjeta-planta-mascota", hidden: true }, barra.nodo, animo, chipSalud);
+  // La tarjeta NO es un enlace: un botón dentro de un <a> es contenido interactivo anidado (axe `nested-interactive`,
+  // y los lectores de pantalla no anuncian bien al hijo). El enlace es solo el apodo y su ::after estira el área de
+  // toque a toda la tarjeta (patrón «stretched link»); la mascota, hermana del enlace, queda por encima (z-index) y
+  // atiende su propio toque sin propagarlo.
+  const enlace = h("a", { href: `#/plantas/${planta.id}`, class: "tarjeta-planta-enlace" }, planta.apodo);
   const nodo = h("li", { class: "tarjeta-planta-item", "data-planta": planta.id },
-    h("a", { href: `#/plantas/${planta.id}`, class: "tarjeta-planta", "data-estado": "SIN_DIAGNOSTICO" },
+    h("div", { class: "tarjeta-planta", "data-estado": "SIN_DIAGNOSTICO" },
       h("div", { class: "tarjeta-planta-ilustracion" }, ilustracion.nodo),
-      h("div", { class: "tarjeta-planta-nombres" }, h("strong", {}, planta.apodo), h("span", { class: "texto-suave" }, planta.especie)),
+      h("div", { class: "tarjeta-planta-nombres" }, h("strong", {}, enlace), h("span", { class: "texto-suave" }, planta.especie)),
       estado,
       valores,
+      filaMascota,
       cuando,
     ),
   );
-  const enlace = nodo.firstElementChild;
+  const tarjeta = nodo.firstElementChild;
   const cajaIlustracion = nodo.querySelector(".tarjeta-planta-ilustracion");
   let firma = null;
+  // La pose: diagnóstico + ánimo + salud, con las reglas de la OLED (poseDeMascota).
+  const pose = { estado: null, periodo: null, animo: null, saludMala: false };
+  const posar = () => {
+    const { estado: e, periodo } = poseDeMascota(pose);
+    ilustracion.aplicar(e, periodo);
+  };
 
   // Elemento compartido con la cabecera del detalle (F28): la ilustración «viaja» de una a otra. El nombre
   // de la transición solo lo lleva UNA tarjeta (los nombres son únicos en la página): la de la planta que se abre.
@@ -91,7 +118,7 @@ function crearTarjeta(planta) {
   // Hasta que llega la primera lectura la tarjeta es su propio esqueleto: los mismos tres valores con
   // «—», en gris si la espera pasa de 300 ms. `completar` los reemplaza por los reales.
   for (const [nombre, etiqueta] of PARAMETROS) valores.append(valorDeTarjeta(nombre, etiqueta, null));
-  let cancelarEsqueleto = esqueletoSiTarda(enlace);
+  let cancelarEsqueleto = esqueletoSiTarda(tarjeta);
 
   function completar(lectura) {
     if (cancelarEsqueleto) {
@@ -104,18 +131,22 @@ function crearTarjeta(planta) {
     vaciar(estado);
     vaciar(valores);
     if (lectura.tipo !== "datos") {
-      enlace.dataset.estado = "SIN_DIAGNOSTICO";
-      ilustracion.aplicar(ilustracion.estadoVisual({ estado: null }));
+      tarjeta.dataset.estado = "SIN_DIAGNOSTICO";
+      pose.estado = null;
+      pose.periodo = null;
+      posar();
       cuando.textContent = lectura.tipo === "vacio" ? "Aún sin lecturas" : "No pudimos leer cómo está";
       cuando.removeAttribute("data-registrado");
       return;
     }
     const { diagnostico, registradoEn } = lectura.registro;
-    enlace.dataset.estado = diagnostico.estado;
-    ilustracion.aplicar(ilustracion.estadoVisual({ estado: diagnostico.estado, ...nivelesDeDiagnostico(diagnostico) }));
+    tarjeta.dataset.estado = diagnostico.estado;
+    pose.estado = diagnostico.estado;
+    pose.periodo = diagnostico.periodo; // de noche duerme (F49)
+    posar();
     estado.append(chipDeEstadoGlobal(diagnostico.estado));
     for (const [nombre, etiqueta] of PARAMETROS) {
-      valores.append(valorDeTarjeta(nombre, etiqueta, diagnostico.parametros.find((x) => x.nombre === nombre)));
+      valores.append(valorDeTarjeta(nombre, etiqueta, diagnostico.parametros.find((x) => x.nombre === nombre), { noche: luzNoCuenta(diagnostico) }));
     }
     cuando.dataset.registrado = registradoEn;
     cuando.textContent = `Leída ${textoHace(registradoEn)}`;
@@ -126,7 +157,32 @@ function crearTarjeta(planta) {
     if (cuando.dataset.registrado) cuando.textContent = `Leída ${textoHace(cuando.dataset.registrado)}`;
   }
 
-  return { nodo, completar, actualizarTiempo };
+  /** F54: lo de GET .../mascota. */
+  function completarMascota(m) {
+    const v = vitalidadValida(m.vitalidad);
+    filaMascota.hidden = false;
+    barra.poner(v);
+    barra.nodo.title = v === null ? "" : `Vitalidad ${v} de 100`;
+    animo.textContent = palabraDeAnimo(m.animo);
+    pose.animo = m.animo;
+    posar();
+  }
+
+  /** F55: la peor salud de sus materas. «sin noticias» o «revisa la matera»; con OK no hay chip. */
+  function completarSalud(dispositivos) {
+    const peor = peorSalud(saludesDeDispositivos(dispositivos).values());
+    const mala = saludEsMala(peor);
+    chipSalud.hidden = !mala;
+    if (mala) {
+      filaMascota.hidden = false;
+      chipSalud.textContent = peor.estado === "SIN_NOTICIAS" ? "sin noticias" : "revisa la matera";
+      chipSalud.dataset.estado = peor.estado;
+    }
+    pose.saludMala = mala;
+    posar();
+  }
+
+  return { nodo, completar, completarMascota, completarSalud, actualizarTiempo, parar: () => ilustracion.parar() };
 }
 
 /** «Camila Rojas» -> «Camila». Sin nombre, cadena vacía. */
@@ -170,8 +226,7 @@ export async function montar(contenedor, ctx) {
 
   // ---- primera vez (F38): en vez de un tablero vacío, una bienvenida con un solo paso que dar ----
   const nombre = primerNombre(sesion.usuario() && sesion.usuario().nombre);
-  const ilustracionBienvenida = crearIlustracionPlanta();
-  ilustracionBienvenida.aplicar(ilustracionBienvenida.estadoVisual({ estado: "SALUDABLE", humedadPct: 62, luzPct: 75 }));
+  const ilustracionBienvenida = crearMascotaVista({ familia: "generica", estado: "SALUDABLE" }); // aún no hay especie: la planta común
   const tituloBienvenida = h("h2", { class: "bienvenida-titulo", id: "bienvenida-titulo" }, nombre ? `Hola, ${nombre}.` : "Hola.");
   const accionBienvenida = h("div", { class: "bienvenida-accion" });
   const bienvenida = h("section", { class: "tarjeta bienvenida", id: "bienvenida", "aria-labelledby": "bienvenida-titulo", hidden: true },
@@ -186,7 +241,6 @@ export async function montar(contenedor, ctx) {
     accionBienvenida,
     h("p", { class: "texto-suave bienvenida-nota" }, "¿Aún no tienes matera? Igual puedes agregarla y anotar las mediciones a mano."),
   );
-  const pararBalanceo = balancear(ilustracionBienvenida.refs.grupoHojas);
 
   const bloquePropias = h("section", { class: "bloque-propias", "aria-label": "Tus plantas" }, propias);
   const bloqueCompartidas = h("section", { class: "tarjeta", id: "bloque-compartidas" },
@@ -217,6 +271,58 @@ export async function montar(contenedor, ctx) {
   }
 
   let tarjetas = [];
+  // ---- F54, F55: mascota y salud de las tarjetas visibles ----
+  const extrasPedidos = new Map(); // id de planta -> cuándo se pidió
+  const visibles = new Set(); // ids con la tarjeta en pantalla
+  const cola = [];
+  let enVuelo = 0;
+  function encolarExtras(id, { forzar = false } = {}) {
+    const pedido = extrasPedidos.get(id);
+    if (!forzar && pedido !== undefined && Date.now() - pedido < REFRESCO_EXTRAS_MS) return;
+    if (cola.includes(id)) return;
+    extrasPedidos.set(id, Date.now());
+    cola.push(id);
+    bombear();
+  }
+  function bombear() {
+    while (enVuelo < CONCURRENCIA_EXTRAS && cola.length) {
+      const id = cola.shift();
+      enVuelo += 1;
+      pedirExtras(id).finally(() => {
+        enVuelo -= 1;
+        if (ctx.vigente()) bombear();
+      });
+    }
+  }
+  async function pedirExtras(id) {
+    const [mascota, dispositivos] = await Promise.allSettled([obtenerMascota(id), listarDispositivos(id)]);
+    if (!ctx.vigente()) return;
+    const tarjeta = tarjetas[mias.findIndex((p) => p.id === id)];
+    if (!tarjeta) return;
+    // Un fallo (un backend sin la fase 9, la red) deja la tarjeta como estaba: sin barra.
+    if (mascota.status === "fulfilled") tarjeta.completarMascota(mascota.value);
+    if (dispositivos.status === "fulfilled") tarjeta.completarSalud(dispositivos.value);
+  }
+  const observador = "IntersectionObserver" in window
+    ? new IntersectionObserver((entradas) => {
+      for (const e of entradas) {
+        const id = e.target.dataset.planta;
+        if (e.isIntersecting) {
+          visibles.add(id);
+          encolarExtras(id);
+        } else visibles.delete(id);
+      }
+    }, { rootMargin: "120px 0px" })
+    : null;
+  function observarTarjetas() {
+    if (observador) observador.disconnect();
+    visibles.clear();
+    for (const t of tarjetas) {
+      if (observador) observador.observe(t.nodo);
+      else encolarExtras(t.nodo.dataset.planta);
+    }
+  }
+
   let lecturas = new Map(); // id de planta -> lectura
   let mias = [];
   let pintada = null; // lo último que se pintó de las listas
@@ -335,6 +441,7 @@ export async function montar(contenedor, ctx) {
     lecturas = new Map([...lecturas].filter(([id]) => mias.some((p) => p.id === id)));
     vaciar(propias);
     vaciar(compartidas);
+    tarjetas.forEach((t) => t.parar());
     tarjetas = mias.map(crearTarjeta);
     for (const [i, planta] of mias.entries()) if (lecturas.has(planta.id)) tarjetas[i].completar(lecturas.get(planta.id));
     acomodar(mias.length === 0, ajenas.length > 0);
@@ -343,6 +450,8 @@ export async function montar(contenedor, ctx) {
     repintarResumen();
     repintarQueHacer();
     entrada(tarjetas.map((t) => t.nodo), { y: 14, escalon: 0.06, duracion: 0.4 });
+    extrasPedidos.clear(); // tarjetas nuevas: la mascota y la salud se piden de nuevo al verse
+    observarTarjetas();
     leerTodas();
   }
 
@@ -381,7 +490,13 @@ export async function montar(contenedor, ctx) {
 
   // Mientras la pantalla esté visible se refrescan los diagnósticos cada 30 s (sondeo.js los pausa con la
   // pestaña oculta); cada tarjeta compara contra lo que ya pintó y no repinta si nada cambió.
-  const sondeo = crearSondeo({ tarea: leerTodas, intervaloMs: INTERVALO_TABLERO_MS });
+  const sondeo = crearSondeo({
+    tarea: () => {
+      for (const id of visibles) encolarExtras(id); // cada REFRESCO_EXTRAS_MS como mucho
+      return leerTodas();
+    },
+    intervaloMs: INTERVALO_TABLERO_MS,
+  });
   sondeo.iniciar({ inmediato: false, cargadoEn: Date.now() });
   const reloj = setInterval(() => tarjetas.forEach((t) => t.actualizarTiempo()), 10000);
 
@@ -394,7 +509,9 @@ export async function montar(contenedor, ctx) {
   const quitarRevalidacion = alVolver(revalidar);
   return () => {
     clearTimeout(esperaDelRecorrido);
-    pararBalanceo();
+    ilustracionBienvenida.parar();
+    tarjetas.forEach((t) => t.parar());
+    if (observador) observador.disconnect();
     quitarRevalidacion();
     sondeo.detener();
     clearInterval(reloj);

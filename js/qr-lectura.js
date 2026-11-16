@@ -81,3 +81,28 @@ export function ladoReducido(ancho, alto, maximo = 1024) {
   const factor = Math.min(1, maximo / mayor);
   return { ancho: Math.max(1, Math.round(ancho * factor)), alto: Math.max(1, Math.round(alto * factor)) };
 }
+
+/** Cuántas pasadas distintas tiene el lector en vivo antes de repetir. */
+export const PASADAS_DE_LECTURA = 4;
+
+/**
+ * Qué parte del cuadro del video se dibuja en el lienzo en la pasada `indiceDeCuadro` (F41). Cada cuadro hace
+ * UNA sola pasada y la siguiente usa la siguiente, en ciclo, para no recargar la CPU:
+ *  0. cuadro completo reducido a 640 de lado mayor (rápido, el QR grande);
+ *  1. cuadro completo a resolución nativa, hasta 1280 (el QR mediano);
+ *  2. centro al 50 % de ancho y alto, a resolución nativa (el QR chico);
+ *  3. centro al 30 %, a resolución nativa (el QR de la OLED a 10 o 15 cm: cada módulo conserva sus píxeles).
+ * Devuelve { sx, sy, sw, sh, ancho, alto }: los argumentos de `drawImage(video, sx, sy, sw, sh, 0, 0, ancho, alto)`.
+ * Nunca se agranda; los recortes también se acotan a 1280 por seguridad.
+ */
+export function planDeLectura(indiceDeCuadro, anchoVideo, altoVideo) {
+  const paso = ((Math.trunc(indiceDeCuadro) || 0) % PASADAS_DE_LECTURA + PASADAS_DE_LECTURA) % PASADAS_DE_LECTURA;
+  const fraccion = [1, 1, 0.5, 0.3][paso];
+  const maximo = paso === 0 ? 640 : 1280;
+  const sw = Math.max(1, Math.round(anchoVideo * fraccion));
+  const sh = Math.max(1, Math.round(altoVideo * fraccion));
+  const sx = Math.round((anchoVideo - sw) / 2);
+  const sy = Math.round((altoVideo - sh) / 2);
+  const { ancho, alto } = ladoReducido(sw, sh, maximo);
+  return { sx, sy, sw, sh, ancho, alto };
+}

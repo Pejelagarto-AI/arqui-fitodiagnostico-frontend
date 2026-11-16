@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { codigoDeQr, modosDeLector, modoDeLector, ladoReducido, MENSAJES_QR } from "../js/qr-lectura.js";
+import { codigoDeQr, modosDeLector, modoDeLector, ladoReducido, planDeLectura, MENSAJES_QR } from "../js/qr-lectura.js";
 
 const ok = (codigo) => ({ ok: true, codigo, serial: `fito-${codigo}` });
 
@@ -61,4 +61,35 @@ test("la foto se reduce a 1024 px de lado mayor y nunca se agranda", () => {
   assert.deepEqual(ladoReducido(3024, 4032), { ancho: 768, alto: 1024 });
   assert.deepEqual(ladoReducido(640, 480), { ancho: 640, alto: 480 });
   assert.deepEqual(ladoReducido(0, 0), { ancho: 0, alto: 0 });
+});
+
+test("planDeLectura: cuatro pasadas en ciclo sobre un cuadro de 1920x1080", () => {
+  assert.deepEqual(planDeLectura(0, 1920, 1080), { sx: 0, sy: 0, sw: 1920, sh: 1080, ancho: 640, alto: 360 });
+  assert.deepEqual(planDeLectura(1, 1920, 1080), { sx: 0, sy: 0, sw: 1920, sh: 1080, ancho: 1280, alto: 720 });
+  assert.deepEqual(planDeLectura(2, 1920, 1080), { sx: 480, sy: 270, sw: 960, sh: 540, ancho: 960, alto: 540 });
+  assert.deepEqual(planDeLectura(3, 1920, 1080), { sx: 672, sy: 378, sw: 576, sh: 324, ancho: 576, alto: 324 });
+  assert.deepEqual(planDeLectura(4, 1920, 1080), planDeLectura(0, 1920, 1080));
+  assert.deepEqual(planDeLectura(7, 1920, 1080), planDeLectura(3, 1920, 1080));
+});
+
+test("planDeLectura: no agranda un video chico y sirve en vertical", () => {
+  assert.deepEqual(planDeLectura(1, 640, 480), { sx: 0, sy: 0, sw: 640, sh: 480, ancho: 640, alto: 480 });
+  const vertical = planDeLectura(3, 1080, 1920);
+  assert.deepEqual(vertical, { sx: 378, sy: 672, sw: 324, sh: 576, ancho: 324, alto: 576 });
+});
+
+test("planDeLectura: los recortes quedan dentro del cuadro y centrados", () => {
+  for (const [w, a] of [[1920, 1080], [1280, 720], [4032, 3024], [321, 241]]) {
+    for (let i = 0; i < 8; i++) {
+      const p = planDeLectura(i, w, a);
+      assert.ok(p.sx >= 0 && p.sy >= 0 && p.sx + p.sw <= w && p.sy + p.sh <= a, `${w}x${a} #${i}`);
+      assert.ok(Math.max(p.ancho, p.alto) <= (i % 4 === 0 ? 640 : 1280));
+      assert.ok(Math.abs(p.sx - (w - p.sw - p.sx)) <= 1 && Math.abs(p.sy - (a - p.sh - p.sy)) <= 1);
+    }
+  }
+});
+
+test("planDeLectura: índices raros no revientan", () => {
+  assert.deepEqual(planDeLectura(-1, 1920, 1080), planDeLectura(3, 1920, 1080));
+  assert.deepEqual(planDeLectura(NaN, 1920, 1080), planDeLectura(0, 1920, 1080));
 });

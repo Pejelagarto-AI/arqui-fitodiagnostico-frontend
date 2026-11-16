@@ -70,9 +70,9 @@ export async function montar(contenedor, ctx) {
       avisoLista.limpiar();
       vaciar(lista);
       lista.append(
-        h("div", { class: "tabla-scroll" },
+        h("div", { class: "tabla-scroll", role: "region", tabindex: "0", "aria-label": "Tabla de especies (se desplaza)" },
           h("table", { class: "tabla-parametros", id: "tabla-especies" },
-            h("thead", {}, h("tr", {}, ["Especie", "Estado", "Humedad", "Luz", "Temperatura", ""].map((t) => h("th", { scope: "col" }, t)))),
+            h("thead", {}, h("tr", {}, ["Especie", "Estado", "Humedad", "Luz", "Temperatura", ""].map((t) => h("th", { scope: "col" }, t || h("span", { class: "solo-lector" }, "Acciones"))))),
             h("tbody", {}, especies.map((e) =>
               h("tr", { "data-especie": e.nombre },
                 h("td", {}, e.nombre),

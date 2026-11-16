@@ -1,0 +1,27 @@
+familia    estado     cuadro  IoU de la planta (filas 0 a 45)
+girasol    SALUDABLE    0    0.841
+girasol    SALUDABLE    1    0.841
+girasol    EN_RIESGO    0    0.803
+girasol    CRITICO      0    0.826
+cactus     SALUDABLE    0    0.881
+cactus     EN_RIESGO    0    0.929
+cactus     CRITICO      0    0.935
+suculenta  SALUDABLE    0    0.799
+suculenta  SALUDABLE    1    0.822
+suculenta  EN_RIESGO    0    0.804
+suculenta  CRITICO      0    0.841
+helecho    SALUDABLE    0    0.516
+helecho    SALUDABLE    1    0.570
+helecho    EN_RIESGO    0    0.541
+helecho    EN_RIESGO    1    0.528
+helecho    CRITICO      0    0.479
+helecho    CRITICO      1    0.502
+carnivora  SALUDABLE    0    0.738
+carnivora  SALUDABLE    1    0.811
+carnivora  SALUDABLE    2    0.866
+carnivora  EN_RIESGO    0    0.910
+carnivora  CRITICO      0    0.907
+generica   SALUDABLE    0    0.831
+generica   EN_RIESGO    0    0.811
+generica   CRITICO      0    0.773
+promedio 0.764 en 25 poses

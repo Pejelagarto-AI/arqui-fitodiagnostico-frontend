@@ -41,8 +41,8 @@ http://localhost:5500/?api=http://localhost:9090/api/v1#/plantas
 ### Pruebas
 
 ```bash
-node --test tests/*.test.mjs                                # 114 unitarias de la lógica pura (rutas, pestañas, sondeo, tablero, recorrido, lectura de QR, voz de la planta...), sin dependencias
-cd tests/humo && npm install && node humo.mjs               # humo de punta a punta: backend + front levantados, Chrome headless
+node --test tests/*.test.mjs                                # 211 unitarias de la lógica pura (rutas, pestañas, sondeo, tablero, recorrido, lectura de QR, voz de la planta, mascotas, su saludo y su riego, ánimo y salud de la matera, carrusel...), sin dependencias
+cd tests/humo && npm install && node humo.mjs               # humo (en esta máquina, con puertos alternos: docs/HUMO.md) de punta a punta: backend + front levantados, Chrome headless
 ```
 
 El recorrido guiado de la primera vez (F39) tapa la pantalla: para probar a mano sin él, abre `http://localhost:5500/?tour=no#/plantas` o pon `localStorage["fito.tour"] = "no"`. El humo lo apaga así en todos sus contextos menos en el paso que lo recorre.
@@ -61,7 +61,11 @@ Sistema visual «orgánico ilustrado» (F20, F21, F22): tema claro y oscuro auto
 
 ## Estado de la planta: sondeo (polling)
 
-El detalle de una planta se actualiza solo: cada **5 s** (`INTERVALO_SONDEO_MS` en `js/sondeo.js`) pide `GET /plantas/{id}/diagnostico` (el vigente) y la página actual de `GET /plantas/{id}/diagnosticos` (el historial, con el origen MANUAL o DISPOSITIVO de cada registro). El indicador de la cabecera dice «actualizado hace Xs». Se detiene al salir de la pantalla y se pausa con la pestaña oculta. Si la API falla lo dice en pantalla (sin apilar avisos) y reintenta con espera creciente. El WebSocket ya no mueve el estado de la planta: queda solo para los avisos (toasts, acceso perdido). Detalle en F16 de [`docs/IMPLEMENTACION-CORTE2.md`](docs/IMPLEMENTACION-CORTE2.md).
+El detalle de una planta se actualiza solo: cada **5 s** (`INTERVALO_SONDEO_MS` en `js/sondeo.js`) pide `GET /plantas/{id}/diagnostico` (el vigente) y la página actual de `GET /plantas/{id}/diagnosticos` (el historial, con el origen MANUAL o DISPOSITIVO de cada registro). El indicador de la cabecera dice «actualizado hace Xs». Se detiene al salir de la pantalla y se pausa con la pestaña oculta. Si la API falla lo dice en pantalla (sin apilar avisos) y reintenta con espera creciente. El WebSocket ya no mueve el estado de la planta: queda para los avisos (toasts, acceso perdido) y, con el detalle abierto, para los de esa planta (mascota, salud de la matera, cambio de estado: F54, F55). Detalle en F16 de [`docs/IMPLEMENTACION-CORTE2.md`](docs/IMPLEMENTACION-CORTE2.md).
+
+## La mascota y la salud de la matera
+
+El detalle de planta tiene la pestaña **Mascota** (F54; en escritorio es una sección al final de «Hoy»): la mascota grande, igual a la de la OLED, con su ánimo en primera persona («Tengo sed», «Me deslumbra», «Zzz»...), la vitalidad como barra con su número y la causa, la racha («3 días sin susto, desde el jueves»), los botones **Acariciar** (saluda al instante y lo registra) y **La regué** (queda «esperando a que la tierra lo confirme, hasta las 15:42» hasta que el sensor lo confirma o lo desmiente) y la línea de tiempo de lo que le ha pasado, con «Cargar más». El invitado ve todo sin botones. Los eventos llegan en vivo por `/user/queue/plantas/{id}` (`EVENTO_DE_MASCOTA`) y animan la mascota (riego, saludo, desmayo). Si un sensor de la matera falla o la matera calla, arriba del diagnóstico sale el aviso con la frase de la matera («no te siento la temperatura», «no sé de la matera desde hace 12 min»), el diagnóstico se atenúa y la mascota pone la cara preocupada, como en la OLED (F55). En «Mis plantas» cada tarjeta lleva una barra fina de vitalidad, el ánimo en una palabra y, si toca, el chip «sin noticias». Las palabras viven en `js/mascota-animo.js` (puro, con pruebas). Requiere las fases 9 y 10 del backend.
 
 ## Vincular un dispositivo (reclamo por serial)
 
@@ -80,7 +84,7 @@ El administrador registra los dispositivos en `#/admin/dispositivos` (F19): al r
 | `#/invitacion?token=` | pública | aceptar invitación, con sesión o registrándose (enlace del correo) |
 | `#/perfil` | sesión | datos, contraseña, eliminar cuenta |
 | `#/plantas`, `#/plantas/nueva` | sesión | tablero (o la bienvenida si no hay plantas) con filtros por estado y «Qué hacer hoy»; planta nueva |
-| `#/plantas/{id}`, `/historial`, `/matera`, `/mas` | sesión | detalle en pestañas con la activa en la URL (F37): Hoy, Historial, Matera y Más (medir a mano, compartir, ajustes) |
+| `#/plantas/{id}`, `/mascota`, `/historial`, `/matera`, `/mas` | sesión | detalle en pestañas con la activa en la URL (F37): Hoy, Mascota (en escritorio es una sección de Hoy, F54), Historial, Matera y Más (medir a mano, compartir, ajustes) |
 | `#/plantas/:id/vincular` | sesión | asistente de vinculación de cinco pasos: busca la matera cercana, se confirma con el código de 6 caracteres o el QR y termina en «Conexión exitosa» (F36) |
 | `#/vincular?serial=` | sesión | vincular una matera a una planta propia; es el destino del QR del sticker (F34) |
 | `#/v/:codigo` | pública | enlace corto del QR de la pantalla de la matera: redirige a `#/vincular?serial=fito-<CODIGO>` (F35); si vienes del asistente vincula directo a esa planta |
@@ -94,7 +98,7 @@ El administrador registra los dispositivos en `#/admin/dispositivos` (F19): al r
 | `index.html` | cascarón: menú, `<main id="vista">`, CSP y `referrer` |
 | `js/config.js` | `API_BASE` y `WS_URL`, sobreescribibles con `?api=` y `?ws=` |
 | `js/api.js` | **único archivo que llama a `fetch`.** Una función por endpoint; normaliza todo error a `ErrorApi {codigo, mensaje, campo, status}`; maneja 204; adjunta el token (salvo en rutas públicas); un 401 con token vigente avisa a `app.js` |
-| `js/envivo.js` | **único archivo que abre un WebSocket.** STOMP 1.2, suscripciones, reconexión con espera creciente, estado de la conexión. Solo para avisos (toasts, acceso perdido) |
+| `js/envivo.js` | **único archivo que abre un WebSocket.** STOMP 1.2, suscripciones, reconexión con espera creciente, estado de la conexión. Solo para avisos (toasts, acceso perdido) y, en el detalle de planta, los de esa planta: mascota, salud de la matera y cambio de estado (F54, F55) |
 | `js/tiempo.js` | «conectado hace Xs» y «esperando que se conecte» de los dispositivos; puro, con pruebas |
 | `js/sondeo.js` | sondeo periódico (polling) con pausa por pestaña oculta y espera creciente ante errores; puro, con pruebas |
 | `js/stomp.js` | codec STOMP puro (sin red), con pruebas |
@@ -108,8 +112,13 @@ El administrador registra los dispositivos en `#/admin/dispositivos` (F19): al r
 | `css/estilos.css` | sistema visual: tokens en `:root` (claro y oscuro por `prefers-color-scheme`), escala tipográfica, tarjetas, burbujas, historial como lista, responsive y `prefers-reduced-motion` (F20) |
 | `css/fuentes.css`, `css/fuentes/` | Nunito vendorizada (`@font-face`, woff2 latin) |
 | `js/vendor/gsap.min.js` | GSAP 3.12.5 vendorizado; script clásico antes de `app.js` |
-| `js/animaciones.js` | envoltura de GSAP: entrada, barras, números, líneas, ilustración; no hace nada con reduced-motion |
-| `js/componentes/ilustracion-planta.js`, `minigrafica.js`, `escala.js` | planta en matera SVG reactiva, minigráfica de tendencia y cálculos puros (F21) |
+| `js/animaciones.js` | envoltura de GSAP: entrada, barras, números, líneas, idle de la mascota; no hace nada con reduced-motion |
+| `js/componentes/minigrafica.js`, `escala.js` | minigráfica de tendencia y cálculos puros (F21) |
+| `js/componentes/mascota.js`, `mascota-poses.js`, `mascota-tiempo.js`, `especie.js` | mascota por especie (girasol, cactus, suculenta, helecho, carnívora, genérica), igual a la de la OLED: mismo dibujo, poses por estado (calcadas de `dibujar.py`, F45), caras y tiempos del firmware (F42); `familiaDe` es la del firmware, tildes incluidas (F48) |
+| `js/componentes/mascota-vista.js` | la mascota como la usan las pantallas: familia por especie, estado del diagnóstico, idle y toque que saluda (F44, F47). Está en el detalle, el tablero, el asistente de vinculación, el diagnóstico sin cuenta y la portada |
+| `tools/comparar-mascotas.py`, `tools/mascotas-svg.mjs` | compara cada mascota con su sprite de la OLED, sin navegador (PIL); escribe `docs/mascotas/*.png` (F45) |
+| `js/componentes/planta-mascota.js`, `js/mascota-animo.js` | la pestaña «Mascota» (ánimo, vitalidad, racha, acariciar, «la regué», línea de tiempo) y sus palabras, la salud de la matera y el reparto de los avisos de una planta (F54, F55); el segundo puro, con pruebas |
+| `js/componentes/carrusel-especies.js`, `carrusel-estado.js` | carrusel para elegir la especie deslizando, con las mascotas animadas; el `<select>` oculto lleva el valor (F42) |
 | `js/cache.js`, `js/deshacer.js`, `js/transiciones.js` | caché en memoria para stale-while-revalidate, petición retrasada tras «Deshacer», View Transitions (F25, F26, F28); puros salvo las transiciones, con pruebas |
 | `js/pestanas.js`, `js/tablero.js` | pestañas del detalle y filtros del tablero (F37); puros, con pruebas |
 | `js/vistas/portada.js`, `js/portada-guion.js`, `js/voz-planta.js`, `js/mensajes.js` | portada, lo que «dice» la planta y los errores en lenguaje de persona (F38); los tres últimos puros |

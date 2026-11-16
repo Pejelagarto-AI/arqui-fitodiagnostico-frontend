@@ -6,16 +6,24 @@
 export const DURACION_MOMENTO_MS = 3800;
 
 /**
- * planta: "comun" | "carnivora". estado: el del diagnóstico (mueve hojas y color). humedad y luz: 0 a 100,
- * mueven el agua de la matera y el sol. alerta: el sensor que pide atención ("agua" | "luz" | null).
+ * planta: la familia de la mascota (F44), una de las cinco especies del catálogo: "girasol" | "cactus" | "suculenta" |
+ * "helecho" | "carnivora" (la atrapamoscas). estado: el del diagnóstico (pose y cara de la mascota, como en la OLED).
+ * valores: lo que marcan los tres sensores. alerta: el sensor que pide atención ("agua" | "luz" | null).
  */
 export const MOMENTOS = [
-  { planta: "comun", estado: "SALUDABLE", humedad: 62, luz: 70, frase: "Estoy bien. Hoy no necesito nada.", valores: { agua: "62 %", luz: "850 lux", temperatura: "23 °C" }, alerta: null },
-  { planta: "comun", estado: "EN_RIESGO", humedad: 16, luz: 70, frase: "Tengo sed. Riégame un poco.", valores: { agua: "16 %", luz: "850 lux", temperatura: "24 °C" }, alerta: "agua" },
-  { planta: "comun", estado: "SALUDABLE", humedad: 68, luz: 70, frase: "Gracias. Ya me siento mejor.", valores: { agua: "68 %", luz: "850 lux", temperatura: "23 °C" }, alerta: null },
-  { planta: "carnivora", estado: "SALUDABLE", humedad: 80, luz: 92, frase: "Soy carnívora: me encanta el sol.", valores: { agua: "80 %", luz: "12000 lux", temperatura: "26 °C" }, alerta: null, muerde: true },
-  { planta: "carnivora", estado: "EN_RIESGO", humedad: 78, luz: 10, frase: "Me falta luz. Llévame a la ventana.", valores: { agua: "78 %", luz: "900 lux", temperatura: "25 °C" }, alerta: "luz" },
+  { planta: "girasol", estado: "SALUDABLE", frase: "Estoy bien. Hoy no necesito nada.", valores: { agua: "62 %", luz: "850 lux", temperatura: "23 °C" }, alerta: null },
+  { planta: "girasol", estado: "EN_RIESGO", frase: "Tengo sed. Riégame un poco.", valores: { agua: "16 %", luz: "850 lux", temperatura: "24 °C" }, alerta: "agua" },
+  { planta: "girasol", estado: "SALUDABLE", frase: "Gracias. Ya me siento mejor.", valores: { agua: "68 %", luz: "850 lux", temperatura: "23 °C" }, alerta: null },
+  { planta: "cactus", estado: "SALUDABLE", frase: "Soy cactus: poca agua me basta.", valores: { agua: "22 %", luz: "9000 lux", temperatura: "27 °C" }, alerta: null },
+  { planta: "suculenta", estado: "EN_RIESGO", frase: "Me falta luz. Llévame a la ventana.", valores: { agua: "35 %", luz: "300 lux", temperatura: "22 °C" }, alerta: "luz" },
+  { planta: "helecho", estado: "CRITICO", frase: "Estoy seco. Necesito agua ya.", valores: { agua: "5 %", luz: "600 lux", temperatura: "29 °C" }, alerta: "agua" },
+  { planta: "carnivora", estado: "SALUDABLE", frase: "Soy carnívora: me encanta el sol.", valores: { agua: "80 %", luz: "12000 lux", temperatura: "26 °C" }, alerta: null, muerde: true },
 ];
+
+/** Las familias que recorre el guion, en orden de aparición (sin repetir). */
+export function familiasDelGuion(momentos = MOMENTOS) {
+  return [...new Set(momentos.map((m) => m.planta))];
+}
 
 /** El momento que sigue, en bucle. */
 export function siguienteMomento(indice, total = MOMENTOS.length) {
