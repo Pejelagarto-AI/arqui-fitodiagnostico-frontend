@@ -1541,6 +1541,42 @@ body[data-familia="planta"] .indicador-conexion--global {
   opacity: 0.55;
 }
 
+/* la planta dormida (F49): el "zzz" en zetas de 1 px, como en la OLED */
+.masc-zeta {
+  fill: none;
+  stroke: var(--tinta-suave);
+  stroke-width: 1;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+
+/* de noche la luz no cuenta (F49): la ficha de luz en gris y la luz del día debajo del número de ahora */
+.burbuja[data-noche] {
+  filter: grayscale(1);
+}
+
+.burbuja[data-noche] .pista-valor,
+.burbuja[data-noche] .chip--noche {
+  color: var(--tinta-suave);
+}
+
+.burbuja .chip--noche {
+  background: transparent;
+  border-color: var(--borde-control);
+}
+
+.burbuja-dia {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  color: var(--tinta-suave);
+  font-variant-numeric: tabular-nums;
+  text-wrap: pretty;
+}
+
+.tarjeta-planta-valor.valor-noche {
+  color: var(--tinta-suave);
+}
+
 /* tocar la planta (F44): el botón es el dibujo; el aro de foco lo rodea */
 .mascota-toque {
   display: block;

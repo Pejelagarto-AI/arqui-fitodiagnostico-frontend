@@ -143,6 +143,15 @@ export const GIRASOL = [
   },
 ];
 
+/** Girasol dormido (fase 11 del firmware, `girasol("dormido")` en dibujar.py): la cabeza cae 4 px y se corre 1 a la
+ * izquierda, la corona entera girada 8 grados con las puntas apenas dobladas; las hojas bajan 1 y 2 px. */
+export const GIRASOL_DORMIDO = {
+  tallo: [[24, 47], [25, 37], [23, 29]],
+  hojas: [{ base: [24, 40], tip: [7, 32], ancho: 5, curva: -3 }, { base: [24, 36], tip: [41, 30], ancho: 5, curva: 3 }],
+  disco: { cx: 23, cy: 21, r: 10 },
+  corona: { cx: 23, cy: 21, rIn: 9, rOut: 17, cantidad: 12, fase: 8, caida: 0.25 },
+};
+
 /** Cactus: cima del cuerpo y los dos brazos (rectángulo vertical, rectángulo horizontal), como `rounded_rectangle`. */
 export const CACTUS = [
   { cima: 9, brazos: [[[5, 16, 11, 34], [6, 28, 18, 34]], [[37, 11, 43, 30], [30, 24, 42, 30]]], costillaDesde: 37 },

@@ -16,6 +16,7 @@ class Elemento extends Nodo {
     this.atributos = new Map();
     this.hijos = [];
     this.isConnected = false;
+    this.style = {}; // las burbujas del diagnóstico ponen left y width (F49 las prueba)
     this.dataset = new Proxy({}, {
       set: (_, clave, valor) => {
         this.atributos.set(`data-${clave.replace(/[A-Z]/g, (l) => `-${l.toLowerCase()}`)}`, String(valor));

@@ -695,7 +695,7 @@ async function ejecutar() {
     assert.equal(await pAna.locator(".tarjeta-planta .mascota:not(.mascota--carnivora)").count() >= 1, true);
     await api(sesionAna, "DELETE", `/plantas/${creada.cuerpo.id}`);
   });
-  await paso("tablero: la mascota saluda sin navegar, la tarjeta sí navega, y no hay botón dentro de un enlace (F49)", async () => {
+  await paso("tablero: la mascota saluda sin navegar, la tarjeta sí navega, y no hay botón dentro de un enlace (F51)", async () => {
     const sesionAna = await tokenDe(pAna);
     const creada = await api(sesionAna, "POST", "/plantas", { apodo: "Toquecito", especie: "girasol" });
     assert.equal(creada.status, 201);
@@ -727,7 +727,7 @@ async function ejecutar() {
     await esperarHash(pAna, new RegExp(`^#/plantas/${creada.cuerpo.id}$`));
     await api(sesionAna, "DELETE", `/plantas/${creada.cuerpo.id}`);
   });
-  await paso("carrusel de especies por teclado: Tab llega a la elegida, las flechas cambian la especie y Tab sale del grupo (F49)", async () => {
+  await paso("carrusel de especies por teclado: Tab llega a la elegida, las flechas cambian la especie y Tab sale del grupo (F52)", async () => {
     await pAna.goto(`${RAIZ}#/diagnostico`);
     await pAna.locator(".carrusel-tarjeta[aria-checked='true']").waitFor();
     assert.equal(await pAna.getByRole("radiogroup").count(), 1);

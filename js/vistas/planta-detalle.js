@@ -115,7 +115,7 @@ export async function montar(contenedor, ctx) {
     // Al llegar una lectura distinta rebota la píldora.
     if (cambio) cambiarEstado(estadoNodo, aplicar);
     else aplicar();
-    ilustracion.aplicar(estado);
+    ilustracion.aplicar(estado, diagnostico ? diagnostico.periodo : null); // de noche duerme (F49)
     if (cambio) ilustracion.morder(); // la carnívora saludable muerde cuando llega una lectura nueva, como en la OLED
   };
 

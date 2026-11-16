@@ -32,17 +32,22 @@ const sueloDe = (s) => (s ? hojaDe("hoja-b", { ...s, vena: false }) : null);
 /** Girasol: tallo, dos hojas, corona de pétalos y disco con la cara en el centro (CARA_GIRASOL). */
 function girasol() {
   let corona0 = null;
-  const cuerpos = P.GIRASOL.map((p, nivel) => {
+  const pose = (p) => {
     const petalos = P.petalosDe(p.corona).map((e) =>
       svg("ellipse", { class: `masc-petalo${e.i % 2 ? " masc-petalo--b" : ""}`, cx: e.cx, cy: e.cy, rx: e.rx, ry: e.ry, transform: `rotate(${e.giro} ${e.cx} ${e.cy})` }));
     const corona = svg("g", { class: "masc-corona" }, petalos);
-    if (nivel === 0) corona0 = corona;
     const { cx, cy, r } = p.disco;
-    return [cuerpo(centrado(tallo(p.tallo, 3), hojasDe(p.hojas), sueloDe(p.suelo), corona,
+    return { corona, g: cuerpo(centrado(tallo(p.tallo, 3), hojasDe(p.hojas), sueloDe(p.suelo), corona,
       svg("circle", { class: "masc-disco", cx, cy, r: r + 0.5 }),
-      svg("circle", { class: "masc-disco-borde", cx, cy, r: r - 1.2 })))];
+      svg("circle", { class: "masc-disco-borde", cx, cy, r: r - 1.2 }))) };
+  };
+  const cuerpos = P.GIRASOL.map((p, nivel) => {
+    const { corona, g } = pose(p);
+    if (nivel === 0) corona0 = corona;
+    return [g];
   });
-  return { cuerpos, refs: { corona: corona0 }, geo: T.GEO_CHICA };
+  // F49: dormido (saludable de noche) tiene su propio sprite en la OLED, `girasol_dormido`.
+  return { cuerpos, dormido: pose(P.GIRASOL_DORMIDO).g, refs: { corona: corona0 }, geo: T.GEO_CHICA };
 }
 
 /** Cactus: columna de 19 px con cúpula, dos brazos (dos rectángulos redondeados cada uno), costillas y espinas de 1 px. */
@@ -138,8 +143,8 @@ function nodosDeCara(piezas) {
 }
 
 /**
- * Crea la mascota de una familia. Devuelve { nodo, familia, ponerEstado(estado), pintar(ahora, { reposo }), saludar(),
- * morder() }. `pintar` dibuja el cuadro de `ahora` (ms) con las reglas del chip; `reposo` deja la pose quieta (sin
+ * Crea la mascota de una familia. Devuelve { nodo, familia, ponerEstado(estado), ponerPeriodo(periodo),
+ * pintar(ahora, { reposo }), saludar(), morder() }. `pintar` dibuja el cuadro de `ahora` (ms) con las reglas del chip; `reposo` deja la pose quieta (sin
  * balanceo, sin parpadeo, la flor del cactus abierta), que es lo que se ve con movimiento reducido. `nodo` es
  * decorativo (aria-hidden): quien lo muestra pone el nombre de la especie en texto. Familia desconocida: la genérica.
  *
@@ -147,12 +152,13 @@ function nodosDeCara(piezas) {
  * `{ reducido: true }` (movimiento reducido) la pose queda quieta y solo cambia la expresión.
  * `morder()` es el mordisco de la OLED cuando llega una lectura (solo carnívora saludable, como `mordisco()`).
  */
-export function crearMascota(familia, { estado = "SALUDABLE", clase = "" } = {}) {
+export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", clase = "" } = {}) {
   const nombre = FAMILIAS.includes(familia) ? familia : "generica";
   const dibujo = DIBUJOS[nombre]();
   const refs = dibujo.refs;
-  const planta = svg("g", { class: "masc-planta" }, dibujo.cuerpos.flat());
+  const planta = svg("g", { class: "masc-planta" }, dibujo.cuerpos.flat(), dibujo.dormido || null);
   const cara = svg("g", { class: "masc-cara" });
+  const zzz = svg("g", { class: "masc-zzz" }); // F49: el "zzz" de la planta dormida (no respira ni se balancea)
   const nodo = svg("svg", { class: `mascota mascota--${nombre}${clase ? ` ${clase}` : ""}`, viewBox: "0 0 48 64", "aria-hidden": "true", focusable: "false", "data-familia": nombre },
     planta,
     ...(dibujo.arriba ? [refs.flor] : []),
@@ -160,6 +166,7 @@ export function crearMascota(familia, { estado = "SALUDABLE", clase = "" } = {})
     svg("path", { class: "ilu-matera", d: "M11 51H37L34 64H14Z" }),
     trazo("masc-deco", P.pixelesD(P.decoracionDeMatera(nombre))), // los píxeles apagados del borde y la banda de la matera
     cara,
+    zzz,
   );
 
   // Estado del «chip»: nivel y desde cuándo, cara en transición, parpadeo, mordisco y saludo.
@@ -180,10 +187,11 @@ export function crearMascota(familia, { estado = "SALUDABLE", clase = "" } = {})
   let ultimaFlor = "";
   let vigente = null; // el <g> que se ve
   let ultimasPiezas = null; // las de la cara del último cuadro (para las herramientas de comparación)
+  let noche = false; // F49: el diagnóstico dijo periodo NOCHE
+  let ultimoZzz = -1;
 
-  /** Muestra la pose (nivel, cuadro) y esconde las demás. */
-  function mostrar(cuadro) {
-    const g = dibujo.cuerpos[nivel][Math.min(cuadro, dibujo.cuerpos[nivel].length - 1)];
+  /** Muestra la pose (nivel, cuadro) y esconde las demás. `g` fuerza un cuerpo (el girasol dormido). */
+  function mostrar(cuadro, g = dibujo.cuerpos[nivel][Math.min(cuadro, dibujo.cuerpos[nivel].length - 1)]) {
     if (g === vigente) return;
     if (vigente) vigente.setAttribute("display", "none");
     g.removeAttribute("display");
@@ -202,8 +210,21 @@ export function crearMascota(familia, { estado = "SALUDABLE", clase = "" } = {})
     mostrar(0);
   }
 
-  function pintarFlor(ahora, reposo) {
-    const f = reposo ? (nivel === 0 ? { boton: false, d: 3 } : null) : T.florCactus(ahora - nivelDesde, nivel);
+  /** F49: de noche o de día. Solo cambia lo que se pinta en el próximo cuadro; la cara no salta. */
+  function ponerPeriodo(periodo) {
+    noche = T.esNoche(periodo);
+    nodo.dataset.periodo = noche ? "NOCHE" : "DIA";
+  }
+
+  /** El "zzz": `cuadro` + 1 zetas (0 a 2); -1 las quita. */
+  function pintarZzz(cuadro) {
+    if (cuadro === ultimoZzz) return;
+    ultimoZzz = cuadro;
+    zzz.replaceChildren(...T.NOCHE.ZZZ.slice(0, cuadro + 1).map((z) => trazo("masc-zeta", T.zetaD(z))));
+  }
+
+  function pintarFlor(ahora, reposo, duerme = false) {
+    const f = duerme ? null : reposo ? (nivel === 0 ? { boton: false, d: 3 } : null) : T.florCactus(ahora - nivelDesde, nivel);
     const firma = f ? `${f.boton}-${f.d}` : "";
     if (firma === ultimaFlor) return;
     ultimaFlor = firma;
@@ -226,57 +247,65 @@ export function crearMascota(familia, { estado = "SALUDABLE", clase = "" } = {})
   function pintar(ahora, { reposo = false, cuadro = 0 } = {}) {
     reloj = ahora;
     if (caraT0 === -Infinity) caraT0 = ahora - T.TRANSICION_MS;
-    const seno = reposo ? 0 : T.senoBalanceo(ahora);
+    const senoReloj = reposo ? 0 : T.senoBalanceo(ahora);
     const amp = T.amplitud(nombre, nivel);
 
     // saludo (el toque): salto y parpadeo doble con la cara contenta; con reposo solo la expresión
     const saludo = reposo ? null : T.pasoSaludo(ahora - saludoDesde);
     const contenta = saludo || saludoQuieto;
+    // F49: de noche duerme (el saludo la despierta un momento): ojos cerrados, quieta, respira y flota el "zzz".
+    const duerme = noche && !contenta;
+    const seno = duerme ? 0 : senoReloj;
+    // `nivel` para la lágrima: dormida no llora (el resto de la cara sí sigue al estado)
+    const nivelCara = duerme ? 0 : nivel;
 
-    // parpadeo cada 3 a 5 s (150 ms); en el saludo manda el parpadeo doble
-    let parpadeo = 1;
+    // parpadeo cada 3 a 5 s (150 ms); en el saludo manda el parpadeo doble; dormida, los ojos cerrados
+    let parpadeo = duerme ? 0 : 1;
     if (!reposo) {
       if (proximoParpadeo === null) proximoParpadeo = ahora + T.esperaDeParpadeo();
       if (ahora >= proximoParpadeo) { parpadeoDesde = ahora; proximoParpadeo = ahora + T.esperaDeParpadeo(); }
-      parpadeo = saludo ? saludo.ojos : T.factorParpadeo(ahora - parpadeoDesde);
+      if (!duerme) parpadeo = saludo ? saludo.ojos : T.factorParpadeo(ahora - parpadeoDesde);
     }
     const c = contenta ? T.SALUDO.CARA : reposo ? caraHasta : T.caraEn(caraDesde, caraHasta, ahora - caraT0);
     let piezas = null;
     let dx = 0;
-    let dy = saludo ? saludo.dy : 0; // el cuerpo entero (todo lo que está sobre la matera) sube y baja
+    // el cuerpo entero (todo lo que está sobre la matera) sube y baja: el salto del saludo o la respiración dormida
+    let dy = saludo ? saludo.dy : duerme && !reposo ? T.respiraDy(ahora) : 0;
     let caraDy = dy;
 
     if (nombre === "girasol") {
-      const p = T.CARA_GIRASOL[nivel];
-      const pose = reposo ? { cuadro: 0, dy: 0, mira: 0 } : T.poseGirasol(ahora, nivel);
-      if (nivel === 0) refs.corona.setAttribute("transform", (reposo ? cuadro : pose.cuadro) ? "rotate(15 24 17)" : "");
-      if (!saludo) { dy = pose.dy; caraDy = dy; }
+      const dormido = duerme && nivel === 0;
+      const p = dormido ? T.NOCHE.CARA_GIRASOL : T.CARA_GIRASOL[nivel];
+      const pose = reposo || duerme ? { cuadro: 0, dy: 0, mira: 0 } : T.poseGirasol(ahora, nivel);
+      if (nivel === 0) refs.corona.setAttribute("transform", (reposo ? cuadro : pose.cuadro) && !duerme ? "rotate(15 24 17)" : "");
+      if (nivel === 0) mostrar(0, dormido ? dibujo.dormido : undefined);
+      if (!saludo && !duerme) { dy = pose.dy; caraDy = dy; }
       dx = pose.mira + T.desv(p.y, seno, amp);
-      piezas = T.piezasDeCara(c, parpadeo, p.x, p.y, T.GEO_CHICA, { nivel, ahora });
+      piezas = T.piezasDeCara(c, parpadeo, p.x, p.y, T.GEO_CHICA, { nivel: nivelCara, ahora });
     } else if (nombre === "cactus") {
       const p = T.CARA_CACTUS[nivel];
       dx = T.desv(p.y, seno, amp);
-      piezas = T.piezasDeCara(c, parpadeo, p.x, p.y, T.GEO_CACTUS, { nivel, ahora });
-      pintarFlor(ahora, reposo);
+      piezas = T.piezasDeCara(c, parpadeo, p.x, p.y, T.GEO_CACTUS, { nivel: nivelCara, ahora });
+      pintarFlor(ahora, reposo, duerme); // de noche la flor se cierra
       refs.flor.setAttribute("transform", `translate(${T.desv(T.CACTUS_Y_FLOR, seno, amp).toFixed(2)} ${dy})`);
     } else if (nombre === "suculenta") {
       const p = T.CARA_SUCULENTA[nivel];
-      mostrar(reposo ? cuadro : T.suculentaInflada(ahora, nivel) ? 1 : 0);
+      mostrar(duerme ? 0 : reposo ? cuadro : T.suculentaInflada(ahora, nivel) ? 1 : 0);
       dx = T.desv(p.y, seno, amp);
-      piezas = T.piezasDeCara(c, parpadeo, p.x, p.y, T.GEO_CHICA, { nivel, ahora });
+      piezas = T.piezasDeCara(c, parpadeo, p.x, p.y, T.GEO_CHICA, { nivel: nivelCara, ahora });
     } else if (nombre === "helecho") {
-      mostrar(reposo ? cuadro : T.cuadroHelecho(ahora, nivel));
-      piezas = T.piezasDeCaraMatera(c, parpadeo, { nivel, ahora });
+      mostrar(duerme ? 0 : reposo ? cuadro : T.cuadroHelecho(ahora, nivel));
+      piezas = T.piezasDeCaraMatera(c, parpadeo, { nivel: nivelCara, ahora });
       caraDy = 0; // la cara va en la matera: no sube con el salto
     } else if (nombre === "generica") {
-      piezas = T.piezasDeCaraMatera(c, parpadeo, { nivel, ahora });
+      piezas = T.piezasDeCaraMatera(c, parpadeo, { nivel: nivelCara, ahora });
       caraDy = 0;
     } else {
       // carnívora: saludable muerde sola cada 6 a 10 s; el cuadro de boca decide dónde van los ojos (fila 9, 12 o 16).
       // En riesgo y crítico la cabeza va cerrada y lisa (la cara triste con boca la pone el código).
-      let boca = reposo && nivel === 0 ? cuadro : 0;
+      let boca = duerme && nivel === 0 ? 2 : reposo && nivel === 0 ? cuadro : 0; // dormida: la trampa cerrada
       let dyBoca = 0;
-      if (!reposo && nivel === 0) {
+      if (!reposo && !duerme && nivel === 0) {
         if (proximoMordisco === null) proximoMordisco = T.proximoMordisco(ahora);
         if (ahora >= proximoMordisco && ahora - mordiscoDesde >= T.MORDISCO_MS) { mordiscoDesde = ahora; proximoMordisco = T.proximoMordisco(ahora); }
         const paso = T.pasoMordisco(ahora - mordiscoDesde);
@@ -288,8 +317,9 @@ export function crearMascota(familia, { estado = "SALUDABLE", clase = "" } = {})
       const yo = nivel === 0 ? T.CARNIVORA_OJOS_Y[boca] : P.CARNIVORA_TRISTE[nivel - 1].cara;
       const cm = boca === 2 ? { ...c, abierto: c.abierto * 0.3 } : c;
       dx = T.desv(yo, seno, amp);
-      piezas = T.piezasDeCara(cm, parpadeo, 24, yo, T.GEO_TRAMPA, { conBoca: nivel > 0, nivel, ahora });
+      piezas = T.piezasDeCara(cm, parpadeo, 24, yo, T.GEO_TRAMPA, { conBoca: nivel > 0, nivel: nivelCara, ahora });
     }
+    pintarZzz(duerme ? (reposo ? 2 : T.cuadroZzz(ahora)) : -1);
 
     ultimasPiezas = piezas;
     planta.setAttribute("transform", `${dy ? `translate(0 ${dy}) ` : ""}${T.matrizBalanceo(seno, amp)}`);
@@ -318,14 +348,15 @@ export function crearMascota(familia, { estado = "SALUDABLE", clase = "" } = {})
     saludoDesde = reloj;
   }
 
-  /** Mordisco por lectura nueva (`mordisco()` del firmware): solo la carnívora saludable. */
+  /** Mordisco por lectura nueva (`mordisco()` del firmware): solo la carnívora saludable, y despierta. */
   function morder() {
-    if (nombre !== "carnivora" || nivel > 0) return;
+    if (nombre !== "carnivora" || nivel > 0 || noche) return;
     mordiscoDesde = reloj;
     proximoMordisco = T.proximoMordisco(reloj);
   }
 
   ponerEstado(estado);
+  ponerPeriodo(periodo);
   pintar(0, { reposo: true });
-  return { nodo, familia: nombre, ponerEstado, pintar, saludar, morder, piezas: () => ultimasPiezas };
+  return { nodo, familia: nombre, ponerEstado, ponerPeriodo, pintar, saludar, morder, piezas: () => ultimasPiezas };
 }

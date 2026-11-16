@@ -1,0 +1,93 @@
+pose     familia    cuadro       IoU de la planta (filas 0 a 45)
+dormida  girasol    SALUDABLE    0.828
+dormida  girasol    EN_RIESGO    0.762
+dormida  girasol    CRITICO      0.774
+dormida  cactus     SALUDABLE    0.894
+dormida  cactus     EN_RIESGO    0.884
+dormida  cactus     CRITICO      0.880
+dormida  suculenta  SALUDABLE    0.777
+dormida  suculenta  EN_RIESGO    0.758
+dormida  suculenta  CRITICO      0.753
+dormida  helecho    SALUDABLE    0.516
+dormida  helecho    EN_RIESGO    0.552
+dormida  helecho    CRITICO      0.512
+dormida  carnivora  SALUDABLE    0.847
+dormida  carnivora  EN_RIESGO    0.870
+dormida  carnivora  CRITICO      0.865
+dormida  generica   SALUDABLE    0.832
+dormida  generica   EN_RIESGO    0.810
+dormida  generica   CRITICO      0.775
+saludo   girasol    cuadro 00    0.789
+saludo   girasol    cuadro 01    0.797
+saludo   girasol    cuadro 02    0.803
+saludo   girasol    cuadro 03    0.815
+saludo   girasol    cuadro 04    0.805
+saludo   girasol    cuadro 05    0.802
+saludo   girasol    cuadro 06    0.814
+saludo   girasol    cuadro 07    0.810
+saludo   girasol    cuadro 08    0.807
+saludo   girasol    cuadro 09    0.797
+saludo   girasol    cuadro 10    0.792
+saludo   girasol    cuadro 11    0.795
+saludo   cactus     cuadro 00    0.850
+saludo   cactus     cuadro 01    0.854
+saludo   cactus     cuadro 02    0.873
+saludo   cactus     cuadro 03    0.885
+saludo   cactus     cuadro 04    0.867
+saludo   cactus     cuadro 05    0.843
+saludo   cactus     cuadro 06    0.873
+saludo   cactus     cuadro 07    0.886
+saludo   cactus     cuadro 08    0.881
+saludo   cactus     cuadro 09    0.868
+saludo   cactus     cuadro 10    0.867
+saludo   cactus     cuadro 11    0.866
+saludo   suculenta  cuadro 00    0.746
+saludo   suculenta  cuadro 01    0.746
+saludo   suculenta  cuadro 02    0.765
+saludo   suculenta  cuadro 03    0.779
+saludo   suculenta  cuadro 04    0.763
+saludo   suculenta  cuadro 05    0.744
+saludo   suculenta  cuadro 06    0.762
+saludo   suculenta  cuadro 07    0.776
+saludo   suculenta  cuadro 08    0.761
+saludo   suculenta  cuadro 09    0.743
+saludo   suculenta  cuadro 10    0.742
+saludo   suculenta  cuadro 11    0.740
+saludo   helecho    cuadro 00    0.551
+saludo   helecho    cuadro 01    0.549
+saludo   helecho    cuadro 02    0.552
+saludo   helecho    cuadro 03    0.561
+saludo   helecho    cuadro 04    0.536
+saludo   helecho    cuadro 05    0.536
+saludo   helecho    cuadro 06    0.516
+saludo   helecho    cuadro 07    0.499
+saludo   helecho    cuadro 08    0.466
+saludo   helecho    cuadro 09    0.490
+saludo   helecho    cuadro 10    0.491
+saludo   helecho    cuadro 11    0.509
+saludo   carnivora  cuadro 00    0.677
+saludo   carnivora  cuadro 01    0.670
+saludo   carnivora  cuadro 02    0.682
+saludo   carnivora  cuadro 03    0.696
+saludo   carnivora  cuadro 04    0.688
+saludo   carnivora  cuadro 05    0.679
+saludo   carnivora  cuadro 06    0.718
+saludo   carnivora  cuadro 07    0.730
+saludo   carnivora  cuadro 08    0.716
+saludo   carnivora  cuadro 09    0.699
+saludo   carnivora  cuadro 10    0.698
+saludo   carnivora  cuadro 11    0.699
+saludo   generica   cuadro 00    0.810
+saludo   generica   cuadro 01    0.805
+saludo   generica   cuadro 02    0.808
+saludo   generica   cuadro 03    0.826
+saludo   generica   cuadro 04    0.837
+saludo   generica   cuadro 05    0.834
+saludo   generica   cuadro 06    0.831
+saludo   generica   cuadro 07    0.816
+saludo   generica   cuadro 08    0.801
+saludo   generica   cuadro 09    0.806
+saludo   generica   cuadro 10    0.812
+saludo   generica   cuadro 11    0.823
+promedio dormida 0.772 en 18 cuadros
+promedio saludo 0.743 en 72 cuadros

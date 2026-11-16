@@ -19,7 +19,7 @@ import { recomendacionEnPalabras } from "../voz-planta.js";
 import { lanzarRecorridoSiToca } from "../componentes/recorrido.js";
 import { h, vaciar, crearAviso, chipDeEstadoGlobal, esqueletoSiTarda, ETIQUETAS_PARAMETRO } from "../ui.js";
 import { crearMascotaVista } from "../componentes/mascota-vista.js";
-import { iconoDeParametro } from "../componentes/diagnostico.js";
+import { iconoDeParametro, luzNoCuenta, DE_NOCHE_NO_CUENTA } from "../componentes/diagnostico.js";
 import { recomendacionesPorParametro } from "../componentes/escala.js";
 
 export const titulo = "Mis plantas";
@@ -51,11 +51,14 @@ function tarjetaDeCompartida(planta) {
 }
 
 /** Un valor de la tarjeta (humedad, luz o temperatura); sin parámetro es el hueco del esqueleto. */
-function valorDeTarjeta(nombre, etiqueta, p) {
-  return h("div", { class: `tarjeta-planta-valor ${p ? `valor-${p.estado.toLowerCase()}` : ""}`, "data-parametro": nombre },
+function valorDeTarjeta(nombre, etiqueta, p, { noche = false } = {}) {
+  // F49: de noche la luz va en gris y no se colorea por su estado (no cuenta).
+  const gris = noche && nombre === "luz" && p;
+  return h("div", { class: `tarjeta-planta-valor ${gris ? "valor-noche" : p ? `valor-${p.estado.toLowerCase()}` : ""}`, "data-parametro": nombre, title: gris ? DE_NOCHE_NO_CUENTA : null },
     iconoDeParametro(nombre),
     h("span", { class: "solo-lector" }, `${etiqueta}: `),
     h("strong", {}, p ? `${p.valor} ${p.unidad}` : "—"),
+    gris ? h("span", { class: "solo-lector" }, ` (${DE_NOCHE_NO_CUENTA})`) : null,
   );
 }
 
@@ -117,10 +120,10 @@ function crearTarjeta(planta) {
     }
     const { diagnostico, registradoEn } = lectura.registro;
     tarjeta.dataset.estado = diagnostico.estado;
-    ilustracion.aplicar(diagnostico.estado);
+    ilustracion.aplicar(diagnostico.estado, diagnostico.periodo); // de noche duerme (F49)
     estado.append(chipDeEstadoGlobal(diagnostico.estado));
     for (const [nombre, etiqueta] of PARAMETROS) {
-      valores.append(valorDeTarjeta(nombre, etiqueta, diagnostico.parametros.find((x) => x.nombre === nombre)));
+      valores.append(valorDeTarjeta(nombre, etiqueta, diagnostico.parametros.find((x) => x.nombre === nombre), { noche: luzNoCuenta(diagnostico) }));
     }
     cuando.dataset.registrado = registradoEn;
     cuando.textContent = `Leída ${textoHace(registradoEn)}`;
