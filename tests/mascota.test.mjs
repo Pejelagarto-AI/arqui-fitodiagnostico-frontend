@@ -172,6 +172,71 @@ test("movimiento reducido: quieta, y el saludo es solo un cambio de expresión q
   assert.equal(serializar(m.nodo), antes, "vuelve a su pose");
 });
 
+// F54: REGADA. La suculenta hace lo de `pintarSuculenta` del firmware; las demás, un parpadeo doble.
+const gotaD = (m) => m.nodo.buscar((e) => e.atributos.get("class") === "masc-gota")[0].getAttribute("d") || "";
+
+test("RIEGO: a la suculenta le cae la gota (500 ms), se infla y sonríe hasta los 1600 ms", () => {
+  const m = crearMascota("suculenta", { estado: "SALUDABLE" });
+  m.pintar(1000);
+  const quieta = visibles(m)[0];
+  m.regar();
+  m.pintar(1100);
+  assert.notEqual(gotaD(m), "", "cae la gota");
+  const y1 = Number(gotaD(m).match(/^M\d+ (-?\d+)/)[1]);
+  m.pintar(1400);
+  const y2 = Number(gotaD(m).match(/^M\d+ (-?\d+)/)[1]);
+  assert.ok(y2 > y1, "la gota baja");
+  m.pintar(1600);
+  assert.equal(gotaD(m), "", "ya cayó");
+  assert.notEqual(visibles(m)[0], quieta, "inflada: el segundo cuadro de la suculenta");
+  m.pintar(2700);
+  assert.equal(gotaD(m), "");
+});
+
+test("RIEGO: la suculenta en riesgo da un saltito de 1 px y sonríe (sin cejas de pena); después vuelve", () => {
+  const m = crearMascota("suculenta", { estado: "EN_RIESGO" });
+  m.pintar(1000);
+  assert.equal(clases(m, "masc-ceja").length, 2);
+  m.regar();
+  m.pintar(1600);
+  assert.match(planta(m).getAttribute("transform"), /^translate\(0 -1\)/, "saltito");
+  m.pintar(1900);
+  assert.doesNotMatch(planta(m).getAttribute("transform"), /^translate/, "el saltito dura 300 ms");
+  const boca = clases(m, "masc-boca")[0];
+  assert.ok(boca, "sonríe");
+  m.pintar(1000 + T.RIEGO.DURACION_MS + 450);
+  assert.equal(clases(m, "masc-ceja").length, 2, "vuelve la cara de en riesgo");
+});
+
+test("RIEGO: las familias sin animación de riego en la OLED parpadean dos veces, sin saltar ni gota", () => {
+  for (const familia of ["girasol", "cactus", "helecho", "carnivora", "generica"]) {
+    const m = crearMascota(familia);
+    m.pintar(0);
+    m.regar();
+    const altos = [];
+    for (let k = 0; k < 12; k++) {
+      m.pintar(k * 50);
+      altos.push(Number(clases(m, "masc-ojo")[0].getAttribute("height")));
+    }
+    assert.equal(gotaD(m), "", familia);
+    if (familia !== "carnivora") assert.deepEqual(altos.reduce((a, h, i) => (h <= 1 ? [...a, i] : a), []), [3, 7], familia);
+    else assert.ok(Math.min(...altos) <= 1, "la carnívora también cierra los ojos");
+  }
+});
+
+test("RIEGO con movimiento reducido: sin gota ni salto; la suculenta solo sonríe un momento", () => {
+  const m = crearMascota("suculenta", { estado: "EN_RIESGO" });
+  m.pintar(0, { reposo: true });
+  m.regar({ reducido: true });
+  assert.equal(gotaD(m), "");
+  assert.equal(clases(m, "masc-ceja").length, 0, "cambia la expresión");
+  const g = crearMascota("girasol");
+  g.pintar(0, { reposo: true });
+  const antes = serializar(g.nodo);
+  g.regar({ reducido: true });
+  assert.equal(serializar(g.nodo), antes, "las demás no hacen nada");
+});
+
 test("en reposo no hay balanceo ni parpadeo y la flor del cactus está abierta", () => {
   const m = crearMascota("cactus");
   m.pintar(700, { reposo: true });

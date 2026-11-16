@@ -281,3 +281,50 @@ export function pasoMordisco(t) {
 export function proximoMordisco(ahora) {
   return ahora + 6000 + (ahora % 4000);
 }
+
+/**
+ * RIEGO: la reacción cuando llega el evento REGADA de la mascota (fase 9 del backend). Calcada de `pintarSuculenta` en
+ * `pantalla.cpp` (`GOTA_MS`, `RIEGO_MS`, `icono_gota`): solo la suculenta la tiene en la OLED. Cae una gota de 8x8
+ * desde arriba (x = 20) hasta la roseta en 500 ms; después, hasta los 1600 ms, la suculenta se infla si está
+ * saludable (o da un saltito de 1 px durante 300 ms si no) y sonríe aunque esté en riesgo o crítica (boca al menos
+ * 0,8, sin ondulación, cejas a lo sumo 0,3). Las demás familias no tienen animación de riego en la OLED: en la app
+ * hacen un parpadeo doble (los ojos de `SALUDO.OJOS`, sin salto ni cambio de cara), que es lo más cercano que ya existe.
+ */
+export const RIEGO = Object.freeze({
+  GOTA_MS: 500,
+  DURACION_MS: 1600,
+  SALTITO_MS: 300,
+  X_GOTA: 20,
+  // icono_gota de sprites.h: 0x18, 0x18, 0x3C, 0x7E, 0x7E, 0x7E, 0x3C, 0x18 (bit 7 a la izquierda)
+  GOTA: Object.freeze([0x18, 0x18, 0x3c, 0x7e, 0x7e, 0x7e, 0x3c, 0x18]),
+});
+
+/** Píxeles [x, y] de la gota con su esquina en (x0, y0). */
+export function pixelesDeGota(x0, y0) {
+  const lista = [];
+  RIEGO.GOTA.forEach((fila, y) => {
+    for (let x = 0; x < 8; x++) if (fila & (0x80 >> x)) lista.push([x0 + x, y0 + y]);
+  });
+  return lista;
+}
+
+/**
+ * El riego de la suculenta a `t` ms de empezado, con la cara en la fila `yCara` y el nivel del estado:
+ * { gotaY (null si ya cayó), inflada, dy, sonrie }; null si no está regando.
+ */
+export function pasoRiego(t, nivel, yCara) {
+  if (!(t >= 0) || t >= RIEGO.DURACION_MS) return null;
+  if (t < RIEGO.GOTA_MS) return { gotaY: -8 + Math.trunc(((yCara - 14) * t) / RIEGO.GOTA_MS), inflada: false, dy: 0, sonrie: false };
+  return { gotaY: null, inflada: nivel === 0, dy: nivel === 0 ? 0 : t < RIEGO.GOTA_MS + RIEGO.SALTITO_MS ? -1 : 0, sonrie: true };
+}
+
+/** La cara contenta del riego (`c.boca = max(c.boca, 0.8f); c.onda = 0; c.inclina = min(c.inclina, 0.3f)`). */
+export function caraRegada(c) {
+  return { ...c, boca: Math.max(c.boca, 0.8), onda: 0, inclina: Math.min(c.inclina, 0.3) };
+}
+
+/** Los ojos del parpadeo doble a `t` ms (los de SALUDO.OJOS); null fuera de los 600 ms. */
+export function ojosDeParpadeoDoble(t) {
+  if (!(t >= 0) || t >= SALUDO.DURACION_MS) return null;
+  return SALUDO.OJOS[Math.floor(t / SALUDO.CUADRO_MS)];
+}

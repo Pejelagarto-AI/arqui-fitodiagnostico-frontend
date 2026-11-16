@@ -16,7 +16,7 @@ function iconoDeMatera() {
   );
 }
 
-export function crearPanelDispositivos(planta, ctx) {
+export function crearPanelDispositivos(planta, ctx, { alRecibir = () => {} } = {}) {
   const aviso = crearAviso();
   const avisoLista = crearAviso();
   const nota = crearNota();
@@ -119,6 +119,8 @@ export function crearPanelDispositivos(planta, ctx) {
       if (!ctx.vigente()) return;
       avisoLista.limpiar();
       ultimos = dispositivos;
+      alRecibir(dispositivos); // F55: la salud de cada matera (`salud`, `ultimaLecturaEn`) la usa el detalle
+
       const nueva = JSON.stringify(dispositivos.filter((d) => !ocultos.has(d.serial)).map((d) => [d.serial, d.reclamadoEn, d.ultimaCredencialEn || null]));
       if (nueva === firma) return;
       firma = nueva;

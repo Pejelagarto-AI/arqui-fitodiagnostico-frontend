@@ -84,7 +84,7 @@ async function manejarRespuesta(response, conSesion) {
  * token vencido incluso en rutas públicas, y el registro o el diagnóstico
  * suelto no tienen por qué fallar por eso.
  */
-async function pedir(metodo, ruta, { cuerpo, publico = false, sinCache = false } = {}) {
+async function pedir(metodo, ruta, { cuerpo, publico = false, sinCache = false, conEstado = false } = {}) {
   const url = `${API_BASE}${ruta}`;
   const cabeceras = {};
   const opciones = { method: metodo, headers: cabeceras };
@@ -109,7 +109,9 @@ async function pedir(metodo, ruta, { cuerpo, publico = false, sinCache = false }
   } finally {
     clearTimeout(temporizador);
   }
-  return manejarRespuesta(response, Boolean(jwt));
+  const valor = await manejarRespuesta(response, Boolean(jwt));
+  // `conEstado`: cuando el código de éxito dice algo (ACARICIAR: 201 nueva, 200 repetida), se devuelve con él.
+  return conEstado ? { status: response.status, cuerpo: valor } : valor;
 }
 
 const seg = encodeURIComponent;
@@ -146,12 +148,22 @@ export const obtenerPlanta = (id) => pedir("GET", `/plantas/${seg(id)}`);
 export const editarPlanta = (id, apodo, especie) => pedir("PUT", `/plantas/${seg(id)}`, { cuerpo: { apodo, especie } });
 export const eliminarPlanta = (id) => pedir("DELETE", `/plantas/${seg(id)}`);
 export const registrarMedicion = (id, medicion) => pedir("POST", `/plantas/${seg(id)}/mediciones`, { cuerpo: medicion });
-// Punto de enganche del toque (F44), SIN llamar: cuando el backend exponga la acción de la mascota, el toque de
-// `crearMascotaVista` (opción `alTocar`) la enviaría así. Hoy el saludo es solo visual y no toca la red.
-// export const acariciarMascota = (id) => pedir("POST", `/plantas/${seg(id)}/mascota/acciones`, { cuerpo: { tipo: "ACARICIAR" } });
 export const obtenerDiagnosticoVigente = (id) => pedir("GET", `/plantas/${seg(id)}/diagnostico`);
 export const obtenerHistorial = (id, pagina = 0, tamano = 10) =>
   pedir("GET", `/plantas/${seg(id)}/diagnosticos?pagina=${pagina}&tamano=${tamano}`);
+
+// ---- la mascota (fase 9 del backend, F54) ----
+
+// Vitalidad, ánimo, causa, racha, últimos 5 eventos y el «la regué» pendiente. Dueño e invitados.
+export const obtenerMascota = (id) => pedir("GET", `/plantas/${seg(id)}/mascota`);
+// La línea de tiempo, del más reciente al más antiguo (página como la del historial).
+export const obtenerEventosDeMascota = (id, pagina = 0, tamano = 10) =>
+  pedir("GET", `/plantas/${seg(id)}/mascota/eventos?pagina=${pagina}&tamano=${tamano}`);
+// Solo el dueño (al invitado le responde 403; la pantalla ni le muestra los botones). ACARICIAR: { status, cuerpo },
+// 201 con el id del evento, o 200 si es una caricia repetida dentro de 10 s (sin evento). LA_REGUE: 202 PENDIENTE con
+// `venceEn` (o 201 CONFIRMADA si el sensor ya lo había visto); repetirlo con una pendiente devuelve la misma.
+export const acariciarMascota = (id) => pedir("POST", `/plantas/${seg(id)}/mascota/acciones`, { cuerpo: { tipo: "ACARICIAR" }, conEstado: true });
+export const declararRiego = (id) => pedir("POST", `/plantas/${seg(id)}/mascota/acciones`, { cuerpo: { tipo: "LA_REGUE" } });
 
 // ---- dispositivos (dueño) ----
 

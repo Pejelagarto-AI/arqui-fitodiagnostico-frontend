@@ -70,7 +70,7 @@ for (const [tam, viewport] of Object.entries({ movil: { width: 390, height: 844 
   const c2 = await nuevo();
   const p = await entrar(c2, cuenta.correo, cuenta.contrasena);
   await p.goto(`${RAIZ}#/plantas`); await p.waitForSelector(".tarjeta-planta"); await revisar(p, "tablero");
-  for (const k of ["", "/historial", "/matera", "/mas"]) { await p.goto(`${RAIZ}#/plantas/${plantas[1].id}${k}`); await p.waitForSelector("[role=tab]"); await revisar(p, `detalle${k || "/hoy"}`); }
+  for (const k of ["", "/mascota", "/historial", "/matera", "/mas"]) { await p.goto(`${RAIZ}#/plantas/${plantas[1].id}${k}`); await p.waitForSelector("[role=tab]"); await revisar(p, `detalle${k || "/hoy"}`); }
   for (const [r, n] of [["plantas/nueva", "planta-nueva"], [`plantas/${plantas[1].id}/vincular`, "asistente-vinculacion"], ["perfil", "perfil"], ["solicitudes", "solicitudes"]]) {
     await p.goto(`${RAIZ}#/${r}`); await revisar(p, n);
   }

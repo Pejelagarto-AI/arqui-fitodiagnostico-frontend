@@ -4,7 +4,7 @@
 // (js/pestanas.js) y cambiar de pestaña no desmonta la pantalla: el sondeo y lo cargado siguen vivos.
 // El invitado ve todo en solo lectura: los paneles de modificación ni se crean
 // (el backend igual los rechazaría con 403, D36).
-import { obtenerPlanta, obtenerEspecies, renunciarAPlanta } from "../api.js";
+import { obtenerPlanta, obtenerEspecies, renunciarAPlanta, listarDispositivos } from "../api.js";
 import { h, enlaceDeVolver, crearAviso, conCarga, confirmar, toast, ETIQUETAS_ESTADO_GLOBAL } from "../ui.js";
 import { crearMascotaVista } from "../componentes/mascota-vista.js";
 import { cambiaElDibujo } from "../componentes/especie.js";
@@ -14,13 +14,28 @@ import { crearPanelMedicion } from "../componentes/planta-medicion.js";
 import { crearPanelCompartir } from "../componentes/planta-compartir.js";
 import { crearPanelEdicion } from "../componentes/planta-edicion.js";
 import { crearPanelDispositivos } from "../componentes/planta-dispositivos.js";
+import { crearPanelMascota } from "../componentes/planta-mascota.js";
+import * as envivo from "../envivo.js";
+import {
+  poseDeMascota, fraseDeSalud, saludEsMala, peorSalud, saludesDeDispositivos, saludDesdeAviso, suscribirAPlanta,
+  debeAvisarCambioDeEstado,
+} from "../mascota-animo.js";
 import { entrada, cambiarEstado } from "../animaciones.js";
 import { crearSondeo, textoActualizado } from "../sondeo.js";
 import { leerCache, guardarCache, invalidarCache, alVolver } from "../cache.js";
 import { recargarVista } from "../router.js";
 import { recordarPlantaActiva, nombrarParaTransicion, conTransicion } from "../transiciones.js";
 import { lanzarRecorridoSiToca } from "../componentes/recorrido.js";
-import { pestanasDePlanta, pestanaValida, pestanaVecina, rutaDePestana, consultasDeSondeo, tituloDePestana } from "../pestanas.js";
+import { pestanasDePlanta, pestanaValida, pestanaVecina, rutaDePestana, consultasDeSondeo, tituloDePestana, clavesConBoton, panelVisible } from "../pestanas.js";
+
+// F54: en escritorio la mascota es una sección de «Hoy»; en el teléfono, su propia pestaña (el mismo corte que la
+// navegación como app de F37).
+const ESCRITORIO = "(min-width: 900px)";
+// La consulta de la mascota (vitalidad con hasta un minuto de atraso, D146 del backend) no necesita los 5 s del sondeo:
+// los cambios llegan por el aviso en vivo; esto es el respaldo.
+const REFRESCO_MASCOTA_MS = 30000;
+// La salud de la matera (F55): al abrir, por el aviso en vivo y, de respaldo, una consulta por minuto.
+const REFRESCO_SALUD_MS = 60000;
 
 export const titulo = "Planta";
 
@@ -106,6 +121,15 @@ export async function montar(contenedor, ctx) {
   // Elemento compartido con la tarjeta del tablero (F28): al volver, esa tarjeta lleva el mismo nombre de transición.
   recordarPlantaActiva(id);
   nombrarParaTransicion(cabecera.querySelector("#ilustracion-planta"));
+  // F54, F55: la pose de las dos mascotas (cabecera y pestaña) sale del diagnóstico, del ánimo del servidor y de la
+  // salud de la matera, con las mismas reglas que la OLED (`poseDeMascota`).
+  const pose = { estado: null, periodo: null, animo: null, saludMala: false };
+  let panelMascota = null;
+  function aplicarPoses() {
+    const { estado, periodo } = poseDeMascota(pose);
+    ilustracion.aplicar(estado, periodo);
+    if (panelMascota) panelMascota.mascota.aplicar(estado, periodo);
+  }
   const ponerEstado = (diagnostico, { cambio = false } = {}) => {
     const estado = diagnostico ? diagnostico.estado : null;
     const aplicar = () => {
@@ -115,7 +139,9 @@ export async function montar(contenedor, ctx) {
     // Al llegar una lectura distinta rebota la píldora.
     if (cambio) cambiarEstado(estadoNodo, aplicar);
     else aplicar();
-    ilustracion.aplicar(estado, diagnostico ? diagnostico.periodo : null); // de noche duerme (F49)
+    pose.estado = estado;
+    pose.periodo = diagnostico ? diagnostico.periodo : null; // de noche duerme (F49)
+    aplicarPoses();
     if (cambio) ilustracion.morder(); // la carnívora saludable muerde cuando llega una lectura nueva, como en la OLED
   };
 
@@ -123,9 +149,44 @@ export async function montar(contenedor, ctx) {
   // El sondeo ya trae la página del historial: de ahí salen las minigráficas (solo la primera, la más reciente).
   const historial = crearPanelHistorial(id, ctx, { alRecibir: (respuesta) => { if (respuesta.pagina === 0) vigente.ponerSerie(respuesta.contenido); } });
 
+  // ---- la mascota (F54): pestaña en el teléfono, sección de «Hoy» en escritorio ----
+  panelMascota = crearPanelMascota(planta, ctx, {
+    esDueno: planta.esDueno,
+    alCambiar: (datos) => {
+      pose.animo = datos ? datos.animo : null;
+      aplicarPoses();
+    },
+  });
+  aplicarPoses();
+
+  // ---- salud de la matera (F55): aviso arriba del diagnóstico, con la frase del servidor ----
+  const saludes = new Map(); // serial -> salud (de GET .../dispositivos y de los avisos SALUD_DE_LA_MATERA)
+  const fraseSalud = h("p", { class: "aviso-salud-frase", id: "aviso-salud-frase" });
+  const avisoSalud = h("div", { class: "aviso-salud", id: "aviso-salud", role: "status", hidden: true },
+    h("span", { class: "aviso-salud-icono", "aria-hidden": "true" }, "!"),
+    h("div", {}, fraseSalud, h("p", { class: "aviso-salud-nota" }, "Lo de abajo es de la última lectura que llegó, no de ahora.")),
+  );
+  function pintarSalud() {
+    const peor = peorSalud(saludes.values());
+    const mala = saludEsMala(peor);
+    const texto = mala ? fraseDeSalud(peor) : "";
+    if (fraseSalud.textContent !== texto) fraseSalud.textContent = texto;
+    avisoSalud.hidden = !mala;
+    avisoSalud.dataset.estado = mala ? peor.estado : "OK";
+    vigente.elemento.classList.toggle("bloque-vigente--atenuado", mala);
+    if (pose.saludMala !== mala) {
+      pose.saludMala = mala; // la mascota preocupada, como la OLED (nivelVisible = max(nivel, 1))
+      aplicarPoses();
+    }
+  }
+  function tomarDispositivos(lista) {
+    saludes.clear();
+    for (const [serial, salud] of saludesDeDispositivos(lista)) saludes.set(serial, salud);
+    pintarSalud();
+  }
+
   // ---- pestañas (F37): la activa sale de la ruta; las que no se ven quedan con `hidden` ----
   const disponibles = pestanasDePlanta({ esDueno: planta.esDueno });
-  const claves = disponibles.map((p) => p.clave);
   let activa = pestanaValida(ctx.entrada && ctx.entrada.pestana, disponibles);
   // Un invitado que abre .../matera (o una pestaña que no le toca) queda en «Hoy», y la URL lo dice.
   if (ctx.entrada && ctx.entrada.pestana !== activa) history.replaceState(null, "", `#${rutaDePestana(id, activa)}`);
@@ -141,10 +202,19 @@ export async function montar(contenedor, ctx) {
   }
   const barraPestanas = h("div", { class: "pestanas", role: "tablist", "aria-label": "Secciones de la planta" }, disponibles.map((p) => botones[p.clave]));
 
+  const escritorio = window.matchMedia(ESCRITORIO);
+  /** Dónde vive la sección de la mascota: en «Hoy» (escritorio) o en su pestaña (teléfono). */
+  function colocarMascota() {
+    const destino = escritorio.matches ? paneles.hoy : paneles.mascota;
+    if (panelMascota.elemento.parentNode !== destino) destino.append(panelMascota.elemento);
+  }
+
   function aplicarPestana(clave) {
     activa = clave;
+    // En escritorio «Mascota» no tiene botón: se ve «Hoy» (con la mascota adentro) y «Hoy» queda marcada.
+    const visible = panelVisible(clave, { escritorio: escritorio.matches });
     for (const p of disponibles) {
-      const es = p.clave === clave;
+      const es = p.clave === visible;
       botones[p.clave].setAttribute("aria-selected", String(es));
       botones[p.clave].tabIndex = es ? 0 : -1;
       paneles[p.clave].hidden = !es;
@@ -170,16 +240,22 @@ export async function montar(contenedor, ctx) {
       irAPestana(boton.dataset.pestana);
       return;
     }
-    const destino = pestanaVecina(claves, boton.dataset.pestana, evento.key);
+    const destino = pestanaVecina(clavesConBoton(disponibles, { escritorio: escritorio.matches }), boton.dataset.pestana, evento.key);
     if (!destino) return;
     evento.preventDefault();
     botones[destino].focus();
     irAPestana(destino); // activación automática: la pestaña con el foco es la que se ve
   });
 
-  paneles.hoy.append(vigente.elemento);
+  paneles.hoy.append(avisoSalud, vigente.elemento);
   paneles.historial.append(historial.elemento);
+  colocarMascota();
   aplicarPestana(activa);
+  const alCambiarAncho = () => {
+    colocarMascota();
+    aplicarPestana(activa);
+  };
+  escritorio.addEventListener("change", alCambiarAncho);
   contenedor.append(
     enlaceDeVolver("/plantas", "Mis plantas"),
     cabecera,
@@ -187,7 +263,9 @@ export async function montar(contenedor, ctx) {
     ...disponibles.map((p) => paneles[p.clave]),
   );
 
-  const limpiezas = [() => ilustracion.parar()];
+  const limpiezas = [() => ilustracion.parar(), () => panelMascota.parar(), () => escritorio.removeEventListener("change", alCambiarAncho)];
+  // En escritorio, abrir #/plantas/:id/mascota lleva a la sección (se ve «Hoy» con la mascota adentro).
+  if (activa === "mascota" && escritorio.matches) requestAnimationFrame(() => panelMascota.elemento.scrollIntoView({ block: "start" }));
   entrada([cabecera, vigente.elemento, historial.elemento], { escalon: 0.1 });
 
   // ---- paneles según el rol ----
@@ -204,7 +282,7 @@ export async function montar(contenedor, ctx) {
     }
     if (!ctx.vigente()) return;
 
-    dispositivos = crearPanelDispositivos(planta, ctx);
+    dispositivos = crearPanelDispositivos(planta, ctx, { alRecibir: tomarDispositivos });
     paneles.matera.append(dispositivos.elemento);
     const medicion = crearPanelMedicion(planta, ctx, {
       rangos,
@@ -257,7 +335,12 @@ export async function montar(contenedor, ctx) {
   }
 
   // ---- datos y sondeo (R6) ----
-  await Promise.all([vigente.cargar(), historial.cargar(), compartir ? compartir.cargar() : null, dispositivos ? dispositivos.cargar() : null]);
+  // La salud: el dueño la recibe con su lista de materas; el invitado la pide aparte (el backend se la da desde la fase 10
+  // con `salud`; si respondiera 403, sin aviso: el invitado se entera por el aviso en vivo).
+  const leerSalud = () => (dispositivos
+    ? dispositivos.refrescar()
+    : listarDispositivos(id).then((lista) => { if (ctx.vigente()) tomarDispositivos(lista); }, () => {}));
+  await Promise.all([vigente.cargar(), historial.cargar(), panelMascota.cargar(), compartir ? compartir.cargar() : null, dispositivos ? dispositivos.cargar() : leerSalud()]);
   if (!ctx.vigente()) return;
 
   let estadoSondeo = "activo";
@@ -275,11 +358,18 @@ export async function montar(contenedor, ctx) {
     // Solo se pide lo que la pestaña a la vista muestra (consultasDeSondeo): el vigente siempre, porque pinta
     // el estado de la cabecera; el historial en «Hoy» e «Historial»; los dispositivos en «Matera».
     tarea: () => {
-      const pedir = consultasDeSondeo(activa);
+      const pedir = consultasDeSondeo(activa, { escritorio: escritorio.matches });
+      const ahora = Date.now();
+      const tocaMascota = pedir.mascota && ahora - ultimaMascota >= REFRESCO_MASCOTA_MS;
+      const tocaSalud = !pedir.dispositivos && ahora - ultimaSalud >= REFRESCO_SALUD_MS;
+      if (tocaMascota) ultimaMascota = ahora;
+      if (tocaSalud || pedir.dispositivos) ultimaSalud = ahora;
       return Promise.all([
         vigente.cargar({ resaltar: true, silencioso: true }),
         pedir.historial ? historial.refrescar() : null,
         pedir.dispositivos && dispositivos ? dispositivos.refrescar() : null,
+        tocaMascota ? panelMascota.refrescar() : null,
+        tocaSalud ? leerSalud() : null,
       ]);
     },
     alCambiar: ({ estado, error }) => {
@@ -289,12 +379,15 @@ export async function montar(contenedor, ctx) {
       pintarIndicador();
     },
   });
+  let ultimaMascota = Date.now();
+  let ultimaSalud = Date.now();
   sondeo.iniciar({ inmediato: false, cargadoEn: Date.now() });
   pintarIndicador();
   // «actualizado hace Xs» corre solo en pantalla, sin pedir nada.
   const reloj = setInterval(() => {
     if (estadoSondeo === "activo") pintarIndicador();
     if (dispositivos) dispositivos.actualizarTiempos();
+    if (!avisoSalud.hidden) pintarSalud(); // «no sé de la matera desde hace X min» sigue contando
   }, 1000);
   limpiezas.push(() => sondeo.detener(), () => clearInterval(reloj));
 
@@ -312,6 +405,37 @@ export async function montar(contenedor, ctx) {
   window.addEventListener("fito:aviso", alAviso);
   limpiezas.push(() => window.removeEventListener("fito:aviso", alAviso));
 
+  // ---- avisos en vivo de esta planta (F54, F55): una sola suscripción a /user/queue/plantas/{id} ----
+  // El estado y el historial siguen por sondeo (F16); aquí llega lo que el sondeo no ve a tiempo.
+  const bajaDePlanta = suscribirAPlanta(envivo.suscribir, envivo.destinoDePlanta, id, {
+    EVENTO_DE_MASCOTA: (aviso) => {
+      const animacion = panelMascota.alEvento(aviso);
+      // la de la cabecera hace lo mismo que la grande
+      if (animacion === "regar") ilustracion.regar();
+      if (animacion === "saludar") ilustracion.saludarSolo();
+    },
+    SALUD_DE_LA_MATERA: (aviso) => {
+      const salud = saludDesdeAviso(aviso);
+      if (!salud) return;
+      saludes.set(salud.serial, salud);
+      pintarSalud();
+    },
+    CAMBIO_DE_ESTADO: (aviso) => {
+      // De noche cambia el estado por el periodo (`motivo: PERIODO`): solo se actualiza, sin toast.
+      // El mensaje del servidor trae los nombres del enum («pasó de SALUDABLE a CRITICO»): se dice en palabras.
+      const nuevo = aviso.datos && ETIQUETAS_ESTADO_GLOBAL[aviso.datos.estado];
+      if (debeAvisarCambioDeEstado(aviso)) toast(nuevo ? `${planta.apodo} cambió de estado: ahora está ${nuevo.toLowerCase()}.` : "Tu planta cambió de estado.");
+      sondeo.ahoraMismo();
+    },
+  });
+  limpiezas.push(bajaDePlanta);
+  // Tras una caída del WebSocket los avisos de mientras tanto se perdieron: se consulta lo que ellos traen.
+  limpiezas.push(envivo.alReconectar(() => {
+    if (!ctx.vigente()) return;
+    panelMascota.refrescar();
+    leerSalud();
+  }));
+
   // Al recuperar el foco o volver la red: consulta ya, sin esperar al próximo ciclo de 5 s.
   limpiezas.push(alVolver(() => sondeo.ahoraMismo()));
 
@@ -323,6 +447,7 @@ export async function montar(contenedor, ctx) {
       if (nueva === activa) return;
       activa = nueva; // ya: el sondeo que se dispara abajo debe pedir lo de la pestaña nueva
       conTransicion(() => aplicarPestana(nueva));
+      if (nueva === "mascota" && escritorio.matches) panelMascota.elemento.scrollIntoView({ block: "start" });
       // Si la barra de pestañas quedó arriba del borde, se vuelve a ella: la pestaña nueva empieza por su principio.
       const tope = barraPestanas.getBoundingClientRect().top;
       if (tope < 0) window.scrollTo(0, Math.max(0, window.scrollY + tope - 8));
