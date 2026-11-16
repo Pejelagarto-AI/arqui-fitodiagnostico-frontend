@@ -45,7 +45,7 @@ export async function montar(contenedor, ctx) {
   contenedor.append(
     enlaceDeVolver("/plantas", "Mis plantas"),
     h("section", { class: "tarjeta tarjeta--angosta" },
-      h("h2", { "data-titulo": "" }, "Tu planta nueva"),
+      h("h2", { "data-titulo": "", role: "heading", "aria-level": "1" }, "Tu planta nueva"),
       h("p", { class: "texto-suave entradilla" }, "Cuéntanos cuál es y cómo la llamas."),
       formulario,
     ),

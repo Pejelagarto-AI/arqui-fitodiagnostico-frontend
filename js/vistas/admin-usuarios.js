@@ -21,9 +21,9 @@ export async function montar(contenedor, ctx) {
         return;
       }
       resultados.append(
-        h("div", { class: "tabla-scroll" },
+        h("div", { class: "tabla-scroll", role: "region", tabindex: "0", "aria-label": "Tabla de usuarios (se desplaza)" },
           h("table", { class: "tabla-parametros", id: "tabla-usuarios" },
-            h("thead", {}, h("tr", {}, ["Nombre", "Correo", "Roles", ""].map((t) => h("th", { scope: "col" }, t)))),
+            h("thead", {}, h("tr", {}, ["Nombre", "Correo", "Roles", ""].map((t) => h("th", { scope: "col" }, t || h("span", { class: "solo-lector" }, "Acciones"))))),
             h("tbody", {}, usuarios.map((u) =>
               h("tr", {},
                 h("td", {}, u.nombre),

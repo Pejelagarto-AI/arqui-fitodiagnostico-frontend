@@ -12,7 +12,7 @@ import { animarMascota, hayMovimiento } from "../animaciones.js";
  *  - `especie` (texto del catálogo) o `familia` (ya resuelta; gana si viene) escogen el dibujo.
  *  - `estado`: SALUDABLE | EN_RIESGO | CRITICO | null (sin diagnóstico: se dibuja saludable y se atenúa por CSS).
  *  - `toque`: el nodo es un botón («Saludar a <nombre>») que responde al clic, al toque y a Enter o Espacio.
- *    Dentro de un enlace (el tablero) el toque NO navega: solo saluda.
+ *    Si la mascota queda junto a un enlace de toda la tarjeta (el tablero), va por encima y el toque NO navega: solo saluda.
  *  - `alTocar`: gancho opcional, se llama en cada toque (ahí irá `acariciarMascota` de api.js cuando exista).
  *  - `animar: false`: no arranca el idle (la escena lo arranca cuando la muestra).
  */

@@ -67,7 +67,7 @@ export async function montar(contenedor, ctx) {
   const cabecera = h("section", { class: "tarjeta cabecera-planta" },
     h("div", { class: "cabecera-planta-ilustracion", id: "ilustracion-planta" }),
     h("div", { class: "cabecera-planta-texto" },
-      h("h2", { "data-titulo": "" }, nombreNodo),
+      h("h2", { "data-titulo": "", role: "heading", "aria-level": "1" }, nombreNodo),
       h("p", { class: "cabecera-planta-especie" }, especieNodo),
       planta.esDueno ? null : h("span", { class: "chip chip--riesgo", id: "etiqueta-compartida" }, "Te la compartieron · solo puedes verla"),
       estadoNodo,

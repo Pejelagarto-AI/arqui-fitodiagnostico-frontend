@@ -9,7 +9,7 @@ export const titulo = "Dispositivos de fábrica";
 
 /** El comando listo para arrancar el simulador con este dispositivo. */
 export function comandoDelSimulador(serial, secreto) {
-  return `FITO_SERIAL=${serial} FITO_SECRETO=${secreto} python3 simulador/simulador_esp32.py --especie potos`;
+  return `FITO_SERIAL=${serial} FITO_SECRETO=${secreto} python3 simulador/simulador_esp32.py --especie helecho`;
 }
 
 export async function montar(contenedor, ctx) {
@@ -103,7 +103,7 @@ export async function montar(contenedor, ctx) {
         return;
       }
       lista.append(
-        h("div", { class: "tabla-scroll" },
+        h("div", { class: "tabla-scroll", role: "region", tabindex: "0", "aria-label": "Tabla de dispositivos (se desplaza)" },
           h("table", { class: "tabla-parametros", id: "tabla-dispositivos" },
             h("thead", {}, h("tr", {}, ["Serial", "Estado", "Planta", "Conexión", "Registrado"].map((t) => h("th", { scope: "col" }, t)))),
             h("tbody", {}, dispositivos.map((d) =>
