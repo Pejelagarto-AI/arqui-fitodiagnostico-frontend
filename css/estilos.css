@@ -4659,3 +4659,410 @@ body[data-sesion="no"] .pie {
   outline: 3px solid var(--foco);
   outline-offset: 2px;
 }
+
+/* ---------- F54: la pestaña «Mascota» ----------
+   La mascota grande con su ánimo en un globo, la vitalidad, la racha, las acciones del dueño y la línea de tiempo.
+   En el teléfono es una pestaña; desde 900 px es una sección de «Hoy» y su botón de pestaña no se ve. */
+
+@media (min-width: 900px) {
+  .pestana[data-pestana="mascota"] {
+    display: none;
+  }
+}
+
+.panel-mascota {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+}
+
+.panel-mascota h2,
+.panel-mascota h3 {
+  margin: 0;
+}
+
+.mascota-escena {
+  display: grid;
+  grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
+  gap: var(--e2);
+  align-items: center;
+}
+
+.mascota-escena-dibujo .mascota-toque {
+  max-width: 9rem;
+}
+
+/* el lienzo de 48x64 de la OLED trae aire arriba de la planta: se recoge para que no quede un hueco bajo el título */
+.mascota-escena-dibujo {
+  margin-top: -1rem;
+}
+
+.mascota--grande {
+  max-width: 100%;
+}
+
+.mascota-escena-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+/* el ánimo es lo que dice la planta: un globo que apunta al dibujo */
+.animo-frase {
+  position: relative;
+  margin: 0;
+  padding: 0.55rem 0.9rem;
+  border-radius: var(--radio-medio);
+  background: var(--crema);
+  color: var(--tinta);
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.animo-frase::before {
+  content: "";
+  position: absolute;
+  left: -0.45rem;
+  top: 50%;
+  width: 0.9rem;
+  height: 0.9rem;
+  background: inherit;
+  transform: translateY(-50%) rotate(45deg);
+  border-radius: 2px;
+}
+
+.vitalidad {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (max-width: 759px) {
+  /* en el teléfono la barra va en su propio renglón: entre «Vitalidad» y el número no le quedaba ancho */
+  .vitalidad {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "etiqueta valor" "barra barra";
+    row-gap: 0.3rem;
+  }
+
+  .vitalidad .vitalidad-etiqueta {
+    grid-area: etiqueta;
+  }
+
+  .vitalidad .vitalidad-valor {
+    grid-area: valor;
+  }
+
+  .vitalidad .vitalidad-barra {
+    grid-area: barra;
+  }
+}
+
+@media (min-width: 760px) {
+  .mascota-escena {
+    grid-template-columns: 11rem minmax(0, 1fr);
+    gap: var(--e3);
+  }
+
+  .mascota-escena-dibujo .mascota-toque {
+    max-width: 11rem;
+  }
+
+  .mascota-acciones {
+    max-width: 30rem;
+  }
+}
+
+.vitalidad-etiqueta {
+  font-size: var(--t-chico);
+  font-weight: 800;
+  color: var(--tinta-suave);
+}
+
+.vitalidad-valor {
+  font-size: var(--t-chico);
+  white-space: nowrap;
+}
+
+.vitalidad-numero {
+  font-size: 1.1rem;
+}
+
+.vitalidad-barra {
+  display: block;
+  height: 0.7rem;
+  border-radius: 999px;
+  background: var(--borde);
+  overflow: hidden;
+}
+
+.vitalidad-relleno {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--tinta-suave);
+  transition: width 0.6s ease;
+}
+
+.vitalidad-barra[data-nivel="SALUDABLE"] .vitalidad-relleno {
+  background: var(--hoja-oscura);
+}
+
+.vitalidad-barra[data-nivel="EN_RIESGO"] .vitalidad-relleno {
+  background: var(--sol);
+}
+
+.vitalidad-barra[data-nivel="CRITICO"] .vitalidad-relleno {
+  background: var(--critico);
+}
+
+.vitalidad-causa,
+.racha {
+  margin: 0;
+  font-size: var(--t-chico);
+}
+
+.racha {
+  font-weight: 700;
+}
+
+.mascota-acciones {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.mascota-acciones .boton {
+  min-height: 2.75rem;
+}
+
+.estado-riego {
+  margin: 0;
+  padding: 0.5rem 0.8rem;
+  border-radius: var(--radio-medio);
+  background: var(--humedad-fondo);
+  color: var(--humedad-tinta);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.estado-riego[data-fase="confirmada"] {
+  background: var(--saludable-fondo);
+  color: var(--saludable);
+}
+
+.estado-riego[data-fase="desmentida"] {
+  background: var(--riesgo-fondo);
+  color: var(--riesgo);
+}
+
+/* el riego desmentido: el texto «se encoge de hombros» (la mascota no: la OLED no tiene esa cara) */
+.estado-riego--encoge {
+  animation: encogerse 0.7s ease;
+}
+
+@keyframes encogerse {
+  0%, 100% { transform: none; }
+  25% { transform: translateY(-3px) scaleX(0.97); }
+  50% { transform: translateY(1px); }
+  75% { transform: translateY(-2px) scaleX(0.98); }
+}
+
+.titulo-linea-tiempo {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.linea-tiempo {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.evento {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: start;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--borde);
+}
+
+.evento:last-child {
+  border-bottom: 0;
+}
+
+.evento-marca {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--saludable-fondo);
+  color: var(--saludable);
+}
+
+.evento[data-tipo="REGADA"] .evento-marca,
+.evento[data-tipo="RIEGO_DECLARADO"] .evento-marca {
+  background: var(--humedad-fondo);
+  color: var(--humedad-tinta);
+}
+
+.evento[data-tipo="SALIO_AL_SOL"] .evento-marca {
+  background: var(--luz-fondo);
+  color: var(--luz-tinta);
+}
+
+.evento[data-tipo="DESMAYO"] .evento-marca,
+.evento[data-tipo="RIEGO_DESMENTIDO"] .evento-marca {
+  background: var(--critico-fondo);
+  color: var(--critico);
+}
+
+.evento-icono {
+  width: 1.1rem;
+  height: 1.1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.evento-icono--gota,
+.evento-icono--corazon,
+.evento-icono--punto {
+  fill: currentColor;
+}
+
+.evento-texto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.1rem 0.6rem;
+  padding-top: 0.3rem;
+}
+
+.evento-frase {
+  font-weight: 700;
+}
+
+.evento-cuando {
+  font-size: var(--t-chico);
+}
+
+#btn-mas-eventos {
+  align-self: flex-start;
+}
+
+/* la gota de la suculenta regada (icono_gota de la OLED) */
+.masc-gota {
+  fill: var(--agua);
+}
+
+/* ---------- F55: salud de la matera ---------- */
+
+.aviso-salud {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: start;
+  padding: 0.8rem 1rem;
+  border-radius: var(--radio-medio);
+  background: var(--riesgo-fondo);
+  color: var(--riesgo);
+  border: 1px solid currentColor;
+}
+
+.aviso-salud[hidden] {
+  display: none;
+}
+
+.aviso-salud-icono {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--riesgo);
+  color: var(--riesgo-fondo);
+  font-weight: 900;
+  font-size: 1.1rem;
+}
+
+.aviso-salud-frase {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.aviso-salud-frase::first-letter {
+  text-transform: uppercase;
+}
+
+.aviso-salud-nota {
+  margin: 0.15rem 0 0;
+  font-size: var(--t-chico);
+  color: var(--tinta);
+}
+
+/* el diagnóstico de la última lectura, mientras la matera no responde: sigue ahí pero no es de ahora */
+.bloque-vigente--atenuado #diagnostico-vigente {
+  opacity: 0.7;
+  filter: grayscale(0.5);
+}
+
+/* el tablero: barra fina de vitalidad, ánimo en una palabra y el chip de «sin noticias» */
+.tarjeta-planta-mascota {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  font-size: var(--t-chico);
+}
+
+.tarjeta-planta-mascota[hidden] {
+  display: none;
+}
+
+.vitalidad-barra--fina {
+  flex: 1 1 4rem;
+  height: 0.35rem;
+  min-width: 3rem;
+}
+
+.tarjeta-planta-animo {
+  font-weight: 800;
+  color: var(--tinta-suave);
+}
+
+.chip--sin-noticias {
+  background: var(--riesgo-fondo);
+  color: var(--riesgo);
+}
+
+.chip--sin-noticias::before {
+  content: "";
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-right: 0.3rem;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: 0.05rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vitalidad-relleno,
+  .estado-riego--encoge {
+    transition: none;
+    animation: none;
+  }
+}
