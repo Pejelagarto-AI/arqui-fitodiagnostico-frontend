@@ -286,6 +286,6 @@ export function deslizarPista(pista, x, { alTerminar = () => {} } = {}) {
 export function resaltarTarjeta(contenidos, indice) {
   if (!puedeAnimar()) return;
   [...contenidos].forEach((nodo, i) => {
-    globalThis.gsap.to(nodo, { scale: i === indice ? 1.06 : 0.94, opacity: i === indice ? 1 : 0.78, duration: 0.35, ease: i === indice ? "back.out(2)" : "power2.out", overwrite: "auto" });
+    globalThis.gsap.to(nodo, { scale: i === indice ? 1.06 : 0.94, duration: 0.35, ease: i === indice ? "back.out(2)" : "power2.out", overwrite: "auto" });
   });
 }

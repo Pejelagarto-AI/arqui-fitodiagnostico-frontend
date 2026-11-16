@@ -106,7 +106,7 @@ export async function montar(contenedor, ctx) {
   const cuerpo = h("div", { class: "asistente-cuerpo", id: "asistente-cuerpo" });
   const pie = h("div", { class: "asistente-pie" });
   const tarjeta = h("section", { class: "tarjeta tarjeta--angosta asistente", "aria-labelledby": "asistente-titulo", "data-paso": estado.paso },
-    h("h2", { id: "asistente-titulo", "data-titulo": "", class: "asistente-titulo" }, "Vincula tu matera"),
+    h("h2", { id: "asistente-titulo", "data-titulo": "", role: "heading", "aria-level": "1", class: "asistente-titulo" }, "Vincula tu matera"),
     h("p", { class: "texto-suave asistente-planta" }, `para ${planta.apodo}`),
     puntos, etiquetaPaso, anuncio, cuerpo, pie);
   contenedor.append(enlaceDeVolver(`/plantas/${id}`, planta.apodo), tarjeta);
@@ -156,7 +156,7 @@ export async function montar(contenedor, ctx) {
     const construir = { enciende: pasoEnciende, buscando: pasoBuscando, confirma: pasoConfirma, conectando: pasoConectando, exito: pasoExito }[estado.paso];
     const { nodos, limpiar, titulo: tituloPaso, anunciar, enfocar } = construir();
     limpiezaPaso = limpiar || (() => {});
-    const encabezado = h("h3", { class: "asistente-paso-titulo", id: "asistente-paso-titulo", tabindex: "-1" }, tituloPaso || TITULOS[estado.paso]);
+    const encabezado = h("h3", { role: "heading", "aria-level": "2", class: "asistente-paso-titulo", id: "asistente-paso-titulo", tabindex: "-1" }, tituloPaso || TITULOS[estado.paso]);
     cuerpo.append(encabezado, ...nodos);
     anuncio.textContent = anunciar || anuncioDePaso(estado.paso);
     pintarPie();

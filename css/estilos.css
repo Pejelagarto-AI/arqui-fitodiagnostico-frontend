@@ -2326,6 +2326,7 @@ li,
 
 .asis-triste.mascota {
   max-width: 9rem;
+  margin-top: -1.5rem; /* el lienzo de la mascota trae aire arriba: en riesgo y crítica la planta queda baja */
 }
 
 /* QR */
@@ -2611,7 +2612,7 @@ li,
 .vincular-a-mano summary {
   cursor: pointer;
   font-weight: 700;
-  min-height: 2.5rem;
+  min-height: 2.75rem;
   display: flex;
   align-items: center;
 }
@@ -4140,6 +4141,39 @@ body[data-sesion="no"] .pie {
   align-self: center;
 }
 
+/* La tarjeta es un div; el enlace es el apodo y su ::after cubre toda la tarjeta (patrón «stretched link»).
+   La mascota va por encima (z-index) para que su toque saluda en vez de navegar. */
+.tarjeta-planta {
+  position: relative;
+  cursor: pointer;
+}
+
+.tarjeta-planta-enlace {
+  color: inherit;
+  text-decoration: none;
+}
+
+.tarjeta-planta-enlace::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radio);
+}
+
+.tarjeta-planta-enlace:focus-visible {
+  outline: none;
+}
+
+.tarjeta-planta-enlace:focus-visible::after {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+.tarjeta-planta-ilustracion {
+  position: relative;
+  z-index: 1;
+}
+
 .tarjeta-planta-nombres {
   grid-area: nombres;
   flex-direction: row;
@@ -4521,6 +4555,10 @@ body[data-sesion="no"] .pie {
 /* Estado final sin GSAP (movimiento reducido): la elegida un poco más grande, las demás atenuadas. */
 .carrusel-pista:has([aria-checked="true"]) .carrusel-tarjeta[aria-checked="false"] .carrusel-contenido {
   transform: scale(0.94);
+}
+
+/* Se atenúa solo el dibujo: con el texto a 0,78 de opacidad el contraste de los rangos cae a 3,5:1 (axe). */
+.carrusel-pista:has([aria-checked="true"]) .carrusel-tarjeta[aria-checked="false"] .carrusel-dibujo {
   opacity: 0.78;
 }
 
@@ -4561,8 +4599,8 @@ body[data-sesion="no"] .pie {
 .carrusel-flecha {
   position: absolute;
   top: 40%;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.75rem;
+  height: 2.75rem;
   display: grid;
   place-items: center;
   border: 1px solid var(--borde-control);
@@ -4614,4 +4652,10 @@ body[data-sesion="no"] .pie {
 
 .campo-carrusel {
   position: relative;
+}
+
+/* Las tablas que se desplazan reciben foco de teclado (axe: scrollable-region-focusable); que se vea. */
+.tabla-scroll:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
 }

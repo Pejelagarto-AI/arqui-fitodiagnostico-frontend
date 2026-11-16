@@ -69,16 +69,21 @@ function crearTarjeta(planta) {
   const estado = h("span", { class: "tarjeta-planta-estado" });
   const valores = h("div", { class: "tarjeta-planta-valores" });
   const cuando = h("p", { class: "tarjeta-planta-cuando texto-suave" }, "Leyendo…");
+  // La tarjeta NO es un enlace: un botón dentro de un <a> es contenido interactivo anidado (axe `nested-interactive`,
+  // y los lectores de pantalla no anuncian bien al hijo). El enlace es solo el apodo y su ::after estira el área de
+  // toque a toda la tarjeta (patrón «stretched link»); la mascota, hermana del enlace, queda por encima (z-index) y
+  // atiende su propio toque sin propagarlo.
+  const enlace = h("a", { href: `#/plantas/${planta.id}`, class: "tarjeta-planta-enlace" }, planta.apodo);
   const nodo = h("li", { class: "tarjeta-planta-item", "data-planta": planta.id },
-    h("a", { href: `#/plantas/${planta.id}`, class: "tarjeta-planta", "data-estado": "SIN_DIAGNOSTICO" },
+    h("div", { class: "tarjeta-planta", "data-estado": "SIN_DIAGNOSTICO" },
       h("div", { class: "tarjeta-planta-ilustracion" }, ilustracion.nodo),
-      h("div", { class: "tarjeta-planta-nombres" }, h("strong", {}, planta.apodo), h("span", { class: "texto-suave" }, planta.especie)),
+      h("div", { class: "tarjeta-planta-nombres" }, h("strong", {}, enlace), h("span", { class: "texto-suave" }, planta.especie)),
       estado,
       valores,
       cuando,
     ),
   );
-  const enlace = nodo.firstElementChild;
+  const tarjeta = nodo.firstElementChild;
   const cajaIlustracion = nodo.querySelector(".tarjeta-planta-ilustracion");
   let firma = null;
 
@@ -94,7 +99,7 @@ function crearTarjeta(planta) {
   // Hasta que llega la primera lectura la tarjeta es su propio esqueleto: los mismos tres valores con
   // «—», en gris si la espera pasa de 300 ms. `completar` los reemplaza por los reales.
   for (const [nombre, etiqueta] of PARAMETROS) valores.append(valorDeTarjeta(nombre, etiqueta, null));
-  let cancelarEsqueleto = esqueletoSiTarda(enlace);
+  let cancelarEsqueleto = esqueletoSiTarda(tarjeta);
 
   function completar(lectura) {
     if (cancelarEsqueleto) {
@@ -107,14 +112,14 @@ function crearTarjeta(planta) {
     vaciar(estado);
     vaciar(valores);
     if (lectura.tipo !== "datos") {
-      enlace.dataset.estado = "SIN_DIAGNOSTICO";
+      tarjeta.dataset.estado = "SIN_DIAGNOSTICO";
       ilustracion.aplicar(null);
       cuando.textContent = lectura.tipo === "vacio" ? "Aún sin lecturas" : "No pudimos leer cómo está";
       cuando.removeAttribute("data-registrado");
       return;
     }
     const { diagnostico, registradoEn } = lectura.registro;
-    enlace.dataset.estado = diagnostico.estado;
+    tarjeta.dataset.estado = diagnostico.estado;
     ilustracion.aplicar(diagnostico.estado, diagnostico.periodo); // de noche duerme (F49)
     estado.append(chipDeEstadoGlobal(diagnostico.estado));
     for (const [nombre, etiqueta] of PARAMETROS) {
