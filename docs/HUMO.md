@@ -29,8 +29,10 @@ node tests/humo/correo-falso.mjs                      # SMTP en 1026 y API tipo 
 ```
 cd tests/humo && npm install
 FRONT=http://localhost:5700 FRONT_API=http://localhost:8090/api/v1 API=http://localhost:8090/api/v1 \
-MAILPIT=http://localhost:8026 node humo.mjs
+MAILPIT=http://localhost:8026 SIMULADOR=/ruta/simulador/simulador_esp32.py node humo.mjs
 ```
+
+Para el paso de la salud de la matera (F55) el humo arranca el simulador del backend con `--falla temperatura`: pásale `SIMULADOR=<ruta>/simulador_esp32.py` (con su `mqtt_minimo.py` al lado; sale de `git -C <backend> show origin/develop:simulador/simulador_esp32.py`). Sin la variable ese paso se omite. El humo lo apaga al terminar el paso.
 
 `FRONT_API` es lo que hace que el front hable con 8090: abre cada página con `?api=` (sin él cae en `localhost:8080`, la demo). Otras: `CHROME` (por defecto `/usr/bin/google-chrome`), `ADMIN_CORREO`, `ADMIN_CLAVE`, `OMITIR="texto|texto"`, `CAPTURAS=carpeta` (guarda imágenes en pasos marcados). Sin correo en marcha, los pasos de correo se omiten.
 

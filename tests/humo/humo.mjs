@@ -12,6 +12,10 @@ import { chromium } from "playwright-core";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { pngDeQr } from "./qr-png.mjs";
+import { spawn } from "node:child_process";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const FRONT = process.env.FRONT || "http://localhost:5500";
 const API = process.env.API || "http://localhost:8080/api/v1";
@@ -23,6 +27,9 @@ const MAILPIT = process.env.MAILPIT || "http://localhost:8025";
 const ADMIN_CORREO = process.env.ADMIN_CORREO || "admin@fito.test";
 const ADMIN_CLAVE = process.env.ADMIN_CLAVE || "admin-clave-larga";
 const CHROME = process.env.CHROME || "/usr/bin/google-chrome";
+// F55: el simulador de la matera (simulador/simulador_esp32.py del backend, con su mqtt_minimo.py al lado) para el paso
+// de la salud con --falla temperatura. Sin la variable el paso se omite. Ver docs/HUMO.md.
+const SIMULADOR = process.env.SIMULADOR || "";
 
 const RAIZ = FRONT_API ? `${FRONT}/?api=${encodeURIComponent(FRONT_API)}` : `${FRONT}/`;
 
@@ -443,7 +450,8 @@ async function ejecutar() {
     await medirPorUi(pAna, 5, 60, 5); // crítico
     await pAna.locator("#diagnostico-vigente .estado-global", { hasText: /Crítico|En riesgo/ }).waitFor();
     assert.match(await pBeto.locator("#diagnostico-vigente .estado-global").innerText(), /Saludable/, "no debía enterarse aún");
-    assert.equal(await pBeto.locator(".toast").count(), 0, "el sondeo no debe apilar toasts");
+    // F55: el aviso en vivo CAMBIO_DE_ESTADO sí trae su toast («cambió de estado»); los del sondeo no deben existir.
+    assert.equal(await pBeto.locator(".toast").filter({ hasNotText: "cambió de estado" }).count(), 0, "el sondeo no debe apilar toasts");
     // Vuelve la API: el siguiente sondeo (con espera creciente) trae lo nuevo.
     await pBeto.unroute(/\/plantas\/[^/]+\/diagnostico$/);
     await pBeto.locator("#indicador-planta[data-estado=conectado]").waitFor({ timeout: 30000 });
@@ -986,6 +994,105 @@ async function ejecutar() {
     await p.context().close();
   });
 
+  console.log("Mascota y salud de la matera (F54, F55)");
+  // Gente y planta propias del bloque: Dora (dueña) y Rita (invitada), una suculenta y su matera.
+  const dora = { nombre: "Dora Humo", correo: `dora.${sufijo}@humo.test`, clave: "clave-dora-123" };
+  const rita = { nombre: "Rita Humo", correo: `rita.${sufijo}@humo.test`, clave: "clave-rita-123" };
+  const materaSalud = { serial: `fito-S${sufijo.slice(-5).toUpperCase()}`, secreto: null };
+  let rocio;
+  let tokenDora;
+  const pDora = await nuevoContexto("dora", { viewport: { width: 390, height: 844 } });
+  const pRita = await nuevoContexto("rita", { viewport: { width: 390, height: 844 } });
+  await paso("pestaña Mascota: carga ánimo, vitalidad, racha y línea de tiempo; la invitada la ve sin botones", async () => {
+    for (const u of [dora, rita]) assert.equal((await api(null, "POST", "/auth/registro", { nombre: u.nombre, correo: u.correo, contrasena: u.clave })).status, 201);
+    tokenDora = (await api(null, "POST", "/auth/sesion", { correo: dora.correo, contrasena: dora.clave })).cuerpo.token;
+    const tokenRita = (await api(null, "POST", "/auth/sesion", { correo: rita.correo, contrasena: rita.clave })).cuerpo.token;
+    rocio = (await api(tokenDora, "POST", "/plantas", { apodo: "Rocío", especie: "suculenta" })).cuerpo;
+    // Lecturas parejas (sin salto de humedad: ningún REGADA que confirme solo el «la regué» de más abajo)
+    for (let i = 0; i < 3; i++) await api(tokenDora, "POST", `/plantas/${rocio.id}/mediciones`, { humedad: 15, luz: 1200, temperatura: 22 });
+    const invitacion = await api(tokenDora, "POST", `/plantas/${rocio.id}/invitaciones`, {});
+    assert.equal((await api(tokenRita, "POST", "/invitaciones/aceptar", { token: invitacion.cuerpo.token })).status, 200);
+    await entrarPorUi(pDora, dora.correo, dora.clave);
+    await esperarHash(pDora, /^#\/plantas$/);
+    // el tablero: barra fina de vitalidad y el ánimo en una palabra
+    const tarjeta = pDora.locator(`.tarjeta-planta-item[data-planta="${rocio.id}"]`);
+    await tarjeta.locator(".tarjeta-planta-mascota:not([hidden]) .vitalidad-barra[aria-valuenow]").waitFor();
+    assert.ok((await tarjeta.locator(".tarjeta-planta-animo").innerText()).trim().length > 0);
+    await pDora.goto(`${RAIZ}#/plantas/${rocio.id}/mascota`);
+    await pDora.locator("#pestana-mascota[aria-selected=true]").waitFor();
+    await pDora.locator("#panel-mascota:not([hidden]) #seccion-mascota .mascota--grande").waitFor();
+    await pDora.waitForFunction(() => /\d/.test(document.querySelector("#vitalidad-numero").textContent));
+    const frase = await pDora.locator("#animo-frase").innerText();
+    assert.match(frase, /^(Tengo sed|Estoy ahogada|Tengo frío|Tengo calor|Está muy oscuro|Me deslumbra|Me desmayé|Zzz|Estoy bien|Estoy cansada|Todavía no sé cómo estoy)$/);
+    assert.match(await pDora.locator("#racha-texto").innerText(), /sin susto/);
+    await pDora.locator("#btn-acariciar").waitFor();
+    await pDora.locator("#btn-la-regue").waitFor();
+    // la invitada: todo a la vista, sin botones y sin errores
+    await entrarPorUi(pRita, rita.correo, rita.clave);
+    await esperarHash(pRita, /^#\/plantas$/);
+    await pRita.goto(`${RAIZ}#/plantas/${rocio.id}/mascota`);
+    await pRita.waitForFunction(() => /\d/.test(document.querySelector("#vitalidad-numero")?.textContent || ""));
+    assert.equal(await pRita.locator("#btn-acariciar, #btn-la-regue").count(), 0);
+    assert.equal(await pRita.locator("#seccion-mascota [role=alert]:not([hidden])").count(), 0);
+  });
+  await paso("acariciar: la mascota saluda al instante, crea el evento ACARICIADA y una caricia repetida no agrega otro", async () => {
+    // el saludo es local: el cuerpo sube (translate negativo) en los primeros 600 ms, antes de que vuelva la red
+    const subio = pDora.waitForFunction(() => /translate\(0 -[3-5]\)/.test(document.querySelector("#seccion-mascota .masc-planta").getAttribute("transform") || ""), null, { timeout: 2000, polling: 20 });
+    await pDora.click("#btn-acariciar");
+    await subio;
+    await pDora.locator('#linea-tiempo li[data-tipo="ACARICIADA"]').first().waitFor();
+    await pRita.locator('#linea-tiempo li[data-tipo="ACARICIADA"]').first().waitFor({ timeout: 10000 }); // le llegó en vivo
+    await pDora.click("#btn-acariciar"); // dentro de 10 s: el backend responde 200 sin evento
+    await pDora.waitForTimeout(1500);
+    assert.equal(await pDora.locator('#linea-tiempo li[data-tipo="ACARICIADA"]').count(), 1);
+    const eventos = (await api(tokenDora, "GET", `/plantas/${rocio.id}/mascota/eventos?pagina=0&tamano=20`)).cuerpo.contenido;
+    assert.equal(eventos.filter((e) => e.tipo === "ACARICIADA").length, 1);
+  });
+  await paso("«la regué» queda pendiente con la hora límite y no abre otra espera", async () => {
+    await pDora.click("#btn-la-regue");
+    await pDora.locator("#estado-riego:not([hidden])", { hasText: /Esperando a que la tierra lo confirme, hasta las \d\d:\d\d/ }).waitFor();
+    assert.equal(await pDora.locator("#btn-la-regue").isDisabled(), true);
+    await pDora.locator('#linea-tiempo li[data-tipo="RIEGO_DECLARADO"]').first().waitFor({ timeout: 10000 });
+    // la invitada ve la espera también (consulta o aviso en vivo)
+    await pRita.locator("#estado-riego:not([hidden])", { hasText: /Esperando/ }).waitFor({ timeout: 35000 });
+    const consulta = (await api(tokenDora, "GET", `/plantas/${rocio.id}/mascota`)).cuerpo;
+    assert.equal(consulta.accionPendiente.estado, "PENDIENTE");
+    await capturar(pDora, "mascota-pestana");
+  });
+  await paso("salud: con el simulador en --falla temperatura aparece el aviso con la frase exacta, el diagnóstico atenuado y la mascota preocupada", async () => {
+    if (!SIMULADOR) {
+      console.log("        (sin SIMULADOR=ruta/simulador_esp32.py: se omite)");
+      return;
+    }
+    const sesionAdmin = await api(null, "POST", "/auth/sesion", { correo: ADMIN_CORREO, contrasena: ADMIN_CLAVE });
+    materaSalud.secreto = (await api(sesionAdmin.cuerpo.token, "POST", "/admin/dispositivos", { serial: materaSalud.serial })).cuerpo.secreto;
+    assert.equal((await api(tokenDora, "POST", `/plantas/${rocio.id}/dispositivos`, { serial: materaSalud.serial })).status, 201);
+    await pDora.goto(`${RAIZ}#/plantas/${rocio.id}`);
+    await pDora.locator("#estado-planta").waitFor();
+    assert.equal(await pDora.locator("#aviso-salud").isHidden(), true, "con la matera sin noticias todavía no hay aviso");
+    const carpeta = mkdtempSync(join(tmpdir(), "fito-sim-"));
+    writeFileSync(join(carpeta, "nvs.json"), "{}");
+    const api8090 = API.replace(/\/api\/v1$/, "");
+    const sim = spawn("python3", [SIMULADOR, "--url", api8090, "--serial", materaSalud.serial, "--secreto", materaSalud.secreto, "--nvs", join(carpeta, "nvs.json"), "--falla", "temperatura", "--intervalo", "2", "--especie", "suculenta"], { stdio: "ignore" });
+    try {
+      await pDora.locator("#aviso-salud:not([hidden]) #aviso-salud-frase", { hasText: "no te siento la temperatura" }).waitFor({ timeout: 30000 });
+      assert.equal(await pDora.locator(".bloque-vigente--atenuado").count(), 1);
+      assert.equal(await pDora.locator(".cabecera-planta .mascota").getAttribute("data-estado") !== "SALUDABLE", true, "cara preocupada");
+      // la invitada: GET .../dispositivos le trae la salud desde la fase 10 (o el aviso en vivo)
+      await pRita.goto(`${RAIZ}#/plantas/${rocio.id}`);
+      await pRita.locator("#aviso-salud:not([hidden])", { hasText: "no te siento la temperatura" }).waitFor({ timeout: 15000 });
+      await capturar(pDora, "aviso-salud");
+      // el tablero: chip «revisa la matera»
+      await pDora.goto(`${RAIZ}#/plantas`);
+      await pDora.locator(`.tarjeta-planta-item[data-planta="${rocio.id}"] .chip--sin-noticias:not([hidden])`).waitFor({ timeout: 15000 });
+    } finally {
+      sim.kill();
+      rmSync(carpeta, { recursive: true, force: true });
+    }
+  });
+  await pDora.context().close();
+  await pRita.context().close();
+
   console.log("Responsive");
   await paso("a 375 px no hay desplazamiento horizontal en las pantallas principales", async () => {
     const movil = await nuevoContexto("movil", { viewport: { width: 375, height: 800 } });
@@ -1000,7 +1107,7 @@ async function ejecutar() {
     await movil.fill("#entrar-contrasena", "ana-clave-final-1");
     await movil.click("#btn-entrar");
     await esperarHash(movil, /^#\/plantas$/);
-    for (const ruta of ["/diagnostico", "/plantas", `/plantas/${plantaId}`, `/plantas/${plantaId}/historial`, `/plantas/${plantaId}/matera`, `/plantas/${plantaId}/mas`, "/plantas/nueva", "/perfil", "/solicitudes"]) {
+    for (const ruta of ["/diagnostico", "/plantas", `/plantas/${plantaId}`, `/plantas/${plantaId}/mascota`, `/plantas/${plantaId}/historial`, `/plantas/${plantaId}/matera`, `/plantas/${plantaId}/mas`, "/plantas/nueva", "/perfil", "/solicitudes"]) {
       await movil.goto(`${RAIZ}#${ruta}`);
       await movil.waitForTimeout(700);
       const ancho = await movil.evaluate(() => ({ s: document.documentElement.scrollWidth, w: window.innerWidth }));
