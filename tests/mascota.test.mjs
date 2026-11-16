@@ -49,9 +49,9 @@ test("cada estado muestra una pose distinta del mismo personaje (en riesgo y cr�
 });
 
 test("cuántas poses tiene cada familia: los sprites de la OLED (cuadros de idle incluidos)", () => {
-  // girasol 3, cactus 3, genérica 3; suculenta 4 (saludable inflada); helecho 6 (dos cuadros por estado);
-  // carnívora 5 (tres bocas saludable + riesgo + crítico)
-  const esperadas = { girasol: 3, cactus: 3, suculenta: 4, helecho: 6, carnivora: 5, generica: 3 };
+  // girasol 4 (los tres estados y el dormido de F49), cactus 3, genérica 3; suculenta 4 (saludable inflada);
+  // helecho 6 (dos cuadros por estado); carnívora 5 (tres bocas saludable + riesgo + crítico)
+  const esperadas = { girasol: 4, cactus: 3, suculenta: 4, helecho: 6, carnivora: 5, generica: 3 };
   for (const [familia, n] of Object.entries(esperadas)) assert.equal(cuerpos(crearMascota(familia)).length, n, familia);
 });
 

@@ -53,9 +53,10 @@ export const MORDISCO_MS = 460;
 export const CARNIVORA_OJOS_Y = [9, 12, 16];
 
 /**
- * SALUDO: la reacción al toque (F44). NO existe aún en el firmware: queda PENDIENTE DE CALCAR en `pantalla.cpp` para
- * cuando la matera tenga el botón. Está escrita en los mismos términos que la OLED (cuadros de 50 ms a 20 fps, px del
- * sprite de 48x64) para que se copie tal cual: cada cuadro trae cuánto sube el cuerpo entero (`cuerpo(bmp, seno, amp,
+ * SALUDO: la reacción al toque (F47). Calcada en el firmware en la fase 11 del backend (D160 a D169): la OLED la hace
+ * con una pulsación corta del botón BOOT, con `FITO_SALUDO_DY` y `FITO_SALUDO_OJOS` de `fito_nucleo.c` (los mismos
+ * números) y la prueba `probar_nucleo.py` que los fija. Escrita en los términos de la OLED (cuadros de 50 ms a 20 fps,
+ * px del sprite de 48x64): cada cuadro trae cuánto sube el cuerpo entero (`cuerpo(bmp, seno, amp,
  * dy)`, la matera no se mueve) y qué tan abiertos van los ojos (el `parpadeo` de `caraGrande`). Durante el saludo la
  * cara es la contenta (CARA_NIVEL[0]) sin transición, en cualquier estado, como la suculenta regada.
  *   CUADRO_MS 50 · 12 cuadros = DURACION_MS 600 · el salto sube 5 px (cuadros 0 a 5), baja a +1 (cuadro 7: aterriza
@@ -70,6 +71,46 @@ export const SALUDO = Object.freeze({
   CARA: Object.freeze({ abierto: 1.0, inclina: 0.0, boca: 1.0, onda: 0.0 }),
   REDUCIDO_MS: 800,
 });
+
+/**
+ * NOCHE: la planta dormida (F49), calcada de la fase 11 del firmware (`fito_respira_dy`, `fito_zzz_cuadro`, `ZZZ` y
+ * `CARA_GIRASOL_DORMIDO` de `pantalla.cpp`). Cuando el diagnóstico dice `periodo: "NOCHE"`: ojos cerrados (factor de
+ * parpadeo 0: el ojo queda en 1 px de alto), sin balanceo, sin parpadeo, sin idle (corona, flor, respiración de la
+ * suculenta, frondas, mordisco) y sin lágrima. El cuerpo entero respira: sube 1 px de 750 a 2249 ms de cada 3 s (la
+ * mitad central del periodo; es `lround(0.5 - 0.5 cos)` con el borde en entero). El "zzz" flota en tres cuadros de 1 s
+ * (una zeta, dos, tres) en la esquina de arriba a la derecha y no respira. Cada familia en su cuerpo del estado (cuadro
+ * 0); la carnívora saludable con la trampa cerrada y el girasol saludable con su sprite propio, la cabeza caída suave.
+ * El saludo gana a la noche: la planta se despierta, saluda y se vuelve a dormir.
+ */
+export const NOCHE = Object.freeze({
+  RESPIRA_MS: 3000,
+  SUBE_DESDE_MS: 750,
+  SUBE_HASTA_MS: 2250,
+  ZZZ_CUADRO_MS: 1000,
+  ZZZ: Object.freeze([{ x: 37, y: 10, lado: 3 }, { x: 40, y: 5, lado: 4 }, { x: 43, y: 0, lado: 5 }]),
+  CARA_GIRASOL: Object.freeze({ x: 23, y: 21 }),
+});
+
+/** ¿El diagnóstico dice que es de noche? Sin campo (servidor viejo, o `POST /diagnosticos`) es de día. */
+export function esNoche(periodo) {
+  return periodo === "NOCHE";
+}
+
+/** Respiración de la planta dormida a `ahora` ms: -1 (sube 1 px) en la mitad central de cada 3 s, si no 0. */
+export function respiraDy(ahora) {
+  const fase = ((ahora % NOCHE.RESPIRA_MS) + NOCHE.RESPIRA_MS) % NOCHE.RESPIRA_MS;
+  return fase >= NOCHE.SUBE_DESDE_MS && fase < NOCHE.SUBE_HASTA_MS ? -1 : 0;
+}
+
+/** Cuadro del "zzz" a `ahora` ms: 0, 1 o 2 (cuántas zetas sobran: se ven cuadro + 1). */
+export function cuadroZzz(ahora) {
+  return Math.floor(Math.max(0, ahora) / NOCHE.ZZZ_CUADRO_MS) % 3;
+}
+
+/** Trazo de una zeta de `lado` px con la esquina en (x, y): arriba, la diagonal y abajo, en centros de píxel. */
+export function zetaD({ x, y, lado }) {
+  return `M${x + 0.5} ${y + 0.5}H${x + lado - 0.5}L${x + 0.5} ${y + lado - 0.5}H${x + lado - 0.5}`;
+}
 
 /** El cuadro del saludo a `t` ms de empezado: { cuadro, dy, ojos }; null si no ha empezado o ya terminó. */
 export function pasoSaludo(t) {

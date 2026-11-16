@@ -8,16 +8,17 @@ import { familiaDe } from "./especie.js";
 import { animarMascota, hayMovimiento } from "../animaciones.js";
 
 /**
- * Devuelve { nodo, mascota, familia, aplicar(estado), morder(), saludar(), iniciar(), parar() }.
+ * Devuelve { nodo, mascota, familia, aplicar(estado, periodo), morder(), saludar(), iniciar(), parar() }.
  *  - `especie` (texto del catálogo) o `familia` (ya resuelta; gana si viene) escogen el dibujo.
  *  - `estado`: SALUDABLE | EN_RIESGO | CRITICO | null (sin diagnóstico: se dibuja saludable y se atenúa por CSS).
+ *  - `periodo`: DIA | NOCHE del diagnóstico (F49); de noche la mascota duerme. Sin dato, de día.
  *  - `toque`: el nodo es un botón («Saludar a <nombre>») que responde al clic, al toque y a Enter o Espacio.
  *    Dentro de un enlace (el tablero) el toque NO navega: solo saluda.
  *  - `alTocar`: gancho opcional, se llama en cada toque (ahí irá `acariciarMascota` de api.js cuando exista).
  *  - `animar: false`: no arranca el idle (la escena lo arranca cuando la muestra).
  */
-export function crearMascotaVista({ especie, familia, estado = null, clase = "", nombre = "", toque = false, alTocar = null, animar = true } = {}) {
-  const mascota = crearMascota(familia || familiaDe(especie), { estado, clase });
+export function crearMascotaVista({ especie, familia, estado = null, periodo = null, clase = "", nombre = "", toque = false, alTocar = null, animar = true } = {}) {
+  const mascota = crearMascota(familia || familiaDe(especie), { estado, periodo, clase });
   let detener = null;
 
   function iniciar() {
@@ -27,9 +28,10 @@ export function crearMascotaVista({ especie, familia, estado = null, clase = "",
     if (detener) detener();
     detener = null;
   }
-  /** Lleva la mascota al estado del diagnóstico. Sin idle corriendo (movimiento reducido) repinta la pose quieta. */
-  function aplicar(nuevo) {
+  /** Lleva la mascota al estado y al periodo del diagnóstico. Sin idle corriendo (movimiento reducido) repinta la pose quieta. */
+  function aplicar(nuevo, periodo = null) {
     mascota.ponerEstado(nuevo);
+    mascota.ponerPeriodo(periodo);
     if (!detener || !hayMovimiento()) mascota.pintar(0, { reposo: true });
   }
 
@@ -53,7 +55,7 @@ export function crearMascotaVista({ especie, familia, estado = null, clase = "",
     });
   }
 
-  aplicar(estado);
+  aplicar(estado, periodo);
   if (animar) iniciar();
   return { nodo, mascota, familia: mascota.familia, aplicar, morder: () => mascota.morder(), saludar, iniciar, parar };
 }

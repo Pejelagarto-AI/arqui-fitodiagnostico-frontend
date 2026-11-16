@@ -95,7 +95,7 @@ export async function montar(contenedor, ctx) {
     // La mascota de la especie (F44) pone la cara y la pose del diagnóstico, como la matera en su OLED.
     pararMascota();
     vaciar(zonaIlustracion);
-    const ilustracion = crearMascotaVista({ especie, estado: diagnostico.estado });
+    const ilustracion = crearMascotaVista({ especie, estado: diagnostico.estado, periodo: diagnostico.periodo });
     zonaIlustracion.append(ilustracion.nodo);
     tituloResultado.textContent = `Así está tu ${especie}`;
     frase.textContent = fraseDePlanta(diagnostico);
