@@ -327,11 +327,11 @@ export function crearPanelMascota(planta, ctx, { esDueno, alCambiar = () => {}, 
   /** Avisa al servidor. Un 200 (caricia repetida) no hace nada más. */
   async function acariciar() {
     caricias.empezar();
-    let id = null;
+    let idDelEvento = null;
     try {
       const resultado = caricia(await acariciarMascota(id));
-      if (resultado.nueva) id = resultado.id;
-      caricias.terminar(id);
+      if (resultado.nueva) idDelEvento = resultado.id;
+      caricias.terminar(idDelEvento);
       if (!ctx.vigente() || !resultado.nueva) return;
       eventos = juntarEventos(eventos, [{ id: resultado.id, tipo: "ACARICIADA", ocurridoEn: resultado.en || new Date().toISOString(), detalle: { origen: "PERSONA" } }]);
       pintarEventos();

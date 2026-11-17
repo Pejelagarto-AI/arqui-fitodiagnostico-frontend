@@ -5135,7 +5135,7 @@ body[data-sesion="no"] .pie {
   gap: 0.15rem;
   min-height: 44px;
   padding: 0.35rem 0.2rem 0.4rem;
-  border: 2px solid var(--borde);
+  border: 2px solid var(--borde-control);
   border-radius: var(--radio-medio);
   background: var(--superficie);
   cursor: pointer;
@@ -5162,7 +5162,7 @@ body[data-sesion="no"] .pie {
 }
 
 .accesorio-opcion:has(.accesorio-radio:checked) {
-  border-color: var(--primario, currentColor);
+  border-color: var(--acento);
   background: var(--crema);
 }
 
