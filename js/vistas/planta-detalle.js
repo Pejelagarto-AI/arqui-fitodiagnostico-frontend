@@ -20,7 +20,8 @@ import {
   poseDeMascota, fraseDeSalud, saludEsMala, peorSalud, saludesDeDispositivos, saludDesdeAviso, suscribirAPlanta,
   debeAvisarCambioDeEstado,
 } from "../mascota-animo.js";
-import { entrada, cambiarEstado } from "../animaciones.js";
+import { entrada, cambiarEstado, hayMovimiento } from "../animaciones.js";
+import { haceSaludo } from "../mascota-eventos.js";
 import { crearSondeo, textoActualizado } from "../sondeo.js";
 import { leerCache, guardarCache, invalidarCache, alVolver } from "../cache.js";
 import { recargarVista } from "../router.js";
@@ -123,12 +124,14 @@ export async function montar(contenedor, ctx) {
   nombrarParaTransicion(cabecera.querySelector("#ilustracion-planta"));
   // F54, F55: la pose de las dos mascotas (cabecera y pestaña) sale del diagnóstico, del ánimo del servidor y de la
   // salud de la matera, con las mismas reglas que la OLED (`poseDeMascota`).
-  const pose = { estado: null, periodo: null, animo: null, saludMala: false };
+  // F56: la pose también lleva el accesorio del servidor y si el ánimo es DESMAYADA (ojos en «x», 2 px abajo, D194).
+  const pose = { estado: null, periodo: null, animo: null, saludMala: false, accesorio: "NINGUNO" };
   let panelMascota = null;
   function aplicarPoses() {
-    const { estado, periodo } = poseDeMascota(pose);
-    ilustracion.aplicar(estado, periodo);
-    if (panelMascota) panelMascota.mascota.aplicar(estado, periodo);
+    const { estado, periodo, desmayada } = poseDeMascota(pose);
+    const extras = { desmayada, accesorio: pose.accesorio };
+    ilustracion.aplicar(estado, periodo, extras);
+    if (panelMascota) panelMascota.mascota.aplicar(estado, periodo, extras);
   }
   const ponerEstado = (diagnostico, { cambio = false } = {}) => {
     const estado = diagnostico ? diagnostico.estado : null;
@@ -142,6 +145,7 @@ export async function montar(contenedor, ctx) {
     pose.estado = estado;
     pose.periodo = diagnostico ? diagnostico.periodo : null; // de noche duerme (F49)
     aplicarPoses();
+    if (panelMascota) panelMascota.ponerEstadoDelDiagnostico(estado); // la fila de estado de la tarjeta grande (F56)
     if (cambio) ilustracion.morder(); // la carnívora saludable muerde cuando llega una lectura nueva, como en la OLED
   };
 
@@ -154,9 +158,15 @@ export async function montar(contenedor, ctx) {
     esDueno: planta.esDueno,
     alCambiar: (datos) => {
       pose.animo = datos ? datos.animo : null;
+      pose.accesorio = (datos && datos.accesorio) || "NINGUNO";
       aplicarPoses();
     },
+    // Con movimiento reducido el saludo de la caricia o de REVIVIO queda como un cambio de expresión también en la cabecera.
+    alDisparar: (tipo) => { if (!hayMovimiento() && haceSaludo(tipo)) ilustracion.saludarSolo(); },
   });
+  // F56: la mascota de la cabecera y la de la pestaña ven la misma cola de eventos (mismos turnos, mismas animaciones).
+  ilustracion.mascota.usarEventos(panelMascota.reproductor);
+  panelMascota.ponerEstadoDelDiagnostico(pose.estado);
   aplicarPoses();
 
   // ---- salud de la matera (F55): aviso arriba del diagnóstico, con la frase del servidor ----
@@ -408,12 +418,10 @@ export async function montar(contenedor, ctx) {
   // ---- avisos en vivo de esta planta (F54, F55): una sola suscripción a /user/queue/plantas/{id} ----
   // El estado y el historial siguen por sondeo (F16); aquí llega lo que el sondeo no ve a tiempo.
   const bajaDePlanta = suscribirAPlanta(envivo.suscribir, envivo.destinoDePlanta, id, {
-    EVENTO_DE_MASCOTA: (aviso) => {
-      const animacion = panelMascota.alEvento(aviso);
-      // la de la cabecera hace lo mismo que la grande
-      if (animacion === "regar") ilustracion.regar();
-      if (animacion === "saludar") ilustracion.saludarSolo();
-    },
+    // F56: el evento entra a la cola compartida y las dos mascotas lo animan (cola de a uno, 3000 ms cada uno)
+    EVENTO_DE_MASCOTA: (aviso) => { panelMascota.alEvento(aviso); },
+    // F56: el dueño (en otra pestaña o aparato) cambió el accesorio: no es un evento, no entra a la línea de tiempo
+    MASCOTA_ACTUALIZADA: (aviso) => { panelMascota.alAccesorio(aviso); },
     SALUD_DE_LA_MATERA: (aviso) => {
       const salud = saludDesdeAviso(aviso);
       if (!salud) return;

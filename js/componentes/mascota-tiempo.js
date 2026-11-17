@@ -1,3 +1,5 @@
+import { OJO_X_5, OJO_X_3, pixelesDeSprite } from "./mascota-sprites.js";
+
 // Tiempos y caras de las mascotas, calcados de `firmware/src/pantalla.cpp` (fase 7 del backend, D110 a D117).
 // Regla: la mascota del front se ve y se mueve IGUAL que la de la OLED. Por eso todo lo que decide la pose de un
 // cuadro (balanceo, parpadeo, cara por estado, corona del girasol, flor del cactus, respiración de la suculenta,
@@ -187,15 +189,18 @@ export function yBoca(x, cx, semi, y0, curva, cara) {
  * Las piezas de una cara grande (`caraGrande`) en píxeles: dos ojos (rectángulos de 5 de ancho), su brillo, las
  * cejas si hay preocupación, los puntos de la boca y la lágrima del crítico. `tLagrima` es `ahora` (ms) o null.
  */
-export function piezasDeCara(cara, parpadeo, cx, cy, geo, { conBoca = true, nivel = 0, ahora = 0 } = {}) {
+export function piezasDeCara(cara, parpadeo, cx, cy, geo, { conBoca = true, nivel = 0, ahora = 0, desmayada = false } = {}) {
   const a = cara.abierto * parpadeo;
   const h = Math.max(1, lround(geo.altoOjo * a));
   const ojos = [];
+  const ojosX = [];
   const cejas = [];
   for (const lado of [-1, 1]) {
     const ex = cx + geo.separacion * lado;
     const top = cy - Math.floor(h / 2);
-    ojos.push({ x: ex - 2, y: top, ancho: 5, alto: h, radio: h >= 4 ? 2 : h >= 2 ? 1 : 0, brillo: h >= 5 ? { x: ex - 1, y: top + 1 } : null });
+    // F56 (D194): desmayada, `ojo_x_5` en (ex - 2, cy - 2) en lugar del ojo, negro sobre el cuerpo; el resto de la cara sigue al estado
+    if (desmayada) ojosX.push({ x: ex - 2, y: cy - 2, pixeles: pixelesDeSprite(OJO_X_5, ex - 2, cy - 2) });
+    else ojos.push({ x: ex - 2, y: top, ancho: 5, alto: h, radio: h >= 4 ? 2 : h >= 2 ? 1 : 0, brillo: h >= 5 ? { x: ex - 1, y: top + 1 } : null });
     if (cara.inclina > 0.2) {
       cejas.push({ x1: ex + 4 * lado, y1: cy + geo.yCeja + lround(cara.inclina), x2: ex - 3 * lado, y2: cy + geo.yCeja - lround(2 * cara.inclina) });
     }
@@ -204,19 +209,21 @@ export function piezasDeCara(cara, parpadeo, cx, cy, geo, { conBoca = true, nive
   let lagrima = null;
   if (conBoca) {
     for (let x = cx - geo.semiBoca; x <= cx + geo.semiBoca; x++) boca.push({ x, y: yBoca(x, cx, geo.semiBoca, cy + geo.yBoca, geo.curvaBoca, cara) });
-    if (nivel === 2) {
+    if (nivel === 2 && !desmayada) {
       const fase = ahora % LAGRIMA_CICLO_MS;
       if (fase < LAGRIMA_CAE_MS) lagrima = { x: cx + geo.xLagrima, y: cy + geo.yBoca + 1 + Math.floor((fase * 7) / LAGRIMA_CAE_MS), alto: 2 };
     }
   }
-  return { ojos, cejas, boca, lagrima };
+  return { ojos, ojosX, cejas, boca, lagrima };
 }
 
 /** La cara de la matera (planta común y helecho): ojos de 3x3, cejas de tres puntos, boca de 6 px (`caraMatera`). */
-export function piezasDeCaraMatera(cara, parpadeo, { nivel = 0, ahora = 0 } = {}) {
+export function piezasDeCaraMatera(cara, parpadeo, { nivel = 0, ahora = 0, desmayada = false } = {}) {
   const a = cara.abierto * parpadeo;
   const h = a >= 0.85 ? 3 : a >= 0.4 ? 2 : 1;
-  const ojos = [17, 28].map((ex) => ({ x: ex, y: 58 - h, ancho: 3, alto: h, radio: 0, brillo: null }));
+  // F56 (D194): desmayada, `ojo_x_3` en (17, 55) y (28, 55) en lugar de los ojos de 3x3
+  const ojos = desmayada ? [] : [17, 28].map((ex) => ({ x: ex, y: 58 - h, ancho: 3, alto: h, radio: 0, brillo: null }));
+  const ojosX = desmayada ? [17, 28].map((ex) => ({ x: ex, y: 55, pixeles: pixelesDeSprite(OJO_X_3, ex, 55) })) : [];
   const cejas = [];
   if (cara.inclina > 0.2) {
     const dentro = 53 - lround(cara.inclina);
@@ -229,11 +236,11 @@ export function piezasDeCaraMatera(cara, parpadeo, { nivel = 0, ahora = 0 } = {}
     boca.push({ x, y: y < 59 ? 59 : y > 62 ? 62 : y });
   }
   let lagrima = null;
-  if (nivel === 2) {
+  if (nivel === 2 && !desmayada) {
     const fase = ahora % LAGRIMA_CICLO_MS;
     if (fase < LAGRIMA_CAE_MS) lagrima = { x: 31, y: 56 + Math.floor((fase * 5) / LAGRIMA_CAE_MS), alto: 3 };
   }
-  return { ojos, cejas, boca, lagrima };
+  return { ojos, ojosX, cejas, boca, lagrima };
 }
 
 /**

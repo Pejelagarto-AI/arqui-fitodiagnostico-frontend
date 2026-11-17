@@ -35,6 +35,12 @@ for (const [apodo, especie, m] of [
   plantas.push(p.cuerpo);
 }
 
+// F56: cada planta con un accesorio distinto (se ve en el tablero, la cabecera y la pestaña Mascota)
+for (const [i, accesorio] of ["SOMBRERO", "GAFAS", "MONO"].entries()) {
+  const r = await api(token, "PATCH", `/plantas/${plantas[i].id}/mascota`, { accesorio });
+  if (r.status !== 200) throw new Error(`PATCH accesorio ${accesorio}: ${r.status} ${JSON.stringify(r.cuerpo)}`);
+}
+
 const navegador = await chromium.launch({ executablePath: CHROME, headless: true });
 const TAMANOS = { movil: { width: 390, height: 844 }, escritorio: { width: 1280, height: 800 } };
 
@@ -78,6 +84,11 @@ for (const [tam, viewport] of Object.entries(TAMANOS)) {
   const pestanas = await p.$$eval("[role=tab]", (e) => e.map((x) => x.dataset.pestana));
   for (const k of pestanas) { await p.goto(`${RAIZ}#/plantas/${id}${k === "hoy" ? "" : "/" + k}`); await p.waitForSelector("[role=tab]"); await guardar(p, `detalle-${k}`); }
   await p.goto(`${RAIZ}#/plantas/${plantas[2].id}`); await p.waitForSelector("[role=tab]"); await guardar(p, "detalle-hoy-critica");
+  // F56: el globo con la frase del evento y el corazón (la caricia suena al tocar: saludo, corazón y frase de la familia)
+  await p.goto(`${RAIZ}#/plantas/${id}/mascota`); await p.waitForSelector("#btn-acariciar");
+  await p.waitForFunction(() => /\d/.test(document.querySelector("#vitalidad-numero")?.textContent || ""));
+  await p.click("#btn-acariciar");
+  await guardar(p, "mascota-evento", false);
   await p.goto(`${RAIZ}#/plantas/nueva`); await guardar(p, "planta-nueva");
   await p.goto(`${RAIZ}#/plantas/${id}/vincular`); await guardar(p, "asistente-vinculacion");
   await p.goto(`${RAIZ}#/perfil`); await guardar(p, "perfil");
