@@ -39,3 +39,30 @@ export function plegar(lista, maximo = PENDIENTES_A_LA_VISTA) {
   if (lista.length <= maximo + 1) return { visibles: lista, plegados: [] };
   return { visibles: lista.slice(0, maximo), plegados: lista.slice(maximo) };
 }
+
+// ---- F56: el tablero en una llamada (fase 13 del backend) ----
+// `GET /plantas` trae por planta `mascota { vitalidad, animo, racha, accesorio }` y `salud { estado, mensaje }`, cada una
+// `null` cuando no hay. Un backend viejo no manda las claves: ahí el tablero conserva el camino de antes (F54, F55), una
+// consulta a `GET .../mascota` y otra a `GET .../dispositivos` por tarjeta visible. Distinguir «null» (el servidor dice
+// que no hay) de «clave ausente» (el servidor no sabe) es lo que evita pedir de más con el backend nuevo.
+
+/** ¿Esta planta del listado trae el resumen del servidor (aunque sea `null`)? Una clave ausente es un backend viejo. */
+export function traeResumen(planta) {
+  return Boolean(planta) && (Object.hasOwn(planta, "mascota") || Object.hasOwn(planta, "salud"));
+}
+
+/** Las plantas que siguen necesitando el camino de respaldo (dos peticiones por tarjeta): las que vienen sin las claves. */
+export function plantasSinResumen(lista) {
+  return lista.filter((p) => !traeResumen(p));
+}
+
+/** La lista sin `mascota` ni `salud`: lo que identifica a las tarjetas (plantas, apodos, especies), para repintar solo si eso cambió. */
+export function sinResumen(lista) {
+  return lista.map(({ mascota, salud, ...resto }) => resto);
+}
+
+/** El chip de salud del listado: { mala, texto, estado }. FALLA es «revisa la matera»; SIN_NOTICIAS, «sin noticias»; OK o null, nada. */
+export function chipDeSaludDelListado(salud) {
+  if (!salud || (salud.estado !== "FALLA" && salud.estado !== "SIN_NOTICIAS")) return { mala: false, texto: "", estado: "OK" };
+  return { mala: true, texto: salud.estado === "SIN_NOTICIAS" ? "sin noticias" : "revisa la matera", estado: salud.estado };
+}

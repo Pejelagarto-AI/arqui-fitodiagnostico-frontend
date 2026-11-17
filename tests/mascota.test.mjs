@@ -208,7 +208,7 @@ test("RIEGO: la suculenta en riesgo da un saltito de 1 px y sonríe (sin cejas d
   assert.equal(clases(m, "masc-ceja").length, 2, "vuelve la cara de en riesgo");
 });
 
-test("RIEGO: las familias sin animación de riego en la OLED parpadean dos veces, sin saltar ni gota", () => {
+test("RIEGO: las familias sin animación de riego en la OLED no hacen nada (F56 quitó el parpadeo doble inventado): solo la frase", () => {
   for (const familia of ["girasol", "cactus", "helecho", "carnivora", "generica"]) {
     const m = crearMascota(familia);
     m.pintar(0);
@@ -219,8 +219,8 @@ test("RIEGO: las familias sin animación de riego en la OLED parpadean dos veces
       altos.push(Number(clases(m, "masc-ojo")[0].getAttribute("height")));
     }
     assert.equal(gotaD(m), "", familia);
-    if (familia !== "carnivora") assert.deepEqual(altos.reduce((a, h, i) => (h <= 1 ? [...a, i] : a), []), [3, 7], familia);
-    else assert.ok(Math.min(...altos) <= 1, "la carnívora también cierra los ojos");
+    assert.ok(Math.min(...altos) > 1 || familia === "carnivora", `${familia}: sin parpadeo doble`);
+    assert.doesNotMatch(planta(m).getAttribute("transform"), /^translate/, `${familia}: no salta`);
   }
 });
 

@@ -6,8 +6,15 @@
 // (Promise.allSettled) y cada tarjeta se completa cuando llega el suyo; la rejilla se pinta antes, con
 // apodo y especie, para que nunca quede en blanco. Evolución recomendada: que el backend devuelva el
 // estado vigente en GET /plantas y se evite el N+1 (F22).
+//
+// F56 (fase 13 del backend): el mismo listado ya trae por planta `mascota` (vitalidad, ánimo, racha, accesorio) y `salud`
+// (estado, mensaje), `null` si no hay. La barra de vitalidad, el ánimo, el accesorio y el chip de salud salen de ahí, sin
+// `GET .../mascota` ni `GET .../dispositivos` por tarjeta. RESPALDO: si el backend es viejo y no manda las claves (se
+// distingue `null` de clave ausente, `traeResumen` en tablero.js), esa planta conserva el camino de F54 y F55 (las dos
+// peticiones por tarjeta visible), con su límite de concurrencia. El diagnóstico vigente sigue pidiéndose por planta (F22).
 import { listarPlantas, listarPlantasCompartidas, obtenerDiagnosticoVigente, obtenerMascota, listarDispositivos } from "../api.js";
 import { crearBarraDeVitalidad } from "../componentes/planta-mascota.js";
+import { ACCESORIOS } from "../mascota-eventos.js";
 import { palabraDeAnimo, vitalidadValida, poseDeMascota, peorSalud, saludesDeDispositivos, saludEsMala } from "../mascota-animo.js";
 import { textoHace } from "../tiempo.js";
 import { crearSondeo } from "../sondeo.js";
@@ -16,7 +23,7 @@ import { leerCache, guardarCache, sonIguales, alVolver } from "../cache.js";
 import { entrada } from "../animaciones.js";
 import * as sesion from "../sesion.js";
 import { conTransicion } from "../transiciones.js";
-import { FILTROS, cuentaPorEstado, pasaElFiltro, filtroVigente, plegar } from "../tablero.js";
+import { FILTROS, cuentaPorEstado, pasaElFiltro, filtroVigente, plegar, traeResumen, sinResumen, chipDeSaludDelListado } from "../tablero.js";
 import { recomendacionEnPalabras } from "../voz-planta.js";
 import { lanzarRecorridoSiToca } from "../componentes/recorrido.js";
 import { h, vaciar, crearAviso, chipDeEstadoGlobal, esqueletoSiTarda, ETIQUETAS_PARAMETRO } from "../ui.js";
@@ -27,8 +34,8 @@ import { recomendacionesPorParametro } from "../componentes/escala.js";
 export const titulo = "Mis plantas";
 
 const INTERVALO_TABLERO_MS = 30000;
-// F54, F55: la mascota y la salud de cada tarjeta cuestan dos peticiones por planta (GET .../mascota y
-// GET .../dispositivos; el backend no las trae en GET /plantas). Por eso se piden solo para las tarjetas que entran
+// F54, F55 (respaldo desde F56): con un backend viejo la mascota y la salud de cada tarjeta cuestan dos peticiones por planta
+// (GET .../mascota y GET .../dispositivos; no vienen en GET /plantas). Por eso se piden solo para las tarjetas que entran
 // en pantalla, a lo sumo de a CONCURRENCIA_EXTRAS, y se refrescan como mucho cada REFRESCO_EXTRAS_MS.
 const REFRESCO_EXTRAS_MS = 120000;
 const CONCURRENCIA_EXTRAS = 3;
@@ -100,10 +107,10 @@ function crearTarjeta(planta) {
   const cajaIlustracion = nodo.querySelector(".tarjeta-planta-ilustracion");
   let firma = null;
   // La pose: diagnóstico + ánimo + salud, con las reglas de la OLED (poseDeMascota).
-  const pose = { estado: null, periodo: null, animo: null, saludMala: false };
+  const pose = { estado: null, periodo: null, animo: null, saludMala: false, accesorio: "NINGUNO" };
   const posar = () => {
-    const { estado: e, periodo } = poseDeMascota(pose);
-    ilustracion.aplicar(e, periodo);
+    const { estado: e, periodo, desmayada } = poseDeMascota(pose);
+    ilustracion.aplicar(e, periodo, { desmayada, accesorio: pose.accesorio }); // F56: el accesorio y el desmayo también se ven aquí
   };
 
   // Elemento compartido con la cabecera del detalle (F28): la ilustración «viaja» de una a otra. El nombre
@@ -157,7 +164,7 @@ function crearTarjeta(planta) {
     if (cuando.dataset.registrado) cuando.textContent = `Leída ${textoHace(cuando.dataset.registrado)}`;
   }
 
-  /** F54: lo de GET .../mascota. */
+  /** F54: lo de GET .../mascota, o (F56) la clave `mascota` del listado: vitalidad, ánimo y accesorio. */
   function completarMascota(m) {
     const v = vitalidadValida(m.vitalidad);
     filaMascota.hidden = false;
@@ -165,6 +172,27 @@ function crearTarjeta(planta) {
     barra.nodo.title = v === null ? "" : `Vitalidad ${v} de 100`;
     animo.textContent = palabraDeAnimo(m.animo);
     pose.animo = m.animo;
+    pose.accesorio = ACCESORIOS.includes(m.accesorio) ? m.accesorio : "NINGUNO";
+    posar();
+  }
+
+  /** F56: lo que trae el listado de la planta (`mascota` y `salud`, null si no hay); no hace ninguna petición. */
+  function completarResumen(p) {
+    if (p.mascota) completarMascota(p.mascota);
+    else if (pose.animo !== null || pose.accesorio !== "NINGUNO") {
+      filaMascota.hidden = chipSalud.hidden;
+      pose.animo = null;
+      pose.accesorio = "NINGUNO";
+      posar();
+    }
+    const chip = chipDeSaludDelListado(p.salud);
+    chipSalud.hidden = !chip.mala;
+    if (chip.mala) {
+      filaMascota.hidden = false;
+      chipSalud.textContent = chip.texto;
+      chipSalud.dataset.estado = chip.estado;
+    }
+    pose.saludMala = chip.mala;
     posar();
   }
 
@@ -182,7 +210,8 @@ function crearTarjeta(planta) {
     posar();
   }
 
-  return { nodo, completar, completarMascota, completarSalud, actualizarTiempo, parar: () => ilustracion.parar() };
+  if (traeResumen(planta)) completarResumen(planta); // el listado ya trajo la mascota y la salud: nada que pedir (F56)
+  return { nodo, completar, completarMascota, completarSalud, completarResumen, actualizarTiempo, parar: () => ilustracion.parar() };
 }
 
 /** «Camila Rojas» -> «Camila». Sin nombre, cadena vacía. */
@@ -277,6 +306,9 @@ export async function montar(contenedor, ctx) {
   const cola = [];
   let enVuelo = 0;
   function encolarExtras(id, { forzar = false } = {}) {
+    // F56: las plantas cuyo listado ya trajo `mascota` y `salud` no piden nada (solo un backend viejo cae en el respaldo)
+    const planta = mias.find((p) => p.id === id);
+    if (!planta || traeResumen(planta)) return;
     const pedido = extrasPedidos.get(id);
     if (!forzar && pedido !== undefined && Date.now() - pedido < REFRESCO_EXTRAS_MS) return;
     if (cola.includes(id)) return;
@@ -432,6 +464,12 @@ export async function montar(contenedor, ctx) {
     }));
   }
 
+  /** F56: pone al día la mascota y la salud de las tarjetas con lo que trajo el listado, sin pedir nada más ni repintar. */
+  function aplicarResumenes(propiasLista) {
+    mias = propiasLista;
+    propiasLista.forEach((planta, i) => { if (tarjetas[i] && traeResumen(planta)) tarjetas[i].completarResumen(planta); });
+  }
+
   /** Pinta las dos listas (propias y compartidas) y pide el vigente de cada propia. */
   function pintarListas(propiasLista, ajenas) {
     aviso.limpiar();
@@ -460,14 +498,18 @@ export async function montar(contenedor, ctx) {
    * revalidan por detrás (solo se repinta si cambiaron). El estado de cada planta (el diagnóstico vigente)
    * NO se cachea: se pide siempre, y la tarjeta muestra su esqueleto hasta que llega.
    */
-  async function revalidar() {
+  async function revalidar({ soloResumen = false } = {}) {
     try {
       const [propiasLista, ajenas] = await Promise.all([listarPlantas(), listarPlantasCompartidas()]);
       if (!ctx.vigente()) return;
       const fresca = guardarCache(CLAVE_CACHE, { propias: propiasLista, ajenas });
-      if (pintada && sonIguales(pintada, fresca)) {
+      // F56: lo que identifica a las tarjetas es la lista sin `mascota` ni `salud`: si solo cambió eso (la vitalidad, el
+      // accesorio, el chip) las tarjetas se ponen al día sin repintarse.
+      if (pintada && sonIguales({ propias: sinResumen(pintada.propias), ajenas: sinResumen(pintada.ajenas) }, { propias: sinResumen(propiasLista), ajenas: sinResumen(ajenas) })) {
         aviso.limpiar();
-        leerTodas(); // las listas no cambiaron: solo se refrescan los estados
+        pintada = { propias: propiasLista, ajenas };
+        aplicarResumenes(propiasLista);
+        if (!soloResumen) leerTodas(); // las listas no cambiaron: solo se refrescan los estados
         return;
       }
       pintarListas(propiasLista, ajenas);
@@ -492,7 +534,10 @@ export async function montar(contenedor, ctx) {
   // pestaña oculta); cada tarjeta compara contra lo que ya pintó y no repinta si nada cambió.
   const sondeo = crearSondeo({
     tarea: () => {
-      for (const id of visibles) encolarExtras(id); // cada REFRESCO_EXTRAS_MS como mucho
+      for (const id of visibles) encolarExtras(id); // respaldo de un backend viejo: cada REFRESCO_EXTRAS_MS como mucho
+      // F56: con el backend nuevo la vitalidad, el ánimo, el accesorio y la salud se refrescan con el mismo listado (una
+      // llamada por 30 s para todas las tarjetas, en vez de dos por tarjeta)
+      if (mias.some(traeResumen)) revalidar({ soloResumen: true });
       return leerTodas();
     },
     intervaloMs: INTERVALO_TABLERO_MS,

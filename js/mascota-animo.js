@@ -7,7 +7,9 @@
 // (saludable, en riesgo, crítica, dormida y el saludo); el ánimo, la vitalidad, la racha y la línea de tiempo van en
 // la interfaz alrededor, como texto.
 
-/** El ánimo como lo diría la planta. DORMIDA llega del backend con la noche (si todavía no llega, no pasa nada). */
+import { fraseDeAnimoDe, fraseDeEventoDe } from "./mascota-frases.js";
+
+/** El ánimo como lo diría la planta (la frase genérica, larga: línea de tiempo, toasts, respaldo; la mascota habla con `fraseDeLaMascota`). DORMIDA llega del backend con la noche (si todavía no llega, no pasa nada). */
 export const FRASES_DE_ANIMO = Object.freeze({
   FELIZ: "Estoy bien",
   CANSADA: "Estoy cansada",
@@ -36,6 +38,20 @@ export const PALABRAS_DE_ANIMO = Object.freeze({
   DORMIDA: "Dormida",
   SIN_DATOS: "Sin datos",
 });
+
+/**
+ * F56: lo que la mascota DICE de su ánimo, con la personalidad de su familia (`firmware/sprites/frases.json`, la misma
+ * tabla que la OLED). Un ánimo que la tabla no conoce cae en la frase genérica larga de `fraseDeAnimo` (la OLED, en
+ * ese caso, se queda en el estado). `familia` es la de `familiaDe`; una especie sin mascota es `generica`.
+ */
+export function fraseDeLaMascota(familia, animo) {
+  return fraseDeAnimoDe(familia, animo) ?? fraseDeAnimo(animo);
+}
+
+/** F56: lo que dice al llegar un evento (3 s, `FRASE_EVENTO_MS`), con la personalidad de su familia; null si no tiene frase. */
+export function fraseDeEventoDeLaMascota(familia, tipo) {
+  return fraseDeEventoDe(familia, tipo);
+}
 
 export function fraseDeAnimo(animo) {
   return FRASES_DE_ANIMO[animo] || FRASES_DE_ANIMO.SIN_DATOS;
@@ -113,10 +129,18 @@ export const EVENTOS = Object.freeze({
   RIEGO_DESMENTIDO: { icono: "desmentido", frase: "La tierra no notó el riego" },
 });
 
-/** Frase de un evento, con lo que aporta su `detalle` (valores de texto). Un tipo nuevo no rompe: «Me pasó algo». */
-export function fraseDeEvento(evento) {
+/**
+ * Frase de un evento para la línea de tiempo y los avisos (no para la mascota: ella habla con `fraseDeEventoDeLaMascota`),
+ * con lo que aporta su `detalle` (valores de texto). Un tipo nuevo no rompe: «Me pasó algo». F56: una caricia que hizo la
+ * matera (`detalle.origen: "MATERA"`, D181) dice la frase de la familia y «(desde la matera)»; `familia` es la de la
+ * especie (sin ella, la genérica).
+ */
+export function fraseDeEvento(evento, familia = "generica") {
   const tipo = evento && evento.tipo;
   const detalle = (evento && evento.detalle) || {};
+  if (tipo === "ACARICIADA" && detalle.origen === "MATERA") {
+    return `${fraseDeEventoDe(familia, "ACARICIADA") ?? EVENTOS.ACARICIADA.frase} (desde la matera)`;
+  }
   if (tipo === "RACHA") {
     const dias = Number(detalle.dias);
     if (dias > 0) return dias === 1 ? "1 día sin susto" : `${dias} días sin susto`;
@@ -250,17 +274,11 @@ export function accionDesdeEvento(tipo, detalle = {}, ocurridoEn = null) {
 export function poseDeMascota({ estado = null, periodo = null, animo = null, saludMala = false } = {}) {
   let e = estado;
   let p = periodo;
-  if (animo === "DESMAYADA") e = "CRITICO";
   if (animo === "DORMIDA") p = "NOCHE";
   if (saludMala && (e === null || e === "SALUDABLE")) e = "EN_RIESGO";
-  return { estado: e, periodo: p };
-}
-
-/** Qué hace el dibujo cuando llega un evento: "regar" | "saludar" | null (los de pose los resuelve el ánimo). */
-export function animacionDeEvento(tipo) {
-  if (tipo === "REGADA") return "regar";
-  if (tipo === "ACARICIADA" || tipo === "RIEGO_CONFIRMADO") return "saludar";
-  return null;
+  // F56 (D194): DESMAYADA ya no se disfraza de estado crítico: es su propia pose (ojos en «x», 2 px abajo) y la dibuja
+  // la mascota; el estado del diagnóstico queda como está para cuando se levante.
+  return { estado: e, periodo: p, desmayada: animo === "DESMAYADA" };
 }
 
 /** El motivo de un aviso CAMBIO_DE_ESTADO, venga arriba o dentro de `datos` (el backend lo está agregando). */
@@ -280,7 +298,7 @@ export function debeAvisarCambioDeEstado(aviso) {
  * saludo local ya se vio. Cualquier otra cosa se trata como 200.
  */
 export function caricia(respuesta) {
-  return respuesta && respuesta.status === 201 && respuesta.cuerpo && respuesta.cuerpo.id ? { nueva: true, id: respuesta.cuerpo.id, en: respuesta.cuerpo.creadaEn || null } : { nueva: false };
+  return respuesta && respuesta.status === 201 && respuesta.cuerpo && respuesta.cuerpo.id ? { nueva: true, id: respuesta.cuerpo.id, en: respuesta.cuerpo.ocurridoEn || respuesta.cuerpo.creadaEn || null } : { nueva: false };
 }
 
 /**
@@ -312,7 +330,8 @@ export function suscribirAPlanta(suscribir, destinoDePlanta, plantaId, manejador
 export function eventoDesdeAviso(aviso) {
   const d = (aviso && aviso.datos) || {};
   if (!d.evento) return null;
-  return { id: d.eventoId || null, tipo: d.evento, ocurridoEn: d.ocurridoEn || null, detalle: aviso.detalle || {} };
+  // F56: `datos.origen` (PERSONA o MATERA, solo en las caricias, D184) se junta al detalle: la consulta de la línea de tiempo lo trae ahí.
+  return { id: d.eventoId || null, tipo: d.evento, ocurridoEn: d.ocurridoEn || null, detalle: { ...(aviso.detalle || {}), ...(d.origen ? { origen: d.origen } : {}) } };
 }
 
 /** Junta eventos nuevos con los que ya hay, sin repetir id, del más reciente al más antiguo. */
@@ -327,4 +346,31 @@ export function juntarEventos(actuales, nuevos) {
     todos.push(e);
   }
   return todos.sort((a, b) => new Date(b.ocurridoEn || 0) - new Date(a.ocurridoEn || 0));
+}
+
+const ESTADO_EN_PALABRAS = { SALUDABLE: "Saludable", EN_RIESGO: "En riesgo", CRITICO: "Crítico" };
+
+/**
+ * F56: la fila de abajo de la OLED (D191) en la tarjeta grande de la mascota. La OLED alterna en su última fila el estado
+ * del servidor y la frase del ánimo, y mientras suena un evento muestra su frase; aquí `fila` es lo que decide la cola
+ * (`FILA_ESTADO`, `FILA_ANIMO`, `FILA_EVENTO` de mascota-eventos.js). Devuelve { texto, esFrase }: `esFrase` es lo que en la
+ * OLED pinta la barra de vitalidad (D193; en el front la barra con `role="meter"` está siempre, ver F57). Sin frase para
+ * el ánimo (uno nuevo del servidor, D192) o sin ánimo, la fila se queda en el estado; el estado sin diagnóstico es «Sin lecturas».
+ */
+export function textoDeFila({ familia, animo, estado, fila, tipoDeEvento = null }) {
+  const sinEstado = ESTADO_EN_PALABRAS[estado] || "Sin lecturas";
+  if (fila === 2) {
+    const frase = tipoDeEvento ? fraseDeEventoDe(familia, tipoDeEvento) : null;
+    if (frase) return { texto: frase, esFrase: true };
+  }
+  if (fila === 1) {
+    const frase = fraseDeAnimoDe(familia, animo);
+    if (frase) return { texto: frase, esFrase: true };
+  }
+  return { texto: sinEstado, esFrase: false };
+}
+
+/** ¿La OLED tendría frase para este ánimo? (`lHayMascota && lAnimo >= 0`: sin ella la fila no alterna.) */
+export function hayFraseDeAnimo(familia, animo) {
+  return fraseDeAnimoDe(familia, animo) !== null;
 }

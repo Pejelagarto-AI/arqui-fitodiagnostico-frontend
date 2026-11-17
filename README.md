@@ -41,7 +41,7 @@ http://localhost:5500/?api=http://localhost:9090/api/v1#/plantas
 ### Pruebas
 
 ```bash
-node --test tests/*.test.mjs                                # 211 unitarias de la lógica pura (rutas, pestañas, sondeo, tablero, recorrido, lectura de QR, voz de la planta, mascotas, su saludo y su riego, ánimo y salud de la matera, carrusel...), sin dependencias
+node --test tests/*.test.mjs                                # 258 unitarias de la lógica pura (rutas, pestañas, sondeo, tablero, recorrido, lectura de QR, voz de la planta, mascotas, su saludo y su riego, ánimo y salud de la matera, frases, cola de eventos, accesorios, contrato de la API con fetch falso, carrusel...), sin dependencias; las que leen el backend (frases, arte, anclas) se saltan con aviso si no está el checkout hermano (BACKEND, FRASES_JSON)
 cd tests/humo && npm install && node humo.mjs               # humo (en esta máquina, con puertos alternos: docs/HUMO.md) de punta a punta: backend + front levantados, Chrome headless
 ```
 
@@ -116,7 +116,8 @@ El administrador registra los dispositivos en `#/admin/dispositivos` (F19): al r
 | `js/componentes/minigrafica.js`, `escala.js` | minigráfica de tendencia y cálculos puros (F21) |
 | `js/componentes/mascota.js`, `mascota-poses.js`, `mascota-tiempo.js`, `especie.js` | mascota por especie (girasol, cactus, suculenta, helecho, carnívora, genérica), igual a la de la OLED: mismo dibujo, poses por estado (calcadas de `dibujar.py`, F45), caras y tiempos del firmware (F42); `familiaDe` es la del firmware, tildes incluidas (F48) |
 | `js/componentes/mascota-vista.js` | la mascota como la usan las pantallas: familia por especie, estado del diagnóstico, idle y toque que saluda (F44, F47). Está en el detalle, el tablero, el asistente de vinculación, el diagnóstico sin cuenta y la portada |
-| `tools/comparar-mascotas.py`, `tools/mascotas-svg.mjs` | compara cada mascota con su sprite de la OLED, sin navegador (PIL); escribe `docs/mascotas/*.png` (F45) |
+| `tools/comparar-mascotas.py`, `tools/mascotas-svg.mjs` | compara cada mascota con su sprite de la OLED, sin navegador (PIL); escribe `docs/mascotas/*.png` (F45). Desde F56 también compara EXACTO lo de la fase 14 (frases, constantes de tiempo, efectos, ojos en «x», accesorios y anclas) con `git show` del backend, y con `--oled` los accesorios contra los recortes de `previsualizar.py`; sale con 1 si algo difiere (`docs/HUMO.md`, sección 5) |
+| `js/mascota-frases.js`, `js/mascota-eventos.js`, `js/componentes/mascota-sprites.js` | la mascota completa de la fase 14 (F56 a F60), puros y con pruebas: las frases de la OLED por familia (copia de `frases.json`), la cola de eventos de a uno con sus tiempos y las caricias propias, y los sprites de efectos, ojos en «x» y accesorios con su tabla de anclas |
 | `js/componentes/planta-mascota.js`, `js/mascota-animo.js` | la pestaña «Mascota» (ánimo, vitalidad, racha, acariciar, «la regué», línea de tiempo) y sus palabras, la salud de la matera y el reparto de los avisos de una planta (F54, F55); el segundo puro, con pruebas |
 | `js/componentes/carrusel-especies.js`, `carrusel-estado.js` | carrusel para elegir la especie deslizando, con las mascotas animadas; el `<select>` oculto lleva el valor (F42) |
 | `js/cache.js`, `js/deshacer.js`, `js/transiciones.js` | caché en memoria para stale-while-revalidate, petición retrasada tras «Deshacer», View Transitions (F25, F26, F28); puros salvo las transiciones, con pruebas |

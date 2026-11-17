@@ -16,6 +16,7 @@ import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { EVENTO as FRASES_DE_EVENTO } from "../../js/mascota-frases.js";
 
 const FRONT = process.env.FRONT || "http://localhost:5500";
 const API = process.env.API || "http://localhost:8080/api/v1";
@@ -1023,7 +1024,8 @@ async function ejecutar() {
     await pDora.locator("#panel-mascota:not([hidden]) #seccion-mascota .mascota--grande").waitFor();
     await pDora.waitForFunction(() => /\d/.test(document.querySelector("#vitalidad-numero").textContent));
     const frase = await pDora.locator("#animo-frase").innerText();
-    assert.match(frase, /^(Tengo sed|Estoy ahogada|Tengo frío|Tengo calor|Está muy oscuro|Me deslumbra|Me desmayé|Zzz|Estoy bien|Estoy cansada|Todavía no sé cómo estoy)$/);
+    // F56: el globo dice la frase de la familia (la suculenta, `frases.json` de la OLED), no la genérica larga
+    assert.ok(Object.values((await import("../../js/mascota-frases.js")).ANIMO.suculenta).includes(frase.trim()), `frase de la suculenta: «${frase}»`);
     assert.match(await pDora.locator("#racha-texto").innerText(), /sin susto/);
     await pDora.locator("#btn-acariciar").waitFor();
     await pDora.locator("#btn-la-regue").waitFor();
@@ -1089,6 +1091,133 @@ async function ejecutar() {
       sim.kill();
       rmSync(carpeta, { recursive: true, force: true });
     }
+  });
+
+  console.log("Mascota completa (F56)");
+  const fraseDeCaricia = FRASES_DE_EVENTO.suculenta.ACARICIADA;
+  const tieneSprite = (selector) => `(() => { const e = document.querySelector(${JSON.stringify(selector)}); return Boolean(e && e.getAttribute("d")); })()`;
+  await paso("selector de accesorio: solo el dueño, con PATCH, se ve al instante (cabecera y pestaña), por teclado y le llega en vivo a la invitada", async () => {
+    await pDora.goto(`${RAIZ}#/plantas/${rocio.id}/mascota`);
+    await pDora.locator("#panel-mascota:not([hidden]) #selector-accesorio").waitFor();
+    assert.equal(await pDora.locator("#selector-accesorio input[type=radio]").count(), 4, "cuatro opciones");
+    assert.equal(await pDora.locator("#selector-accesorio .accesorio-miniatura .mascota").count(), 4, "cada una con la mascota en miniatura");
+    await pRita.goto(`${RAIZ}#/plantas/${rocio.id}/mascota`);
+    await pRita.locator("#panel-mascota:not([hidden]) #seccion-mascota .mascota--grande").waitFor();
+    assert.equal(await pRita.locator("#selector-accesorio").count(), 0, "la invitada no lo ve");
+    await pRita.waitForFunction(() => /\d/.test(document.querySelector("#vitalidad-numero")?.textContent || ""));
+    assert.equal(await pDora.locator("#seccion-mascota .mascota--grande .masc-accesorio-sprite").getAttribute("d"), "", "sin accesorio todavía");
+    // clic en «Sombrero»: se ve en la mascota grande y en la de la cabecera antes de que vuelva la red, y el servidor lo guarda
+    await pDora.locator("label.accesorio-opcion", { hasText: "Sombrero" }).click();
+    await pDora.waitForFunction(tieneSprite("#seccion-mascota .mascota--grande .masc-accesorio-sprite"), null, { timeout: 1500, polling: 20 });
+    await pDora.waitForFunction(tieneSprite(".cabecera-planta .masc-accesorio-sprite"), null, { timeout: 1500, polling: 20 });
+    for (let i = 0; i < 30; i++) {
+      if ((await api(tokenDora, "GET", `/plantas/${rocio.id}/mascota`)).cuerpo.accesorio === "SOMBRERO") break;
+      await pDora.waitForTimeout(100);
+    }
+    assert.equal((await api(tokenDora, "GET", `/plantas/${rocio.id}/mascota`)).cuerpo.accesorio, "SOMBRERO");
+    // la invitada lo ve sin recargar: aviso MASCOTA_ACTUALIZADA
+    await pRita.waitForFunction(tieneSprite("#seccion-mascota .mascota--grande .masc-accesorio-sprite"), null, { timeout: 10000 });
+    await pRita.waitForFunction(tieneSprite(".cabecera-planta .masc-accesorio-sprite"), null, { timeout: 2000 });
+    // por teclado: el radio marcado + flecha derecha = el siguiente (Moño)
+    await pDora.locator('#selector-accesorio input[value="SOMBRERO"]').focus();
+    await pDora.keyboard.press("ArrowRight");
+    for (let i = 0; i < 30; i++) {
+      if ((await api(tokenDora, "GET", `/plantas/${rocio.id}/mascota`)).cuerpo.accesorio === "MONO") break;
+      await pDora.waitForTimeout(100);
+    }
+    assert.equal((await api(tokenDora, "GET", `/plantas/${rocio.id}/mascota`)).cuerpo.accesorio, "MONO");
+    assert.equal(await pDora.locator('#selector-accesorio input[value="MONO"]').isChecked(), true);
+    // y las gafas (con ellas se queda para el tablero)
+    await pDora.locator("label.accesorio-opcion", { hasText: "Gafas" }).click();
+    for (let i = 0; i < 30; i++) {
+      if ((await api(tokenDora, "GET", `/plantas/${rocio.id}/mascota`)).cuerpo.accesorio === "GAFAS") break;
+      await pDora.waitForTimeout(100);
+    }
+    assert.equal((await api(tokenDora, "GET", `/plantas/${rocio.id}/mascota`)).cuerpo.accesorio, "GAFAS");
+    await capturar(pDora, "mascota-accesorio");
+  });
+  await paso("tablero con la mascota del listado: ninguna petición por tarjeta a GET .../mascota ni .../dispositivos, y el accesorio se ve", async () => {
+    const pedidas = [];
+    const oyente = (r) => { if (/\/plantas\/[^/?]+\/(mascota|dispositivos)(\?|$)/.test(r.url())) pedidas.push(`${r.method()} ${r.url()}`); };
+    pDora.on("request", oyente);
+    await pDora.goto(`${RAIZ}#/plantas`);
+    await pDora.reload();
+    const tarjeta = pDora.locator(`.tarjeta-planta-item[data-planta="${rocio.id}"]`);
+    await tarjeta.locator(".tarjeta-planta-mascota:not([hidden]) .vitalidad-barra[aria-valuenow]").waitFor();
+    await pDora.waitForFunction(tieneSprite(`.tarjeta-planta-item[data-planta="${rocio.id}"] .masc-accesorio-sprite`), null, { timeout: 5000 });
+    assert.ok((await tarjeta.locator(".tarjeta-planta-animo").innerText()).trim().length > 0);
+    await pDora.waitForTimeout(1500); // el tablero termina de pedir los diagnósticos
+    pDora.off("request", oyente);
+    assert.deepEqual(pedidas, [], "el listado ya trajo la mascota y la salud");
+    await capturar(pDora, "tablero-mascota");
+  });
+  await paso("backend viejo (sin `mascota` ni `salud` en el listado): el tablero cae en el respaldo, dos peticiones por tarjeta", async () => {
+    const pedidas = [];
+    const oyente = (r) => { if (/\/plantas\/[^/?]+\/(mascota|dispositivos)(\?|$)/.test(r.url())) pedidas.push(r.url()); };
+    const quitarClaves = async (ruta) => {
+      const respuesta = await ruta.fetch();
+      const json = await respuesta.json();
+      for (const planta of Array.isArray(json) ? json : []) { delete planta.mascota; delete planta.salud; }
+      await ruta.fulfill({ response: respuesta, json });
+    };
+    await pDora.route(/\/api\/v1\/plantas(\/compartidas)?$/, quitarClaves);
+    pDora.on("request", oyente);
+    try {
+      await pDora.goto(`${RAIZ}#/plantas`);
+      await pDora.reload();
+      const tarjeta = pDora.locator(`.tarjeta-planta-item[data-planta="${rocio.id}"]`);
+      await tarjeta.locator(".tarjeta-planta-mascota:not([hidden]) .vitalidad-barra[aria-valuenow]").waitFor({ timeout: 15000 });
+      assert.ok(pedidas.some((u) => /\/mascota$/.test(u)) && pedidas.some((u) => /\/dispositivos$/.test(u)), `pidió ${pedidas.join(", ")}`);
+    } finally {
+      pDora.off("request", oyente);
+      await pDora.unroute(/\/api\/v1\/plantas(\/compartidas)?$/, quitarClaves);
+    }
+  });
+  await paso("caricia: la propia anima una sola vez (su eco no repite) y la que llega por WebSocket anima a la invitada (corazón y frase)", async () => {
+    await pDora.goto(`${RAIZ}#/plantas/${rocio.id}/mascota`);
+    await pDora.locator("#panel-mascota:not([hidden]) #seccion-mascota .mascota--grande").waitFor();
+    await pDora.waitForTimeout(10500); // el enfriamiento de 10 s de la caricia (la del paso de «acariciar» ya pasó)
+    await pRita.goto(`${RAIZ}#/plantas/${rocio.id}/mascota`);
+    await pRita.locator("#seccion-mascota .mascota--grande").waitFor();
+    await pDora.click("#btn-acariciar");
+    // Dora: la frase de la caricia suena YA (no espera a la red) con su corazón, y no vuelve a sonar cuando llega el eco
+    await pDora.locator('#animo-frase[data-evento="ACARICIADA"]').waitFor({ timeout: 1500 });
+    assert.equal((await pDora.locator("#animo-frase").innerText()).trim(), fraseDeCaricia);
+    await pDora.waitForFunction(tieneSprite("#seccion-mascota .mascota--grande .masc-efecto-sprite"), null, { timeout: 1500, polling: 20 });
+    // Rita: le llega por el WebSocket y anima igual: la frase de la familia y el corazón
+    await pRita.locator('#animo-frase[data-evento="ACARICIADA"]').waitFor({ timeout: 8000 });
+    assert.equal((await pRita.locator("#animo-frase").innerText()).trim(), fraseDeCaricia);
+    await pRita.waitForFunction(tieneSprite("#seccion-mascota .mascota--grande .masc-efecto-sprite"), null, { timeout: 2000, polling: 20 });
+    await capturar(pRita, "mascota-caricia");
+    // el turno de 3 s termina y NO vuelve a sonar en Dora (el eco trae el mismo id)
+    await pDora.waitForFunction(() => !document.querySelector("#animo-frase[data-evento]"), null, { timeout: 5000 });
+    await pDora.waitForTimeout(700);
+    assert.equal(await pDora.locator("#animo-frase[data-evento]").count(), 0, "el eco de la caricia propia no anima otra vez");
+    await pDora.waitForTimeout(2500);
+    assert.equal(await pDora.locator("#animo-frase[data-evento]").count(), 0);
+    assert.equal(await pDora.locator('#linea-tiempo li[data-tipo="ACARICIADA"]').count() >= 2, true);
+    // la de la invitada también termina sola y vuelve a la frase del ánimo
+    await pRita.waitForFunction(() => !document.querySelector("#animo-frase[data-evento]"), null, { timeout: 5000 });
+  });
+  await paso("caricia desde la matera: anima igual y en la línea de tiempo dice la frase de la familia y «(desde la matera)»", async () => {
+    const serial = `fito-M${sufijo.slice(-5).toUpperCase()}`;
+    const sesionAdmin = await api(null, "POST", "/auth/sesion", { correo: ADMIN_CORREO, contrasena: ADMIN_CLAVE });
+    const secreto = (await api(sesionAdmin.cuerpo.token, "POST", "/admin/dispositivos", { serial })).cuerpo.secreto;
+    assert.equal((await api(tokenDora, "POST", `/plantas/${rocio.id}/dispositivos`, { serial })).status, 201);
+    const credencial = await chipPideCredencial({ serial, secreto });
+    assert.equal(credencial.status, 200, JSON.stringify(credencial.cuerpo));
+    await pDora.waitForTimeout(10500); // otra vez el enfriamiento de la planta
+    const caricia = await api(credencial.cuerpo.token, "POST", `/dispositivos/${serial}/mascota/acciones`, { tipo: "ACARICIAR" });
+    assert.equal(caricia.status, 201, JSON.stringify(caricia.cuerpo));
+    // llega en vivo: el globo dice la frase de la familia y el corazón sube, como con la caricia de la app
+    await pDora.locator('#animo-frase[data-evento="ACARICIADA"]').waitFor({ timeout: 8000 });
+    assert.equal((await pDora.locator("#animo-frase").innerText()).trim(), fraseDeCaricia);
+    await pDora.waitForFunction(tieneSprite("#seccion-mascota .mascota--grande .masc-efecto-sprite"), null, { timeout: 2000, polling: 20 });
+    await pDora.locator("#linea-tiempo li[data-tipo=ACARICIADA]", { hasText: `${fraseDeCaricia} (desde la matera)` }).first().waitFor({ timeout: 3000 });
+    // y la consulta (al recargar) lo dice igual: el origen viaja en el detalle del evento
+    await pDora.reload();
+    await pDora.locator("#linea-tiempo li[data-tipo=ACARICIADA]", { hasText: "(desde la matera)" }).first().waitFor();
+    await pRita.locator("#linea-tiempo li[data-tipo=ACARICIADA]", { hasText: "(desde la matera)" }).first().waitFor({ timeout: 10000 });
   });
   await pDora.context().close();
   await pRita.context().close();
