@@ -350,7 +350,7 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
       : desmayo ? (evActual && evActual.tipo === "DESMAYO" && !reposo ? desmayoDy(evActual.t) : DESMAYADA_DY)
         : duerme && !reposo ? T.respiraDy(ahora) : 0;
     let caraDy = dy;
-    let puntoAcc = T.CARA_MATERA; // dónde está la cara, para el ancla del accesorio
+    let puntoAcc = S.CARA_MATERA; // dónde está la cara, para el ancla del accesorio
     let nivelAcc = nivel;
     const opciones = { nivel: nivelCara, ahora, desmayada: desmayo };
 

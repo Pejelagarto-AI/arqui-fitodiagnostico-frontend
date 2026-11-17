@@ -141,6 +141,9 @@ export const eliminarCuenta = () => pedir("DELETE", "/cuenta");
 
 // ---- plantas ----
 
+// Desde la fase 13 del backend cada planta trae `mascota { vitalidad, animo, racha, accesorio }` y `salud { estado, mensaje }`
+// (null cuando no hay: sin lecturas, sin matera). Un backend viejo no manda las claves y el tablero cae en el camino de
+// antes (F56: `GET .../mascota` y `GET .../dispositivos` por tarjeta visible). Las demás respuestas de planta traen las dos en null.
 export const listarPlantas = () => pedir("GET", "/plantas");
 export const listarPlantasCompartidas = () => pedir("GET", "/plantas/compartidas");
 export const registrarPlanta = (apodo, especie) => pedir("POST", "/plantas", { cuerpo: { apodo, especie } });
@@ -154,7 +157,7 @@ export const obtenerHistorial = (id, pagina = 0, tamano = 10) =>
 
 // ---- la mascota (fase 9 del backend, F54) ----
 
-// Vitalidad, ánimo, causa, racha, últimos 5 eventos y el «la regué» pendiente. Dueño e invitados.
+// Vitalidad, ánimo, causa, racha, últimos 5 eventos, el «la regué» pendiente y (fase 13) el accesorio. Dueño e invitados.
 export const obtenerMascota = (id) => pedir("GET", `/plantas/${seg(id)}/mascota`);
 // La línea de tiempo, del más reciente al más antiguo (página como la del historial).
 export const obtenerEventosDeMascota = (id, pagina = 0, tamano = 10) =>
@@ -163,6 +166,9 @@ export const obtenerEventosDeMascota = (id, pagina = 0, tamano = 10) =>
 // 201 con el id del evento, o 200 si es una caricia repetida dentro de 10 s (sin evento). LA_REGUE: 202 PENDIENTE con
 // `venceEn` (o 201 CONFIRMADA si el sensor ya lo había visto); repetirlo con una pendiente devuelve la misma.
 export const acariciarMascota = (id) => pedir("POST", `/plantas/${seg(id)}/mascota/acciones`, { cuerpo: { tipo: "ACARICIAR" }, conEstado: true });
+// F56 (fase 13 del backend): el accesorio de la mascota, solo el dueño (al invitado le responde 403; la pantalla ni le muestra el
+// selector). `accesorio` es NINGUNO, SOMBRERO, MONO o GAFAS. Responde 200 con la misma vista que GET .../mascota.
+export const cambiarAccesorioDeMascota = (id, accesorio) => pedir("PATCH", `/plantas/${seg(id)}/mascota`, { cuerpo: { accesorio } });
 export const declararRiego = (id) => pedir("POST", `/plantas/${seg(id)}/mascota/acciones`, { cuerpo: { tipo: "LA_REGUE" } });
 
 // ---- dispositivos (dueño) ----
