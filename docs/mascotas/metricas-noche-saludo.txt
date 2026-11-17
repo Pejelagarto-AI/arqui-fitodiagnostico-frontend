@@ -91,3 +91,5 @@ saludo   generica   cuadro 10    0.812
 saludo   generica   cuadro 11    0.823
 promedio dormida 0.772 en 18 cuadros
 promedio saludo 0.743 en 72 cuadros
+
+accesorios contra los recortes acc_*.png de la OLED (previsualizar.py): 72/72 idénticos (sprite encendido y aureola apagada, píxel por píxel)

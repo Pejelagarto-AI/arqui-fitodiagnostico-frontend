@@ -25,3 +25,12 @@ generica   SALUDABLE    0    0.831
 generica   EN_RIESGO    0    0.811
 generica   CRITICO      0    0.773
 promedio 0.764 en 25 poses
+
+fase 14: lo que el front calcó del firmware (git show de origin/develop del backend)
+categoría     coinciden  difieren
+frases              117         0
+constantes           24         0
+efectos              22         0
+accesorios          156         0
+ojos en x             6         0
+total 325 coinciden, 0 difieren
