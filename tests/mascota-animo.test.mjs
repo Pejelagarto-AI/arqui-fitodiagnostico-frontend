@@ -136,10 +136,11 @@ test("«la regué»: pendiente con la hora límite, vencida, confirmada y desmen
   assert.equal(A.accionDesdeEvento("REGADA", {}), null);
 });
 
-test("pose: solo las de la OLED (desmayada = crítica, dormida = noche, salud mala = al menos en riesgo)", () => {
-  assert.deepEqual(A.poseDeMascota({ estado: "SALUDABLE", periodo: "DIA", animo: "FELIZ" }), { estado: "SALUDABLE", periodo: "DIA" });
-  assert.deepEqual(A.poseDeMascota({ estado: "EN_RIESGO", animo: "DESMAYADA" }), { estado: "CRITICO", periodo: null });
-  assert.deepEqual(A.poseDeMascota({ estado: "SALUDABLE", periodo: "DIA", animo: "DORMIDA" }), { estado: "SALUDABLE", periodo: "NOCHE" });
+test("pose: solo las de la OLED (desmayada = su pose, dormida = noche, salud mala = al menos en riesgo)", () => {
+  assert.deepEqual(A.poseDeMascota({ estado: "SALUDABLE", periodo: "DIA", animo: "FELIZ" }), { estado: "SALUDABLE", periodo: "DIA", desmayada: false });
+  // F56 (D194): DESMAYADA ya no se disfraza de crítica: el estado queda y la mascota pone su pose (ojos en «x», 2 px abajo)
+  assert.deepEqual(A.poseDeMascota({ estado: "EN_RIESGO", animo: "DESMAYADA" }), { estado: "EN_RIESGO", periodo: null, desmayada: true });
+  assert.deepEqual(A.poseDeMascota({ estado: "SALUDABLE", periodo: "DIA", animo: "DORMIDA" }), { estado: "SALUDABLE", periodo: "NOCHE", desmayada: false });
   assert.equal(A.poseDeMascota({ estado: "SALUDABLE", saludMala: true }).estado, "EN_RIESGO");
   assert.equal(A.poseDeMascota({ estado: null, saludMala: true }).estado, "EN_RIESGO");
   assert.equal(A.poseDeMascota({ estado: "CRITICO", saludMala: true }).estado, "CRITICO", "nunca mejora la cara");
@@ -147,12 +148,45 @@ test("pose: solo las de la OLED (desmayada = crítica, dormida = noche, salud ma
   assert.equal(A.poseDeMascota({ estado: "SALUDABLE", periodo: "NOCHE", animo: "A_OSCURAS" }).periodo, "NOCHE");
 });
 
-test("animación por evento: REGADA riega, ACARICIADA y RIEGO_CONFIRMADO saludan, el resto no anima", () => {
-  assert.equal(A.animacionDeEvento("REGADA"), "regar");
-  assert.equal(A.animacionDeEvento("ACARICIADA"), "saludar");
-  assert.equal(A.animacionDeEvento("RIEGO_CONFIRMADO"), "saludar");
-  assert.equal(A.animacionDeEvento("DESMAYO"), null);
-  assert.equal(A.animacionDeEvento("RIEGO_DESMENTIDO"), null);
+test("la mascota habla con la personalidad de su familia (la tabla de la OLED); el ánimo nuevo cae en la frase genérica", () => {
+  assert.equal(A.fraseDeLaMascota("girasol", "SEDIENTA"), "agua, porfa!");
+  assert.equal(A.fraseDeLaMascota("cactus", "SEDIENTA"), "una gotica va");
+  assert.equal(A.fraseDeLaMascota("generica", "FELIZ"), "estoy bien");
+  assert.equal(A.fraseDeLaMascota("especie-rara", "FELIZ"), A.fraseDeLaMascota("generica", "FELIZ"), "la especie sin mascota usa generica");
+  assert.equal(A.fraseDeLaMascota("girasol", "VOLANDO"), "Todavía no sé cómo estoy", "ánimo nuevo: la frase larga de siempre");
+  assert.equal(A.fraseDeEventoDeLaMascota("girasol", "ACARICIADA"), "jiji");
+  assert.equal(A.fraseDeEventoDeLaMascota("girasol", "RIEGO_DECLARADO"), null);
+  // para la línea de tiempo y los toasts siguen las frases largas
+  assert.equal(A.fraseDeAnimo("FELIZ"), "Estoy bien");
+  assert.equal(A.fraseDeEvento({ tipo: "ACARICIADA", detalle: {} }), "Me acariciaron");
+});
+
+test("la fila de abajo de la OLED en la tarjeta grande: estado, frase del ánimo y frase del evento, y cuándo cuenta como frase", () => {
+  const base = { familia: "cactus", animo: "SEDIENTA", estado: "EN_RIESGO" };
+  assert.deepEqual(A.textoDeFila({ ...base, fila: 0 }), { texto: "En riesgo", esFrase: false });
+  assert.deepEqual(A.textoDeFila({ ...base, fila: 1 }), { texto: "una gotica va", esFrase: true });
+  assert.deepEqual(A.textoDeFila({ ...base, fila: 2, tipoDeEvento: "ACARICIADA" }), { texto: "ojo, pincho", esFrase: true });
+  assert.deepEqual(A.textoDeFila({ ...base, estado: null, fila: 0 }), { texto: "Sin lecturas", esFrase: false });
+  assert.equal(A.textoDeFila({ ...base, estado: "CRITICO", fila: 0 }).texto, "Crítico");
+  // un ánimo nuevo no tiene frase: la fila se queda en el estado (D192)
+  assert.deepEqual(A.textoDeFila({ ...base, animo: "VOLANDO", fila: 1 }), { texto: "En riesgo", esFrase: false });
+  assert.equal(A.hayFraseDeAnimo("cactus", "VOLANDO"), false);
+  assert.equal(A.hayFraseDeAnimo("cactus", "FELIZ"), true);
+  assert.deepEqual(A.textoDeFila({ ...base, fila: 2, tipoDeEvento: "RIEGO_DECLARADO" }), { texto: "En riesgo", esFrase: false });
+});
+
+test("una caricia de la matera dice la frase de la familia y «(desde la matera)»; la de la app, la de siempre", () => {
+  const deMatera = { tipo: "ACARICIADA", detalle: { origen: "MATERA" } };
+  assert.equal(A.fraseDeEvento(deMatera, "girasol"), "jiji (desde la matera)");
+  assert.equal(A.fraseDeEvento(deMatera, "cactus"), "ojo, pincho (desde la matera)");
+  assert.equal(A.fraseDeEvento(deMatera), `${A.fraseDeEventoDeLaMascota("generica", "ACARICIADA")} (desde la matera)`, "sin familia, la genérica");
+  assert.equal(A.fraseDeEvento({ tipo: "ACARICIADA", detalle: { origen: "PERSONA" } }, "girasol"), "Me acariciaron");
+  assert.equal(A.fraseDeEvento({ tipo: "REGADA", detalle: { origen: "MATERA" } }, "girasol"), "Me regaron", "solo la caricia lleva origen");
+  // el aviso en vivo trae el origen en `datos` y se junta al detalle, como lo trae la consulta
+  const evento = A.eventoDesdeAviso({ tipo: "EVENTO_DE_MASCOTA", datos: { evento: "ACARICIADA", eventoId: "e1", origen: "MATERA", ocurridoEn: "2026-11-16T15:00:00Z" }, detalle: {} });
+  assert.deepEqual(evento.detalle, { origen: "MATERA" });
+  assert.equal(A.fraseDeEvento(evento, "suculenta"), `${A.fraseDeEventoDeLaMascota("suculenta", "ACARICIADA")} (desde la matera)`);
+  assert.deepEqual(A.eventoDesdeAviso({ datos: { evento: "RACHA", eventoId: "e2" }, detalle: { dias: "3" } }).detalle, { dias: "3" });
 });
 
 test("cambio de estado por la noche (motivo PERIODO) no pide toast; otro sí, venga donde venga el motivo", () => {

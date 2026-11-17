@@ -8,17 +8,21 @@ import { familiaDe } from "./especie.js";
 import { animarMascota, hayMovimiento } from "../animaciones.js";
 
 /**
- * Devuelve { nodo, mascota, familia, aplicar(estado, periodo), morder(), saludar(), saludarSolo(), regar(), iniciar(), parar() }.
+ * Devuelve { nodo, mascota, familia, aplicar(estado, periodo, extras), morder(), saludar(), saludarSolo(), regar(), encolar(tipo), iniciar(), parar() }.
  *  - `especie` (texto del catálogo) o `familia` (ya resuelta; gana si viene) escogen el dibujo.
  *  - `estado`: SALUDABLE | EN_RIESGO | CRITICO | null (sin diagnóstico: se dibuja saludable y se atenúa por CSS).
  *  - `periodo`: DIA | NOCHE del diagnóstico (F49); de noche la mascota duerme. Sin dato, de día.
  *  - `toque`: el nodo es un botón («Saludar a <nombre>») que responde al clic, al toque y a Enter o Espacio.
  *    Si la mascota queda junto a un enlace de toda la tarjeta (el tablero), va por encima y el toque NO navega: solo saluda.
- *  - `alTocar`: gancho opcional, se llama en cada toque (la pestaña «Mascota» llama ahí a `acariciarMascota`, F54).
+ *  - `alTocar`: gancho opcional, se llama en cada toque después del saludo local.
+ *  - `alToque` (F56): REEMPLAZA el saludo local del toque. La pestaña «Mascota» del dueño lo usa para encolar el evento
+ *    ACARICIADA (saludo, corazón y frase) y llamar a `acariciarMascota`; sin él, el toque es solo el saludo.
+ *  - `eventos` (F56): la cola de eventos compartida (`crearReproductor`); sin ella cada mascota tiene la suya.
+ *  - `accesorio` (F56): NINGUNO, SOMBRERO, MONO o GAFAS.
  *  - `animar: false`: no arranca el idle (la escena lo arranca cuando la muestra).
  */
-export function crearMascotaVista({ especie, familia, estado = null, periodo = null, clase = "", nombre = "", toque = false, alTocar = null, animar = true } = {}) {
-  const mascota = crearMascota(familia || familiaDe(especie), { estado, periodo, clase });
+export function crearMascotaVista({ especie, familia, estado = null, periodo = null, clase = "", nombre = "", toque = false, alTocar = null, alToque = null, animar = true, eventos = null, accesorio = "NINGUNO" } = {}) {
+  const mascota = crearMascota(familia || familiaDe(especie), { estado, periodo, clase, eventos, accesorio });
   let detener = null;
 
   function iniciar() {
@@ -28,8 +32,13 @@ export function crearMascotaVista({ especie, familia, estado = null, periodo = n
     if (detener) detener();
     detener = null;
   }
-  /** Lleva la mascota al estado y al periodo del diagnóstico. Sin idle corriendo (movimiento reducido) repinta la pose quieta. */
-  function aplicar(nuevo, periodo = null) {
+  /**
+   * Lleva la mascota al estado y al periodo del diagnóstico. `extras` (F56): `desmayada` (el ánimo del servidor es
+   * DESMAYADA) y `accesorio`; lo que no venga no se toca. Sin idle corriendo (movimiento reducido) repinta la pose quieta.
+   */
+  function aplicar(nuevo, periodo = null, extras = {}) {
+    if (extras.desmayada !== undefined) mascota.ponerDesmayada(extras.desmayada);
+    if (extras.accesorio !== undefined) mascota.ponerAccesorio(extras.accesorio);
     mascota.ponerEstado(nuevo);
     mascota.ponerPeriodo(periodo);
     if (!detener || !hayMovimiento()) mascota.pintar(0, { reposo: true });
@@ -37,7 +46,8 @@ export function crearMascotaVista({ especie, familia, estado = null, periodo = n
 
   let nodo = mascota.nodo;
   function saludar() {
-    mascota.saludar({ reducido: !hayMovimiento() });
+    if (alToque) alToque();
+    else mascota.saludar({ reducido: !hayMovimiento() });
     if (alTocar) alTocar();
   }
   if (toque) {
@@ -59,7 +69,9 @@ export function crearMascotaVista({ especie, familia, estado = null, periodo = n
   if (animar) iniciar();
   /** F54: la regaron (evento REGADA): la suculenta como en la OLED, las demás un parpadeo doble. */
   const regar = () => mascota.regar({ reducido: !hayMovimiento() });
+  /** F56: pone un evento en la cola de la mascota (de a uno, 3000 ms cada uno). */
+  const encolar = (tipo) => mascota.cola().empujar(tipo);
   /** El saludo sin el gancho `alTocar`: para cuando el saludo lo dispara un aviso y no un toque. */
   const saludarSolo = () => mascota.saludar({ reducido: !hayMovimiento() });
-  return { nodo, mascota, familia: mascota.familia, aplicar, morder: () => mascota.morder(), saludar, saludarSolo, regar, iniciar, parar };
+  return { nodo, mascota, familia: mascota.familia, aplicar, morder: () => mascota.morder(), saludar, saludarSolo, regar, encolar, iniciar, parar };
 }

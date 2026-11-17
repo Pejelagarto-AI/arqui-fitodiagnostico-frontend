@@ -9,6 +9,8 @@ import { svg } from "../ui.js";
 import { FAMILIAS } from "./especie.js";
 import * as T from "./mascota-tiempo.js";
 import * as P from "./mascota-poses.js";
+import * as S from "./mascota-sprites.js";
+import { crearReproductor, efectoDe, animacionMs, haceSaludo, desmayoDy, DESMAYADA_DY } from "../mascota-eventos.js";
 
 // ---------- cuerpos, calcados de firmware/sprites/dibujar.py (mascota-poses.js trae los números) ----------
 // Cada familia devuelve `cuerpos[nivel][cuadro]`: un <g> por pose de la OLED (un sprite por estado y, donde lo
@@ -133,6 +135,7 @@ function nodosDeCara(piezas) {
     nodos.push(svg("rect", { class: "masc-ojo", x: o.x, y: o.y, width: o.ancho, height: o.alto, rx: o.radio }));
     if (o.brillo) nodos.push(svg("rect", { class: "masc-brillo", x: o.brillo.x, y: o.brillo.y, width: 1, height: 1 }));
   }
+  if (piezas.ojosX && piezas.ojosX.length) nodos.push(...piezas.ojosX.map((o) => svg("path", { class: "masc-ojo masc-ojo-x", d: P.pixelesD(o.pixeles) })));
   for (const c of piezas.cejas) {
     const puntos = c.medio ? `${c.x1 + 0.5},${c.y1 + 0.5} ${c.medio.x + 0.5},${c.medio.y + 0.5} ${c.x2 + 0.5},${c.y2 + 0.5}` : `${c.x1 + 0.5},${c.y1 + 0.5} ${c.x2 + 0.5},${c.y2 + 0.5}`;
     nodos.push(svg("polyline", { class: "masc-ceja", points: puntos }));
@@ -152,7 +155,7 @@ function nodosDeCara(piezas) {
  * `{ reducido: true }` (movimiento reducido) la pose queda quieta y solo cambia la expresión.
  * `morder()` es el mordisco de la OLED cuando llega una lectura (solo carnívora saludable, como `mordisco()`).
  */
-export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", clase = "" } = {}) {
+export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", clase = "", eventos = null, accesorio = "NINGUNO" } = {}) {
   const nombre = FAMILIAS.includes(familia) ? familia : "generica";
   const dibujo = DIBUJOS[nombre]();
   const refs = dibujo.refs;
@@ -160,6 +163,16 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
   const cara = svg("g", { class: "masc-cara" });
   const zzz = svg("g", { class: "masc-zzz" }); // F49: el "zzz" de la planta dormida (no respira ni se balancea)
   const gota = trazo("masc-gota", ""); // F54: la gota que cae sobre la suculenta regada (icono_gota de la OLED)
+  // F56: el accesorio y el efecto del evento (rayos, corazón, destellos, estrella) son sprites de la OLED con su aureola
+  // negra de 1 px: dos trazos (la aureola y el sprite encima). Van dentro de un `<svg>` anidado de 48x64 que recorta, como
+  // la pantalla (el sombrero se corta en y = 0); el balanceo y el salto del accesorio van en el grupo de adentro.
+  const aureolaDeAccesorio = trazo("masc-halo", "");
+  const spriteDeAccesorioNodo = trazo("masc-accesorio-sprite", "");
+  const grupoAccesorio = svg("g", { class: "masc-accesorio" }, aureolaDeAccesorio, spriteDeAccesorioNodo);
+  const aureolaDeEfecto = trazo("masc-halo", "");
+  const spriteDeEfecto = trazo("masc-efecto-sprite", "");
+  const recorte = svg("svg", { class: "masc-recorte", x: 0, y: 0, width: 48, height: 64, viewBox: "0 0 48 64", focusable: "false" },
+    grupoAccesorio, svg("g", { class: "masc-efecto" }, aureolaDeEfecto, spriteDeEfecto));
   const nodo = svg("svg", { class: `mascota mascota--${nombre}${clase ? ` ${clase}` : ""}`, viewBox: "0 0 48 64", "aria-hidden": "true", focusable: "false", "data-familia": nombre },
     planta,
     ...(dibujo.arriba ? [refs.flor] : []),
@@ -169,10 +182,12 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
     cara,
     zzz,
     gota,
+    recorte,
   );
 
   // Estado del «chip»: nivel y desde cuándo, cara en transición, parpadeo, mordisco y saludo.
-  let nivel = 0;
+  let nivelBase = 0; // el del estado del diagnóstico
+  let nivel = 0; // el que se ve: el de abajo, o 2 (crítica) si está desmayada (`nivelVisible()` del firmware)
   let nivelDesde = 0;
   let caraDesde = T.CARA_NIVEL[0];
   let caraHasta = T.CARA_NIVEL[0];
@@ -192,8 +207,16 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
   let noche = false; // F49: el diagnóstico dijo periodo NOCHE
   let ultimoZzz = -1;
   let regadoDesde = -Infinity; // F54: evento REGADA (la suculenta infla y sonríe; las demás, parpadeo doble)
-  let dobleDesde = -Infinity;
   let ultimaGota = "";
+  // F56: eventos (cola compartida), desmayo y accesorio
+  let cola = eventos || crearReproductor(); // la cola de eventos de a uno (mascota-eventos.js); se puede compartir entre mascotas
+  let turnoVisto = 0;
+  let evActual = null; // { tipo, t, turno } del cuadro que se pinta
+  let desmayada = false; // el ánimo del servidor es DESMAYADA (pose persistente, D194)
+  let desmayoVisible = false; // en este cuadro se ve la pose de desmayo (ánimo o evento)
+  let acc = accesorio; // NINGUNO | SOMBRERO | MONO | GAFAS
+  let ultimoAcc = "";
+  let ultimoEfecto = "";
 
   /** Muestra la pose (nivel, cuadro) y esconde las demás. `g` fuerza un cuerpo (el girasol dormido). */
   function mostrar(cuadro, g = dibujo.cuerpos[nivel][Math.min(cuadro, dibujo.cuerpos[nivel].length - 1)]) {
@@ -203,9 +226,8 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
     vigente = g;
   }
 
-  function ponerEstado(nuevo) {
-    const n = T.nivelDe(nuevo);
-    nodo.dataset.estado = nuevo || "SIN_DIAGNOSTICO";
+  /** Lleva la cara y el cuerpo al nivel `n` (la cara hace su transición de 400 ms desde donde estaba). */
+  function fijarNivel(n) {
     if (n === nivel && caraT0 !== -Infinity) return;
     caraDesde = caraT0 === -Infinity ? T.CARA_NIVEL[n] : T.caraEn(caraDesde, caraHasta, reloj - caraT0);
     caraHasta = T.CARA_NIVEL[n];
@@ -213,6 +235,34 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
     nivel = n;
     nivelDesde = reloj;
     mostrar(0);
+  }
+
+  let estadoDicho = null;
+  /** `data-estado` colorea las hojas: la desmayada se ve con el cuerpo crítico, como la OLED. */
+  function pintarEstadoDelNodo() {
+    nodo.dataset.estado = desmayoVisible ? "CRITICO" : estadoDicho || "SIN_DIAGNOSTICO";
+  }
+
+  function ponerEstado(nuevo) {
+    estadoDicho = nuevo;
+    nivelBase = T.nivelDe(nuevo);
+    pintarEstadoDelNodo();
+    fijarNivel(desmayoVisible ? 2 : nivelBase);
+  }
+
+  /** F56: el ánimo del servidor es DESMAYADA (D194): ojos en «x», 2 px más abajo, sin balanceo, parpadeo ni lágrima. */
+  function ponerDesmayada(valor) {
+    desmayada = Boolean(valor);
+  }
+
+  /** F56: el accesorio del servidor (NINGUNO, SOMBRERO, MONO, GAFAS). Uno que no se conoce no dibuja nada. */
+  function ponerAccesorio(valor) {
+    acc = valor || "NINGUNO";
+  }
+
+  /** F56: comparte la cola de eventos con otra mascota (la de la cabecera y la de la pestaña ven los mismos turnos). */
+  function usarEventos(reproductor) {
+    cola = reproductor;
   }
 
   /** F49: de noche o de día. Solo cambia lo que se pinta en el próximo cuadro; la cara no salta. */
@@ -252,14 +302,35 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
   function pintar(ahora, { reposo = false, cuadro = 0 } = {}) {
     reloj = ahora;
     if (caraT0 === -Infinity) caraT0 = ahora - T.TRANSICION_MS;
-    const senoReloj = reposo ? 0 : T.senoBalanceo(ahora);
-    const amp = T.amplitud(nombre, nivel);
 
-    // saludo (el toque): salto y parpadeo doble con la cara contenta; con reposo solo la expresión
+    // F56: la cola de eventos avanza en cada cuadro, como `fito_ev_avanzar` en cada `pintarLecturas`. Al arrancar un
+    // evento: REGADA suelta la gota (la suculenta, como siempre); ACARICIADA y REVIVIO hacen el saludo (D196). En reposo
+    // (movimiento reducido) no hay cola: los eventos solo se dicen con texto.
+    evActual = reposo ? null : cola.avanzar();
+    if (evActual && evActual.turno !== turnoVisto) {
+      turnoVisto = evActual.turno;
+      if (evActual.tipo === "REGADA") regadoDesde = ahora;
+      if (haceSaludo(evActual.tipo)) saludoDesde = ahora;
+    }
+
+    // saludo (el toque o un evento): salto y parpadeo doble con la cara contenta; con reposo solo la expresión
     const saludo = reposo ? null : T.pasoSaludo(ahora - saludoDesde);
     const contenta = saludo || saludoQuieto;
-    // F49: de noche duerme (el saludo la despierta un momento): ojos cerrados, quieta, respira y flota el "zzz".
-    const duerme = noche && !contenta;
+    // F56 (D194): la pose de desmayo es la crítica con ojos en «x»: el ánimo DESMAYADA o el evento DESMAYO (todo su turno);
+    // el saludo gana (si la acarician desmayada, salta 600 ms y vuelve a la pose) y la pose gana a la noche (no hay zzz).
+    const desmayo = !contenta && (desmayada || Boolean(evActual && evActual.tipo === "DESMAYO"));
+    if (desmayo !== desmayoVisible) {
+      desmayoVisible = desmayo;
+      pintarEstadoDelNodo();
+    }
+    fijarNivel(desmayo ? 2 : nivelBase);
+    const senoReloj = reposo || desmayo ? 0 : T.senoBalanceo(ahora);
+    const amp = T.amplitud(nombre, nivel);
+
+    // F49: de noche duerme (el saludo, el desmayo y la parte animada de un evento la despiertan): ojos cerrados, quieta,
+    // respira y flota el "zzz".
+    const despierta = Boolean(evActual && evActual.t < animacionMs(evActual.tipo));
+    const duerme = noche && !contenta && !desmayo && !despierta;
     const seno = duerme ? 0 : senoReloj;
     // `nivel` para la lágrima: dormida no llora (el resto de la cara sí sigue al estado)
     const nivelCara = duerme ? 0 : nivel;
@@ -270,15 +341,18 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
       if (proximoParpadeo === null) proximoParpadeo = ahora + T.esperaDeParpadeo();
       if (ahora >= proximoParpadeo) { parpadeoDesde = ahora; proximoParpadeo = ahora + T.esperaDeParpadeo(); }
       if (!duerme) parpadeo = saludo ? saludo.ojos : T.factorParpadeo(ahora - parpadeoDesde);
-      const doble = saludo ? null : T.ojosDeParpadeoDoble(ahora - dobleDesde);
-      if (doble !== null) parpadeo = doble; // F54: el parpadeo doble del riego (también despierta un momento)
     }
     let c = contenta ? T.SALUDO.CARA : reposo ? caraHasta : T.caraEn(caraDesde, caraHasta, ahora - caraT0);
     let piezas = null;
     let dx = 0;
-    // el cuerpo entero (todo lo que está sobre la matera) sube y baja: el salto del saludo o la respiración dormida
-    let dy = saludo ? saludo.dy : duerme && !reposo ? T.respiraDy(ahora) : 0;
+    // el cuerpo entero (todo lo que está sobre la matera) sube y baja: el salto del saludo, la caída del desmayo o la respiración dormida
+    let dy = saludo ? saludo.dy
+      : desmayo ? (evActual && evActual.tipo === "DESMAYO" && !reposo ? desmayoDy(evActual.t) : DESMAYADA_DY)
+        : duerme && !reposo ? T.respiraDy(ahora) : 0;
     let caraDy = dy;
+    let puntoAcc = T.CARA_MATERA; // dónde está la cara, para el ancla del accesorio
+    let nivelAcc = nivel;
+    const opciones = { nivel: nivelCara, ahora, desmayada: desmayo };
 
     if (nombre === "girasol") {
       const dormido = duerme && nivel === 0;
@@ -286,15 +360,18 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
       const pose = reposo || duerme ? { cuadro: 0, dy: 0, mira: 0 } : T.poseGirasol(ahora, nivel);
       if (nivel === 0) refs.corona.setAttribute("transform", (reposo ? cuadro : pose.cuadro) && !duerme ? "rotate(15 24 17)" : "");
       if (nivel === 0) mostrar(0, dormido ? dibujo.dormido : undefined);
-      if (!saludo && !duerme) { dy = pose.dy; caraDy = dy; }
+      if (!saludo && !duerme) { dy += pose.dy; caraDy = dy; }
       dx = pose.mira + T.desv(p.y, seno, amp);
-      piezas = T.piezasDeCara(c, parpadeo, p.x, p.y, T.GEO_CHICA, { nivel: nivelCara, ahora });
+      piezas = T.piezasDeCara(c, parpadeo, p.x, p.y, T.GEO_CHICA, opciones);
+      puntoAcc = p;
+      nivelAcc = dormido ? 3 : nivel;
     } else if (nombre === "cactus") {
       const p = T.CARA_CACTUS[nivel];
       dx = T.desv(p.y, seno, amp);
-      piezas = T.piezasDeCara(c, parpadeo, p.x, p.y, T.GEO_CACTUS, { nivel: nivelCara, ahora });
+      piezas = T.piezasDeCara(c, parpadeo, p.x, p.y, T.GEO_CACTUS, opciones);
       pintarFlor(ahora, reposo, duerme); // de noche la flor se cierra
       refs.flor.setAttribute("transform", `translate(${T.desv(T.CACTUS_Y_FLOR, seno, amp).toFixed(2)} ${dy})`);
+      puntoAcc = p;
     } else if (nombre === "suculenta") {
       const p = T.CARA_SUCULENTA[nivel];
       // F54: regada (pintarSuculenta del firmware): cae la gota, después se infla (o da un saltito) y sonríe
@@ -304,13 +381,14 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
       gotaEn(riego ? riego.gotaY : null);
       mostrar(riego && riego.inflada ? 1 : duerme ? 0 : reposo ? cuadro : T.suculentaInflada(ahora, nivel) ? 1 : 0);
       dx = T.desv(p.y, seno, amp);
-      piezas = T.piezasDeCara(c, parpadeo, p.x, p.y, T.GEO_CHICA, { nivel: nivelCara, ahora });
+      piezas = T.piezasDeCara(c, parpadeo, p.x, p.y, T.GEO_CHICA, opciones);
+      puntoAcc = p;
     } else if (nombre === "helecho") {
       mostrar(duerme ? 0 : reposo ? cuadro : T.cuadroHelecho(ahora, nivel));
-      piezas = T.piezasDeCaraMatera(c, parpadeo, { nivel: nivelCara, ahora });
+      piezas = T.piezasDeCaraMatera(c, parpadeo, opciones);
       caraDy = 0; // la cara va en la matera: no sube con el salto
     } else if (nombre === "generica") {
-      piezas = T.piezasDeCaraMatera(c, parpadeo, { nivel: nivelCara, ahora });
+      piezas = T.piezasDeCaraMatera(c, parpadeo, opciones);
       caraDy = 0;
     } else {
       // carnívora: saludable muerde sola cada 6 a 10 s; el cuadro de boca decide dónde van los ojos (fila 9, 12 o 16).
@@ -329,9 +407,13 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
       const yo = nivel === 0 ? T.CARNIVORA_OJOS_Y[boca] : P.CARNIVORA_TRISTE[nivel - 1].cara;
       const cm = boca === 2 ? { ...c, abierto: c.abierto * 0.3 } : c;
       dx = T.desv(yo, seno, amp);
-      piezas = T.piezasDeCara(cm, parpadeo, 24, yo, T.GEO_TRAMPA, { conBoca: nivel > 0, nivel: nivelCara, ahora });
+      piezas = T.piezasDeCara(cm, parpadeo, 24, yo, T.GEO_TRAMPA, { ...opciones, conBoca: nivel > 0 });
+      puntoAcc = { x: 24, y: yo };
+      nivelAcc = duerme && nivel === 0 ? 3 : nivel;
     }
     pintarZzz(duerme ? (reposo ? 2 : T.cuadroZzz(ahora)) : -1);
+    pintarAccesorio(puntoAcc, nivelAcc, dy, seno, amp);
+    pintarEfecto();
 
     ultimasPiezas = piezas;
     planta.setAttribute("transform", `${dy ? `translate(0 ${dy}) ` : ""}${T.matrizBalanceo(seno, amp)}`);
@@ -345,6 +427,49 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
     }
   }
 
+  /**
+   * F56: el accesorio del servidor sobre la cara (D197): el sprite en el punto de la cara + el ancla de la familia y el
+   * nivel, con aureola. Lo que queda sobre la matera sigue al cuerpo (balanceo y salto: el mismo `desv` que la cara); lo
+   * que queda en la matera (las gafas de la común y el helecho) no se mueve.
+   */
+  function pintarAccesorio(punto, nivelDeAncla, dy, seno, amp) {
+    const lugar = S.colocarAccesorio({ accesorio: acc, familia: nombre, nivel: nivelDeAncla, cara: punto });
+    if (!lugar) {
+      if (ultimoAcc !== "") { ultimoAcc = ""; aureolaDeAccesorio.setAttribute("d", ""); spriteDeAccesorioNodo.setAttribute("d", ""); }
+      return;
+    }
+    const firma = `${acc}@${lugar.x},${lugar.y}`;
+    if (firma !== ultimoAcc) {
+      ultimoAcc = firma;
+      const pixeles = S.pixelesDeSprite(lugar.filas, lugar.x, lugar.y);
+      aureolaDeAccesorio.setAttribute("d", P.pixelesD(S.aureolaDe(pixeles)));
+      spriteDeAccesorioNodo.setAttribute("d", P.pixelesD(pixeles));
+    }
+    // el centro es `y + h / 2` entero de pantalla.cpp (el del ancla, sin el salto)
+    const x = lugar.sobreLaPlanta ? T.desv(lugar.y + Math.trunc(lugar.h / 2), seno, amp) : 0;
+    const y = lugar.sobreLaPlanta ? dy : 0;
+    grupoAccesorio.setAttribute("transform", x || y ? `translate(${x.toFixed(2)} ${y})` : "");
+  }
+
+  /** F56: el efecto del evento que suena en la esquina de arriba a la derecha (donde va el zzz): rayos, corazón, destellos o estrella. */
+  function pintarEfecto() {
+    const e = evActual ? efectoDe(evActual.tipo, evActual.t) : null;
+    const firma = e ? `${e.efecto}${e.cuadro}` : "";
+    if (firma === ultimoEfecto) return;
+    ultimoEfecto = firma;
+    if (!e) {
+      aureolaDeEfecto.setAttribute("d", "");
+      spriteDeEfecto.setAttribute("d", "");
+      return;
+    }
+    const filas = { rayos: S.RAYOS, corazon: S.CORAZON, destellos: S.DESTELLOS, estrella: S.ESTRELLA }[e.efecto][e.cuadro];
+    // pantalla.cpp: EFECTO_X, EFECTO_Y = 37, 0; el corazón de 9x8 va un píxel adentro, en (38, 1)
+    const [x0, y0] = e.efecto === "corazon" ? [38, 1] : [37, 0];
+    const pixeles = S.pixelesDeSprite(filas, x0, y0);
+    aureolaDeEfecto.setAttribute("d", P.pixelesD(S.aureolaDe(pixeles)));
+    spriteDeEfecto.setAttribute("d", P.pixelesD(pixeles));
+  }
+
   /** F54: la gota de la suculenta regada con su esquina en (X_GOTA, y); null la quita. No se balancea. */
   function gotaEn(y) {
     const d = y === null ? "" : P.pixelesD(T.pixelesDeGota(T.RIEGO.X_GOTA, y));
@@ -354,17 +479,15 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
   }
 
   /**
-   * F54: la regaron (evento REGADA). La suculenta hace lo de la OLED (gota, se infla, sonríe); las demás familias, que
-   * en la OLED no reaccionan al riego, un parpadeo doble. Con `reducido` no hay movimiento: solo la suculenta sonríe
-   * un momento, como el saludo quieto.
+   * F54: la regaron (evento REGADA). Solo la suculenta reacciona en la OLED (gota, se infla, sonríe: `pintarSuculenta`);
+   * las demás familias no tienen animación de riego, solo la frase («gracias!»). F56 quitó el parpadeo doble que F54 les
+   * había puesto en su lugar: era una invención (regla de paridad). Con `reducido` no hay movimiento: la suculenta sonríe
+   * un momento, como el saludo quieto. La cola de eventos lo llama sola cuando arranca un REGADA.
    */
   function regar({ reducido = false } = {}) {
-    if (reducido) {
-      if (nombre === "suculenta") saludar({ reducido: true });
-      return;
-    }
-    if (nombre === "suculenta") regadoDesde = reloj;
-    else dobleDesde = reloj;
+    if (nombre !== "suculenta") return;
+    if (reducido) saludar({ reducido: true });
+    else regadoDesde = reloj;
   }
 
   /** El toque: la mascota saluda. Sin `reducido` es el salto con parpadeo doble; con `reducido`, solo la expresión. */
@@ -392,5 +515,14 @@ export function crearMascota(familia, { estado = "SALUDABLE", periodo = "DIA", c
   ponerEstado(estado);
   ponerPeriodo(periodo);
   pintar(0, { reposo: true });
-  return { nodo, familia: nombre, ponerEstado, ponerPeriodo, pintar, saludar, morder, regar, piezas: () => ultimasPiezas };
+  return {
+    nodo, familia: nombre, ponerEstado, ponerPeriodo, ponerDesmayada, ponerAccesorio, usarEventos, pintar, saludar, morder, regar,
+    piezas: () => ultimasPiezas,
+    /** La cola de eventos que usa (para empujar eventos o compartirla). */
+    cola: () => cola,
+    /** El evento que suena en el último cuadro pintado ({ tipo, t, turno }) o null. */
+    evento: () => evActual,
+    /** Lo que se ve ahora: la pose de desmayo y el accesorio (para las pruebas y el humo). */
+    pose: () => ({ desmayo: desmayoVisible, accesorio: acc, nivel }),
+  };
 }
