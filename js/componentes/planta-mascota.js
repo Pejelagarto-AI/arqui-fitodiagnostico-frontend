@@ -5,13 +5,22 @@
 //
 // El dibujo es el de la OLED y solo cambia a poses que la OLED tiene (la pose la decide planta-detalle con
 // `poseDeMascota`); vitalidad, racha y línea de tiempo van alrededor, en texto.
-import { obtenerMascota, obtenerEventosDeMascota, acariciarMascota, declararRiego } from "../api.js";
+//
+// F56 (fase 14 del backend): la mascota habla con la personalidad de su familia (`mascota-frases.js`), los eventos suenan
+// de a uno en una cola de 3000 ms por turno (`mascota-eventos.js`, la misma regla que `fito_mascota.c`), el dueño elige el
+// accesorio, y la fila de abajo de la OLED (estado / frase cada 3 s) tiene su equivalente aquí: una línea bajo el dibujo.
+//
+// Vitalidad: la OLED dibuja una línea de 78x1 px en (50, 45) solo mientras muestra una frase (D193), porque ahí no cabe otra
+// cosa. Aquí la barra con `role="meter"` y su número están siempre al lado del dibujo: es la UI equivalente y no se
+// duplica con una segunda línea de píxeles; el número es el del servidor (`vitalidad`) sin tocarlo.
+import { obtenerMascota, obtenerEventosDeMascota, acariciarMascota, declararRiego, cambiarAccesorioDeMascota } from "../api.js";
 import { h, svg, vaciar, crearAviso, formatearFechaRelativa } from "../ui.js";
 import { crearMascotaVista } from "./mascota-vista.js";
 import { hayMovimiento } from "../animaciones.js";
+import { crearReproductor, crearRegistroDeCaricias, haceSaludo, ACCESORIOS } from "../mascota-eventos.js";
 import {
-  fraseDeAnimo, textoDeCausa, vitalidadValida, nivelDeVitalidad, textoDeRacha, fraseDeEvento, iconoDeEventoClave,
-  estadoDeRiego, accionDesdeEvento, eventoDesdeAviso, juntarEventos, animacionDeEvento, caricia,
+  fraseDeLaMascota, fraseDeEventoDeLaMascota, textoDeFila, hayFraseDeAnimo, textoDeCausa, vitalidadValida, nivelDeVitalidad, textoDeRacha,
+  fraseDeEvento, iconoDeEventoClave, estadoDeRiego, accionDesdeEvento, eventoDesdeAviso, juntarEventos, caricia,
 } from "../mascota-animo.js";
 
 const TAMANO_PAGINA = 10;
@@ -19,6 +28,12 @@ const TAMANO_PAGINA = 10;
 const RESINCRONIZAR_MS = 1500;
 // Un «la regué» vencido lo resuelve el servidor en su minuto: se pregunta de nuevo pasado este margen.
 const MARGEN_DE_VENCIMIENTO_MS = 20000;
+// La caricia es de la planta: el servidor responde «repetida» (200) si llega otra dentro de 10 s (D172 del backend). Dentro de
+// ese lapso un toque solo saluda (como el BOOT de la OLED) en vez de encolar otro corazón que el servidor no va a contar.
+const ENFRIAMIENTO_DE_CARICIA_MS = 10000;
+// La cola de eventos y su texto se miran cada 250 ms (la cola avanza con el reloj, no con el dibujo: también sirve con movimiento reducido).
+const REFRESCO_DE_TEXTO_MS = 250;
+const OPCIONES_DE_ACCESORIO = Object.freeze([["NINGUNO", "Ninguno"], ["SOMBRERO", "Sombrero"], ["MONO", "Moño"], ["GAFAS", "Gafas"]]);
 
 const ICONOS = {
   gota: [["path", { d: "M8 2.5c2.3 3 3.6 5 3.6 6.8A3.6 3.6 0 0 1 4.4 9.3C4.4 7.5 5.7 5.5 8 2.5z" }]],
@@ -68,24 +83,37 @@ export function crearBarraDeVitalidad({ clase = "", etiqueta = "Vitalidad" } = {
  * planta-detalle cuando cambia el ánimo (para recalcular la pose de las dos mascotas). Devuelve
  * { elemento, mascota, cargar(), refrescar(), alEvento(aviso), parar() }.
  */
-export function crearPanelMascota(planta, ctx, { esDueno, alCambiar = () => {} }) {
+export function crearPanelMascota(planta, ctx, { esDueno, alCambiar = () => {}, alDisparar = () => {} }) {
   const id = planta.id;
   let datos = null; // la última consulta, con lo que los avisos le fueron cambiando
+  let carga = "cargando"; // cargando | listo | fallo (para el globo mientras no hay datos)
+  let accesorio = "NINGUNO"; // el que se ve (el elegido, aunque el servidor no haya confirmado todavía)
+  let accesorioConfirmado = "NINGUNO"; // el último que el servidor dijo
+  let accesorioEnVuelo = false;
+  let accesorioSiguiente = null;
+  let estadoDelDiagnostico = null; // lo que dice la fila de estado (D191)
+  let ultimaCaricia = -Infinity;
+  const reproductor = crearReproductor(); // la cola de eventos de a uno: la comparten las mascotas de la cabecera y de esta pestaña
+  const caricias = crearRegistroDeCaricias(); // para no animar dos veces la caricia propia que vuelve como evento
   let accion = null; // el «la regué» vigente (o el último resuelto, para decir qué pasó)
   let eventos = [];
   let pagina = 0;
   let totalDePaginas = 0;
-  let saludoLocalEn = -Infinity;
   let resincronizacion = null;
   let revisionDeVencimiento = null;
 
   const mascota = crearMascotaVista({
-    especie: planta.especie, nombre: planta.apodo, toque: true, clase: "mascota--grande",
-    alTocar: esDueno ? () => acariciar() : null,
+    especie: planta.especie, nombre: planta.apodo, toque: true, clase: "mascota--grande", eventos: reproductor,
+    alToque: esDueno ? () => tocar() : null,
   });
   mascota.nodo.setAttribute("aria-label", esDueno ? `Acariciar a ${planta.apodo}` : `Saludar a ${planta.apodo}`);
 
+  // El globo: la frase del ánimo con la personalidad de la familia y, 3 s, la del evento que acaba de llegar (D191).
   const frase = h("p", { class: "animo-frase", id: "animo-frase", "aria-live": "polite" }, "…");
+  // La fila de abajo de la OLED (D191): alterna cada 3 s el estado y la frase; con un evento, su frase. Es decorativa
+  // (`aria-hidden`): lo mismo ya está dicho en el globo y en el aviso de estado, y un texto vivo que cambia cada 3 s
+  // sería ruido para un lector de pantalla.
+  const filaDeEstado = h("p", { class: "mascota-fila", id: "mascota-fila", "aria-hidden": "true" });
   const numero = h("strong", { class: "vitalidad-numero", id: "vitalidad-numero" }, "—");
   const barra = crearBarraDeVitalidad({ etiqueta: "Vitalidad" });
   const causa = h("p", { class: "vitalidad-causa texto-suave", id: "vitalidad-causa", hidden: true });
@@ -96,7 +124,7 @@ export function crearPanelMascota(planta, ctx, { esDueno, alCambiar = () => {} }
   const botonRegue = h("button", { type: "button", class: "boton boton-primario", id: "btn-la-regue" }, "La regué");
   const estadoRiego = h("p", { class: "estado-riego", id: "estado-riego", "aria-live": "polite", hidden: true });
   botonAcariciar.addEventListener("click", () => {
-    mascota.saludar(); // el saludo es local e inmediato; `alTocar` hace la llamada
+    mascota.saludar(); // lo mismo que tocar la mascota: `alToque` (tocar) encola la caricia y llama al servidor
   });
   botonRegue.addEventListener("click", () => regar());
 
@@ -105,10 +133,12 @@ export function crearPanelMascota(planta, ctx, { esDueno, alCambiar = () => {} }
   const botonMas = h("button", { type: "button", class: "boton boton-secundario boton-chico", id: "btn-mas-eventos", hidden: true }, "Cargar más");
   botonMas.addEventListener("click", () => cargarMas());
 
+  const selector = esDueno ? crearSelectorDeAccesorio() : null;
+
   const elemento = h("section", { class: "tarjeta panel-mascota", id: "seccion-mascota", "aria-labelledby": "titulo-mascota" },
     h("h2", { id: "titulo-mascota", class: "titulo-bloque" }, "Cómo se siente"),
     h("div", { class: "mascota-escena" },
-      h("div", { class: "mascota-escena-dibujo" }, mascota.nodo),
+      h("div", { class: "mascota-escena-dibujo" }, mascota.nodo, filaDeEstado),
       h("div", { class: "mascota-escena-texto" },
         frase,
         h("div", { class: "vitalidad" },
@@ -122,6 +152,7 @@ export function crearPanelMascota(planta, ctx, { esDueno, alCambiar = () => {} }
     ),
     aviso.elemento,
     esDueno ? h("div", { class: "mascota-acciones" }, botonAcariciar, botonRegue) : null,
+    selector ? selector.elemento : null,
     estadoRiego,
     h("h3", { class: "titulo-linea-tiempo" }, "Lo que me ha pasado"),
     vacio,
@@ -131,10 +162,29 @@ export function crearPanelMascota(planta, ctx, { esDueno, alCambiar = () => {} }
 
   // ---- pintar ----
 
+  /**
+   * El globo y la fila de estado, con la cola de eventos: mientras suena un evento (3000 ms) los dos dicen la frase del
+   * evento; después el globo vuelve a la del ánimo y la fila alterna cada 3 s el estado y la frase (`fito_fila`).
+   */
+  function pintarTexto() {
+    const sonando = reproductor.avanzar();
+    const familia = mascota.familia;
+    const animo = datos ? datos.animo : null;
+    const fraseDelEvento = sonando ? fraseDeEventoDeLaMascota(familia, sonando.tipo) : null;
+    const globo = fraseDelEvento ?? (datos ? fraseDeLaMascota(familia, animo) : carga === "fallo" ? fraseDeLaMascota(familia, "SIN_DATOS") : "…");
+    if (frase.textContent !== globo) frase.textContent = globo;
+    frase.dataset.animo = (datos && datos.animo) || "SIN_DATOS";
+    if (sonando) frase.dataset.evento = sonando.tipo;
+    else delete frase.dataset.evento;
+    const fila = reproductor.fila(Boolean(datos) && hayFraseDeAnimo(familia, animo));
+    const { texto, esFrase } = textoDeFila({ familia, animo, estado: estadoDelDiagnostico, fila, tipoDeEvento: sonando ? sonando.tipo : null });
+    if (filaDeEstado.textContent !== texto) filaDeEstado.textContent = texto;
+    filaDeEstado.dataset.frase = String(esFrase);
+  }
+
   function pintarDatos() {
     if (!datos) return;
-    frase.textContent = fraseDeAnimo(datos.animo);
-    frase.dataset.animo = datos.animo || "SIN_DATOS";
+    pintarTexto();
     const v = vitalidadValida(datos.vitalidad);
     numero.textContent = v === null ? "—" : String(v);
     barra.poner(v);
@@ -163,7 +213,7 @@ export function crearPanelMascota(planta, ctx, { esDueno, alCambiar = () => {} }
     return h("li", { class: "evento", "data-tipo": evento.tipo, "data-id": evento.id || "" },
       h("span", { class: "evento-marca" }, iconoDeEvento(evento.tipo)),
       h("span", { class: "evento-texto" },
-        h("span", { class: "evento-frase" }, fraseDeEvento(evento)),
+        h("span", { class: "evento-frase" }, fraseDeEvento(evento, mascota.familia)),
         evento.ocurridoEn ? h("time", { class: "evento-cuando texto-suave", datetime: evento.ocurridoEn }, formatearFechaRelativa(evento.ocurridoEn)) : null),
     );
   }
@@ -179,10 +229,19 @@ export function crearPanelMascota(planta, ctx, { esDueno, alCambiar = () => {} }
 
   function tomar(consulta) {
     datos = consulta;
+    accesorioConfirmado = ACCESORIOS.includes(consulta.accesorio) ? consulta.accesorio : "NINGUNO"; // un servidor viejo no lo manda
+    if (!accesorioEnVuelo) accesorio = accesorioConfirmado;
+    marcarAccesorio();
     accion = consulta.accionPendiente || (accion && accion.estado !== "PENDIENTE" ? accion : null);
+    carga = "listo";
     pintarDatos();
     pintarRiego();
-    alCambiar(datos);
+    emitir();
+  }
+
+  /** Lo que ve planta-detalle: la última consulta con el accesorio que se ve (para la pose de las dos mascotas). */
+  function emitir() {
+    alCambiar({ ...(datos || {}), accesorio });
   }
 
   async function cargar() {
@@ -198,7 +257,8 @@ export function crearPanelMascota(planta, ctx, { esDueno, alCambiar = () => {} }
     } catch (error) {
       if (!ctx.vigente()) return;
       // Un backend sin la fase 9 (404 de ruta) o una red caída: la pestaña lo dice y el resto de la planta sigue.
-      frase.textContent = "Todavía no sé cómo estoy";
+      carga = "fallo";
+      pintarTexto();
       aviso.mostrar(error);
     }
   }
@@ -238,15 +298,45 @@ export function crearPanelMascota(planta, ctx, { esDueno, alCambiar = () => {} }
 
   // ---- acciones del dueño ----
 
-  /** Llamado por el toque y el botón, DESPUÉS del saludo local. Un 200 (caricia repetida) no hace nada más. */
+  /**
+   * El toque del dueño (y el botón «Acariciar»): la caricia suena YA en la cola (saludo, corazón y la frase «jiji») sin
+   * esperar a la red, y se le avisa al servidor. El evento ACARICIADA que vuelve por el aviso en vivo lleva el id de esta
+   * misma caricia y no se anima otra vez (el firmware sí repite, D198: la matera no distingue la suya; aquí sí). Dentro de
+   * los 10 s de enfriamiento del servidor solo saluda, sin otro corazón que el servidor no contaría.
+   */
+  function tocar() {
+    const ahora = Date.now();
+    if (ahora - ultimaCaricia >= ENFRIAMIENTO_DE_CARICIA_MS) {
+      ultimaCaricia = ahora;
+      disparar("ACARICIADA");
+    } else {
+      mascota.saludarSolo();
+    }
+    acariciar();
+  }
+
+  /** Pone un evento en la cola de las mascotas (la de la cabecera comparte la misma) y lo dice ya. */
+  function disparar(tipo) {
+    if (!reproductor.empujar(tipo)) return;
+    // Con movimiento reducido no hay cuadros: el saludo queda como un cambio de expresión (como el toque de F47)
+    if (!hayMovimiento() && haceSaludo(tipo)) mascota.saludarSolo();
+    alDisparar(tipo);
+    pintarTexto();
+  }
+
+  /** Avisa al servidor. Un 200 (caricia repetida) no hace nada más. */
   async function acariciar() {
-    saludoLocalEn = Date.now();
+    caricias.empezar();
+    let id = null;
     try {
       const resultado = caricia(await acariciarMascota(id));
+      if (resultado.nueva) id = resultado.id;
+      caricias.terminar(id);
       if (!ctx.vigente() || !resultado.nueva) return;
-      eventos = juntarEventos(eventos, [{ id: resultado.id, tipo: "ACARICIADA", ocurridoEn: resultado.en || new Date().toISOString(), detalle: {} }]);
+      eventos = juntarEventos(eventos, [{ id: resultado.id, tipo: "ACARICIADA", ocurridoEn: resultado.en || new Date().toISOString(), detalle: { origen: "PERSONA" } }]);
       pintarEventos();
     } catch (error) {
+      caricias.terminar(null);
       if (!ctx.vigente()) return;
       if (error && error.status === 403) { ocultarAcciones(); return; } // perdió la propiedad: sin error, sin botones
       aviso.mostrar(error);
@@ -261,7 +351,7 @@ export function crearPanelMascota(planta, ctx, { esDueno, alCambiar = () => {} }
       if (!ctx.vigente()) return;
       accion = respuesta;
       pintarRiego();
-      if (respuesta.estado === "CONFIRMADA") celebrar();
+      // CONFIRMADA: el servidor también manda el evento RIEGO_CONFIRMADO, que llega a la cola con su frase (la OLED no hace más)
       resincronizarPronto();
     } catch (error) {
       if (!ctx.vigente()) return;
@@ -276,11 +366,6 @@ export function crearPanelMascota(planta, ctx, { esDueno, alCambiar = () => {} }
     if (acciones) acciones.hidden = true;
   }
 
-  function celebrar() {
-    mascota.saludarSolo();
-    estadoRiego.classList.remove("estado-riego--encoge");
-  }
-
   /** El riego desmentido: la mascota no cambia (la OLED no tiene esa cara); el texto se «encoge de hombros». */
   function encogerse() {
     estadoRiego.classList.remove("estado-riego--encoge");
@@ -293,18 +378,18 @@ export function crearPanelMascota(planta, ctx, { esDueno, alCambiar = () => {} }
 
   /**
    * Un evento llegó por el WebSocket: vitalidad y ánimo del aviso al instante, el evento arriba en la línea de tiempo y
-   * la animación que toque. Devuelve el nombre de la animación ("regar" | "saludar" | null) para que planta-detalle la
-   * repita en la mascota de la cabecera.
+   * a la cola de la mascota (animación y frase, de a uno, 3000 ms cada uno). Una caricia propia que vuelve como evento no
+   * se anima otra vez (ver `tocar`). Devuelve true si el evento entró a la cola.
    */
   function alEvento(avisoEnVivo) {
     const d = avisoEnVivo.datos || {};
     const evento = eventoDesdeAviso(avisoEnVivo);
-    if (!evento) return null;
+    if (!evento) return false;
     datos = { ...(datos || {}), animo: d.animo || (datos && datos.animo) || null };
     if (d.vitalidad !== undefined) datos.vitalidad = d.vitalidad;
     if (evento.tipo === "RACHA" && evento.detalle.dias) datos.racha = { ...(datos.racha || {}), dias: Number(evento.detalle.dias) };
     pintarDatos();
-    alCambiar(datos);
+    emitir();
 
     const nueva = accionDesdeEvento(evento.tipo, evento.detalle, evento.ocurridoEn);
     if (nueva) {
@@ -317,27 +402,115 @@ export function crearPanelMascota(planta, ctx, { esDueno, alCambiar = () => {} }
     pintarEventos();
     resincronizarPronto();
 
-    let animacion = animacionDeEvento(evento.tipo);
-    // La caricia propia ya saludó al tocar: el eco del servidor no saluda dos veces.
-    if (evento.tipo === "ACARICIADA" && Date.now() - saludoLocalEn < 4000) animacion = null;
-    if (animacion === "regar") mascota.regar();
-    if (animacion === "saludar") celebrar();
-    return animacion;
+    const eco = evento.tipo === "ACARICIADA" && caricias.esEco(evento.id, d.origen);
+    if (eco) return false;
+    disparar(evento.tipo);
+    return true;
   }
+
+  // ---- el accesorio (F56) ----
+
+  /** Los cuatro accesorios como un grupo de radios: cada uno con la mascota en miniatura llevándolo. Solo el dueño. */
+  function crearSelectorDeAccesorio() {
+    const grupo = `accesorio-${id}`;
+    const radios = new Map();
+    const minis = [];
+    const opciones = OPCIONES_DE_ACCESORIO.map(([valor, etiqueta]) => {
+      // La misma mascota de la planta, quieta y saludable, con el accesorio puesto (no anima: es una vista previa).
+      const mini = crearMascotaVista({ familia: mascota.familia, estado: "SALUDABLE", clase: "mascota--mini", accesorio: valor, animar: false });
+      minis.push(mini);
+      const input = h("input", { type: "radio", name: grupo, value: valor, id: `${grupo}-${valor}`, class: "accesorio-radio" });
+      radios.set(valor, input);
+      input.addEventListener("change", () => { if (input.checked) elegirAccesorio(valor); });
+      return h("label", { class: "accesorio-opcion", for: input.id }, input,
+        h("span", { class: "accesorio-miniatura", "aria-hidden": "true" }, mini.nodo),
+        h("span", { class: "accesorio-nombre" }, etiqueta));
+    });
+    const elemento = h("fieldset", { class: "accesorios", id: "selector-accesorio" },
+      h("legend", { class: "accesorios-titulo" }, "Accesorio"),
+      h("div", { class: "accesorios-opciones" }, opciones));
+    return { elemento, radios };
+  }
+
+  /** Marca en el selector el accesorio que se ve. */
+  function marcarAccesorio() {
+    if (!selector) return;
+    for (const [valor, input] of selector.radios) input.checked = valor === accesorio;
+  }
+
+  /** Aplica al instante en las mascotas y lo guarda; si el servidor no lo acepta, vuelve al que tenía. */
+  async function elegirAccesorio(valor) {
+    if (valor === accesorio) return;
+    aviso.limpiar();
+    accesorio = valor;
+    marcarAccesorio();
+    emitir();
+    if (accesorioEnVuelo) { accesorioSiguiente = valor; return; } // se manda el último elegido cuando termine el que va
+    accesorioEnVuelo = true;
+    let objetivo = valor;
+    try {
+      for (;;) {
+        const vista = await cambiarAccesorioDeMascota(id, objetivo);
+        if (!ctx.vigente()) return;
+        accesorioConfirmado = ACCESORIOS.includes(vista.accesorio) ? vista.accesorio : objetivo;
+        if (accesorioSiguiente === null) break;
+        objetivo = accesorioSiguiente;
+        accesorioSiguiente = null;
+      }
+      accesorioEnVuelo = false;
+      accesorio = accesorioConfirmado;
+      if (datos) datos = { ...datos, accesorio };
+      marcarAccesorio();
+      emitir();
+    } catch (error) {
+      accesorioEnVuelo = false;
+      accesorioSiguiente = null;
+      if (!ctx.vigente()) return;
+      accesorio = accesorioConfirmado;
+      marcarAccesorio();
+      emitir();
+      if (error && error.status === 403) { if (selector) selector.elemento.hidden = true; return; } // perdió la propiedad
+      aviso.mostrar(error);
+    } finally {
+      accesorioEnVuelo = false;
+    }
+  }
+
+  /** El aviso en vivo MASCOTA_ACTUALIZADA (otra pestaña o el dueño en otro aparato cambió el accesorio). */
+  function alAccesorio(avisoEnVivo) {
+    const nuevo = avisoEnVivo && avisoEnVivo.datos && avisoEnVivo.datos.accesorio;
+    if (!ACCESORIOS.includes(nuevo) || accesorioEnVuelo) return; // el de esta pestaña ya lo sabe: el aviso es su propio eco
+    accesorioConfirmado = nuevo;
+    accesorio = nuevo;
+    if (datos) datos = { ...datos, accesorio: nuevo };
+    marcarAccesorio();
+    emitir();
+  }
+
+  // El texto y la cola se miran cada 250 ms: la cola avanza con el reloj, no con los cuadros del dibujo.
+  const relojDeTexto = setInterval(() => { if (ctx.vigente()) pintarTexto(); }, REFRESCO_DE_TEXTO_MS);
 
   // El riego pendiente cuenta la hora límite; cada 30 s se repinta por si venció.
   const reloj = setInterval(() => { if (accion && accion.estado === "PENDIENTE") pintarRiego(); }, 30000);
 
+  marcarAccesorio();
+  pintarTexto();
+
   return {
     elemento,
     mascota,
+    reproductor,
     cargar,
     refrescar,
     alEvento,
+    alAccesorio,
+    /** El estado del diagnóstico vigente (SALUDABLE, EN_RIESGO, CRITICO o null): lo que dice la fila de estado. */
+    ponerEstadoDelDiagnostico: (estado) => { estadoDelDiagnostico = estado; pintarTexto(); },
     datos: () => datos,
     parar: () => {
       mascota.parar();
       clearInterval(reloj);
+      clearInterval(relojDeTexto);
       clearTimeout(resincronizacion);
       clearTimeout(revisionDeVencimiento);
     },

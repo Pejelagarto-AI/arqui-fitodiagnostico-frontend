@@ -5073,3 +5073,106 @@ body[data-sesion="no"] .pie {
     animation: none;
   }
 }
+
+/* ---------- F56: la mascota completa (fase 14 del backend): efectos, accesorios, desmayo, fila de estado y selector ---------- */
+
+/* los sprites de la OLED con su aureola negra de 1 px: el sprite claro encima de una sombra oscura se lee sobre cualquier fondo */
+.masc-halo {
+  fill: var(--cara-tinta);
+}
+
+.masc-accesorio-sprite,
+.masc-efecto-sprite {
+  fill: #fffdf5;
+}
+
+/* los ojos en «x» del desmayo: dos píxeles de a uno, del mismo color que los ojos */
+.masc-ojo-x {
+  fill: var(--cara-tinta);
+}
+
+/* la fila de abajo de la OLED (estado / frase cada 3 s) bajo el dibujo; decorativa, el globo ya dice lo mismo */
+.mascota-fila {
+  margin: 0.2rem 0 0;
+  min-height: 1.2em;
+  text-align: center;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: var(--t-chico);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--tinta-suave);
+}
+
+.mascota-fila[data-frase="true"] {
+  color: var(--tinta);
+}
+
+/* el selector de accesorio: cuatro opciones, la mascota en miniatura con cada accesorio puesto */
+.accesorios {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.accesorios-titulo {
+  padding: 0;
+  margin-bottom: 0.4rem;
+  font-weight: 700;
+}
+
+.accesorios-opciones {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.accesorio-opcion {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  min-height: 44px;
+  padding: 0.35rem 0.2rem 0.4rem;
+  border: 2px solid var(--borde);
+  border-radius: var(--radio-medio);
+  background: var(--superficie);
+  cursor: pointer;
+}
+
+.accesorio-radio {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.accesorio-miniatura {
+  display: block;
+  width: 3.4rem;
+}
+
+.accesorio-nombre {
+  font-size: var(--t-chico);
+  font-weight: 700;
+}
+
+.accesorio-opcion:has(.accesorio-radio:checked) {
+  border-color: var(--primario, currentColor);
+  background: var(--crema);
+}
+
+.accesorio-opcion:has(.accesorio-radio:focus-visible) {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .accesorio-opcion:hover {
+    border-color: var(--tinta-suave);
+  }
+}
