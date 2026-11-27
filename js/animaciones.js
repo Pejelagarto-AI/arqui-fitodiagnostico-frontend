@@ -43,28 +43,30 @@ export function llenarBarra(barra, { retraso = 0 } = {}) {
 /** Lectura nueva: la barra va del ancho que tenía al nuevo, sin volver a llenarse desde cero. */
 export function deslizarBarra(barra, anchoAnterior) {
   if (!puedeAnimar() || !barra || !anchoAnterior || anchoAnterior === barra.style.width) return;
-  globalThis.gsap.fromTo(barra, { width: anchoAnterior }, { width: barra.style.width, duration: 0.6, ease: "power2.out" });
+  globalThis.gsap.fromTo(barra, { width: anchoAnterior }, { width: barra.style.width, duration: 1.2, ease: "power2.out" });
 }
 
 /**
  * Cuenta de 0 al valor sobre una capa visual (.num-anim). El valor real en .num-valor ya está en el
  * DOM; mientras cuenta, el CSS lo oculta con visibility (data-animando) y al terminar lo devuelve.
  */
-export function contar(contenedorNumero, valor, { retraso = 0 } = {}) {
-  if (!puedeAnimar() || !contenedorNumero || !Number.isFinite(valor)) return;
+export function contar(contenedorNumero, valor, { retraso = 0, desde = 0, duracion = 1 } = {}) {
+  if (!puedeAnimar() || !contenedorNumero || !Number.isFinite(valor) || !Number.isFinite(desde) || desde === valor) return;
   const capa = contenedorNumero.querySelector(".num-anim");
   if (!capa) return;
-  const entero = Number.isInteger(valor);
-  const proxy = { v: 0 };
+  // Entero solo si los dos extremos lo son: de 221.6 a 230 se cuenta con decimal.
+  const entero = Number.isInteger(valor) && Number.isInteger(desde);
+  const formato = (v) => (entero ? String(Math.round(v)) : v.toFixed(1));
+  const proxy = { v: desde };
   contenedorNumero.dataset.animando = "";
-  capa.textContent = "0";
+  capa.textContent = formato(desde);
   globalThis.gsap.to(proxy, {
     v: valor,
-    duration: 1,
+    duration: duracion,
     delay: retraso,
     ease: "power2.out",
     onUpdate() {
-      capa.textContent = entero ? String(Math.round(proxy.v)) : proxy.v.toFixed(1);
+      capa.textContent = formato(proxy.v);
     },
     onComplete() {
       delete contenedorNumero.dataset.animando;

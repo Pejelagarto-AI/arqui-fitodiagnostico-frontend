@@ -39,6 +39,7 @@ export function crearPanelVigente(plantaId, ctx, { alCambiarEstado = () => {}, e
     // Una lectura nueva no es una pantalla nueva: se cambia en el sitio, sin las animaciones de entrada (que con la
     // matera mandando cada 5 s hacían parecer que la página se recargaba). Solo la barra se desliza del ancho anterior.
     const anchosAnteriores = new Map((vista ? vista.burbujas : []).map((b) => [b.parametro.nombre, b.relleno.style.width]));
+    const valoresAnteriores = new Map((vista ? vista.burbujas : []).map((b) => [b.parametro.nombre, b.parametro.valor]));
     const estadoAnterior = estadoPintado;
     estadoPintado = respuesta.hayDiagnostico ? respuesta.diagnostico.diagnostico.estado : null;
     vaciar(cuerpo);
@@ -67,7 +68,11 @@ export function crearPanelVigente(plantaId, ctx, { alCambiarEstado = () => {}, e
     );
     cuerpo.append(contenido);
     if (hayCambio) {
-      vista.burbujas.forEach((b) => deslizarBarra(b.relleno, anchosAnteriores.get(b.parametro.nombre)));
+      // Como un potenciómetro: el número va del valor anterior al nuevo y la barra se desliza, sin saltos.
+      vista.burbujas.forEach((b) => {
+        deslizarBarra(b.relleno, anchosAnteriores.get(b.parametro.nombre));
+        contar(b.valorReal.parentElement, b.parametro.valor, { desde: valoresAnteriores.get(b.parametro.nombre), duracion: 1.2 });
+      });
       return;
     }
     // Las burbujas entran escalonadas; la barra se llena y el número cuenta (el valor real ya está en el DOM).
