@@ -7,7 +7,7 @@ import { normalizarCodigo, codigoVisible, PREFIJO } from "./vinculacion.js";
 
 export const MENSAJES_QR = {
   ajeno: "Ese QR no es de una matera",
-  wifi: "Ese QR es para conectar la matera al Wi-Fi; cuando tenga red mostrará su código",
+  wifi: "Ese QR es el Wi-Fi de la matera: ábrelo con la cámara de tu celular (fuera de esta página) y toca «Conectarse». Cuando la matera tenga internet mostrará su código",
   vacio: "No se pudo leer el QR. Intenta de nuevo",
 };
 

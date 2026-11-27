@@ -38,7 +38,7 @@ test("el QR de Wi-Fi del portal de la matera explica qué es", () => {
   const r = codigoDeQr("WIFI:S:Fito-YUBUD6;T:nopass;;");
   assert.equal(r.ok, false);
   assert.equal(r.motivo, "wifi");
-  assert.equal(r.error, "Ese QR es para conectar la matera al Wi-Fi; cuando tenga red mostrará su código");
+  assert.equal(r.error, "Ese QR es el Wi-Fi de la matera: ábrelo con la cámara de tu celular (fuera de esta página) y toca «Conectarse». Cuando la matera tenga internet mostrará su código");
 });
 
 test("vacío o nulo", () => {
