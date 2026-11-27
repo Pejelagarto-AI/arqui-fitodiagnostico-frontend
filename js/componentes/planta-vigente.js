@@ -2,7 +2,7 @@
 // (D45: el backend responde 200 con hayDiagnostico:false, no 404).
 import { obtenerDiagnosticoVigente } from "../api.js";
 import { h, vaciar, crearAviso, formatearFechaRelativa, esqueletoSiTarda } from "../ui.js";
-import { entrada, llenarBarra, contar } from "../animaciones.js";
+import { entrada, llenarBarra, contar, deslizarBarra } from "../animaciones.js";
 import { crearVistaDeDiagnostico, DIAGNOSTICO_DE_ESQUELETO } from "./diagnostico.js";
 import { fraseDePlanta } from "../voz-planta.js";
 
@@ -12,6 +12,7 @@ export function crearPanelVigente(plantaId, ctx, { alCambiarEstado = () => {}, e
   // Identidad de lo pintado: el sondeo vuelve a pedir lo mismo cada pocos segundos
   // y no hay por qué repintar (ni parpadear) si no cambió nada.
   let pintado = null;
+  let estadoPintado = null;
   let serie = null; // última página 0 del historial (la trae el sondeo) para las minigráficas
   let vista = null;
   const aviso = crearAviso();
@@ -35,9 +36,15 @@ export function crearPanelVigente(plantaId, ctx, { alCambiarEstado = () => {}, e
     const hayCambio = pintado !== null;
     pintado = identidad;
     resaltar = resaltar && hayCambio;
+    // Una lectura nueva no es una pantalla nueva: se cambia en el sitio, sin las animaciones de entrada (que con la
+    // matera mandando cada 5 s hacían parecer que la página se recargaba). Solo la barra se desliza del ancho anterior.
+    const anchosAnteriores = new Map((vista ? vista.burbujas : []).map((b) => [b.parametro.nombre, b.relleno.style.width]));
+    const estadoAnterior = estadoPintado;
+    estadoPintado = respuesta.hayDiagnostico ? respuesta.diagnostico.diagnostico.estado : null;
     vaciar(cuerpo);
     vista = null;
-    alCambiarEstado(respuesta.hayDiagnostico ? respuesta.diagnostico.diagnostico : null, { cambio: hayCambio });
+    alCambiarEstado(respuesta.hayDiagnostico ? respuesta.diagnostico.diagnostico : null,
+      { cambio: hayCambio, cambioDeEstado: hayCambio && estadoAnterior !== estadoPintado });
     if (!respuesta.hayDiagnostico) {
       cuerpo.append(
         h("div", { class: "sin-diagnostico", id: "sin-diagnostico" },
@@ -59,6 +66,10 @@ export function crearPanelVigente(plantaId, ctx, { alCambiarEstado = () => {}, e
       vista.nodo,
     );
     cuerpo.append(contenido);
+    if (hayCambio) {
+      vista.burbujas.forEach((b) => deslizarBarra(b.relleno, anchosAnteriores.get(b.parametro.nombre)));
+      return;
+    }
     // Las burbujas entran escalonadas; la barra se llena y el número cuenta (el valor real ya está en el DOM).
     vista.burbujas.forEach((b, i) => {
       llenarBarra(b.relleno, { retraso: 0.12 * i });

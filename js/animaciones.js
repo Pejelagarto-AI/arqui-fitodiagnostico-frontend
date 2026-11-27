@@ -40,6 +40,12 @@ export function llenarBarra(barra, { retraso = 0 } = {}) {
   globalThis.gsap.fromTo(barra, { scaleX: 0 }, { scaleX: 1, duration: 1, delay: retraso, ease: "power3.out", clearProps: "transform" });
 }
 
+/** Lectura nueva: la barra va del ancho que tenía al nuevo, sin volver a llenarse desde cero. */
+export function deslizarBarra(barra, anchoAnterior) {
+  if (!puedeAnimar() || !barra || !anchoAnterior || anchoAnterior === barra.style.width) return;
+  globalThis.gsap.fromTo(barra, { width: anchoAnterior }, { width: barra.style.width, duration: 0.6, ease: "power2.out" });
+}
+
 /**
  * Cuenta de 0 al valor sobre una capa visual (.num-anim). El valor real en .num-valor ya está en el
  * DOM; mientras cuenta, el CSS lo oculta con visibility (data-animando) y al terminar lo devuelve.

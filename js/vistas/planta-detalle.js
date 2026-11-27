@@ -133,14 +133,14 @@ export async function montar(contenedor, ctx) {
     ilustracion.aplicar(estado, periodo, extras);
     if (panelMascota) panelMascota.mascota.aplicar(estado, periodo, extras);
   }
-  const ponerEstado = (diagnostico, { cambio = false } = {}) => {
+  const ponerEstado = (diagnostico, { cambio = false, cambioDeEstado = false } = {}) => {
     const estado = diagnostico ? diagnostico.estado : null;
     const aplicar = () => {
       estadoNodo.dataset.estado = estado || "SIN_DIAGNOSTICO";
       estadoNodo.textContent = estado ? ETIQUETAS_ESTADO_GLOBAL[estado] || estado : "Sin lecturas";
     };
-    // Al llegar una lectura distinta rebota la píldora.
-    if (cambio) cambiarEstado(estadoNodo, aplicar);
+    // La píldora rebota solo si el estado cambió (no con cada lectura de la matera, que llega cada 5 s).
+    if (cambioDeEstado) cambiarEstado(estadoNodo, aplicar);
     else aplicar();
     pose.estado = estado;
     pose.periodo = diagnostico ? diagnostico.periodo : null; // de noche duerme (F49)
