@@ -123,9 +123,14 @@ const iconoCamara = () => svg("svg", { viewBox: "0 0 24 24", fill: "none", strok
 export function crearLectorQr({ alLeer, reposo = null, capacidades = capacidadesDelNavegador() }) {
   const modos = modosDeLector(capacidades);
   const estado = h("p", { class: "lector-estado", id: "lector-estado", role: "status", "aria-live": "polite" });
+  // En Android, Chrome puede abrir los ajustes de Wi-Fi con un enlace intent: (iOS no lo permite desde Safari). No
+  // conecta solo a la red de la matera: abre la lista y la persona toca «Fito-…». Se muestra solo con el QR de Wi-Fi.
+  const ajustesWifi = h("a", { class: "boton boton-secundario boton-chico", id: "btn-ajustes-wifi", href: "intent:#Intent;action=android.settings.WIFI_SETTINGS;end", hidden: true }, "Abrir ajustes de Wi-Fi");
+  const esAndroid = /Android/i.test(globalThis.navigator?.userAgent || "");
   const decir = (texto, tipo = "info") => {
     estado.textContent = texto;
     estado.dataset.tipo = tipo;
+    ajustesWifi.hidden = true;
   };
 
   // iOS exige playsinline, muted y autoplay para pintar el video dentro de la página (si no, lo abre a pantalla completa).
@@ -157,6 +162,7 @@ export function crearLectorQr({ alLeer, reposo = null, capacidades = capacidades
     const leido = codigoDeQr(texto);
     if (!leido.ok) {
       decir(`${leido.error}.`, "error");
+      if (leido.motivo === "wifi" && esAndroid) ajustesWifi.hidden = false;
       return false;
     }
     const respuesta = alLeer({ codigo: leido.codigo, serial: leido.serial });
@@ -322,7 +328,7 @@ export function crearLectorQr({ alLeer, reposo = null, capacidades = capacidades
   };
   document.addEventListener("visibilitychange", alOcultar);
 
-  const nodo = h("div", { class: "lector", "data-modo": modos[0] }, cajaReposo, visor, estado, acciones);
+  const nodo = h("div", { class: "lector", "data-modo": modos[0] }, cajaReposo, visor, estado, ajustesWifi, acciones);
   return {
     nodo,
     modos,

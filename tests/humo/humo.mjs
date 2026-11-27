@@ -673,7 +673,7 @@ async function ejecutar() {
     // La «foto» es un PNG de un QR armado aquí mismo (tests/humo/qr-png.mjs).
     const foto = (nombre, texto, opciones) => ({ name: nombre, mimeType: "image/png", buffer: pngDeQr(texto, opciones) });
     await pAna.setInputFiles("#lector-foto", foto("wifi.png", `WIFI:S:Fito-${codigo};T:nopass;;`));
-    await pAna.locator("#lector-estado", { hasText: "conectar la matera al Wi-Fi" }).waitFor();
+    await pAna.locator("#lector-estado", { hasText: "Wi-Fi de la matera" }).waitFor();
     await pAna.setInputFiles("#lector-foto", foto("ajeno.png", "https://example.com/promo"));
     await pAna.locator("#lector-estado", { hasText: "Ese QR no es de una matera" }).waitFor();
     assert.equal(hash(pAna), `#/plantas/${plantaId}/vincular`, "un QR ajeno no lleva a ningún lado");
