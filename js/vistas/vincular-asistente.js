@@ -374,15 +374,16 @@ export async function montar(contenedor, ctx) {
         } catch {
           // un fallo suelto de red no corta la espera: se reintenta hasta el límite
         }
-        if (Date.now() >= limite) {
-          texto.textContent = "La matera tarda más de lo normal.";
-          detalle.textContent = "Ya está vinculada a tu planta. Revisa que tenga Wi-Fi; en cuanto se conecte lo verás en su detalle.";
+        // Pasado el límite no se corta la espera: lo normal es que la matera todavía no tenga Wi-Fi (está en su portal).
+        // Ya quedó vinculada en el servidor, así que se explica cómo darle internet y se sigue consultando sola: en
+        // cuanto la matera pida su credencial, el asistente pasa a «Conexión exitosa» sin que haya que tocar nada.
+        if (Date.now() >= limite && acciones.hidden) {
+          texto.textContent = "Tu matera ya es de tu planta. Solo falta que tenga internet.";
+          detalle.textContent = "Si su pantalla muestra un QR con «Conecta tu celular a: Fito-…», ábrelo con la cámara de tu celular, conéctate a esa red y escoge tu Wi-Fi. Aquí seguimos esperando: en cuanto se conecte, lo verás.";
           acciones.hidden = false;
           acciones.append(
-            h("button", { type: "button", class: "boton boton-secundario asistente-accion", id: "btn-asistente-seguir", onclick: () => { texto.textContent = `Conectando con tu matera ${codigoVisible(serialObjetivo)}…`; detalle.textContent = "Seguimos esperando a que la matera pida su acceso."; esperarConexion(); } }, "Seguir esperando"),
-            h("button", { type: "button", class: "boton boton-primario asistente-accion", id: "btn-asistente-ver-igual", onclick: irADetalle }, "Ver mi planta"));
-          anuncio.textContent = "La matera tarda más de lo normal. Puedes seguir esperando o ver tu planta.";
-          return;
+            h("button", { type: "button", class: "boton boton-secundario asistente-accion", id: "btn-asistente-ver-igual", onclick: irADetalle }, "Ver mi planta mientras tanto"));
+          anuncio.textContent = "Tu matera ya está vinculada; falta que tenga internet. Seguimos esperando.";
         }
         temporizador = setTimeout(consultar, INTERVALO_CONEXION_MS);
       };
